@@ -631,6 +631,9 @@ inline GSErrCode ACAPI_Renovation_GetActualRenovationFilter (API_Guid* renovatio
 inline GSErrCode ACAPI_Renovation_SetActualRenovationFilter (const API_Guid* renovationFilterGuid)
 {
     return ACAPI_Database (APIDb_SetActualRenovationFilterID, (void*) renovationFilterGuid);
+inline GSErrCode ACAPI_CurtainWall_IsCWPanelDegenerate (const API_Guid* guid, bool* isDegenerate)
+{
+    return ACAPI_Database (APIDb_IsCWPanelDegenerateID, const_cast<API_Guid*> (guid), isDegenerate);
 }
 
 #endif

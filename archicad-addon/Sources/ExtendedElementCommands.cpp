@@ -4000,17 +4000,17 @@ GS::Optional<GS::UniString> CreateStairsCommand::GetInputParametersSchema () con
                         },
                         "stepNum": {
                             "type": "integer",
-                            "description": "Number of risers (steps).",
+                            "description": "Number of risers (steps). Advisory: Archicad computes the step layout from totalHeight and the stair rules, so the created stair may not have this many risers.",
                             "minimum": 1
                         },
                         "riserHeight": {
                             "type": "number",
-                            "description": "Height of each riser.",
+                            "description": "Height of each riser. Advisory: Archicad computes the step layout from totalHeight and the stair rules, so the created stair may not use this riser height.",
                             "exclusiveMinimum": 0.0
                         },
                         "treadDepth": {
                             "type": "number",
-                            "description": "Depth (going) of each tread.",
+                            "description": "Depth (going) of each tread. Pinned as a fixed going in the stair rules, so the run length follows from the number of treads; the standard's combined riser/going rules (2R+G, R+G, R/G) are not applied to this stair.",
                             "exclusiveMinimum": 0.0
                         },
                         "finishVisible": {
@@ -4072,6 +4072,50 @@ GS::Optional<GS::ObjectState> CreateStairsCommand::SetTypeSpecificParameters (AP
     auto treadDepth = GetOptionalDouble (parameters, "treadDepth");
     if (treadDepth.HasValue ()) {
         element.stair.treadDepth = treadDepth.Get ();
+
+        // The plain treadDepth field is not an input: ACAPI_Element_Create lays the steps out from
+        // the stair rules, so an explicit going has to be pinned there as a min == max bound with
+        // both *Applied flags set. The standard's combined rules (2R+G, R+G, R/G) are released for
+        // this stair, otherwise they override the pinned going whenever the two conflict (#425).
+        API_StairRulesData& rules = element.stair.rules;
+        rules.treadDepthMinValue = treadDepth.Get ();
+        rules.treadDepthMaxValue = treadDepth.Get ();
+        rules.treadDepthMinApplied = true;
+        rules.treadDepthMaxApplied = true;
+        rules.ruleMinApplied = false;
+        rules.ruleMaxApplied = false;
+        rules.riserPlusGoingMinApplied = false;
+        rules.riserPlusGoingMaxApplied = false;
+        rules.riserGoingRatioMinApplied = false;
+        rules.riserGoingRatioMaxApplied = false;
+    }
+
+    // Riser height, by the same mechanism: pinned in the rules (min == max, a half millimetre apart so the
+    // layout solver keeps a solution), from riserHeight, or else from totalHeight / stepNum when both are given.
+    // Without the pin the solver picks its own riser count (fork Imaginns, 18/10/2026).
+    double pinnedRiser = 0.0;
+    if (riserHeight.HasValue ()) {
+        pinnedRiser = riserHeight.Get ();
+    } else if (totalHeight.HasValue () && stepNum > 0) {
+        pinnedRiser = totalHeight.Get () / stepNum;
+    }
+    if (pinnedRiser > 0.0) {
+        API_StairRulesData& rules = element.stair.rules;
+        rules.riserHeightMinValue = pinnedRiser - 0.0005;
+        rules.riserHeightMaxValue = pinnedRiser + 0.0005;
+        rules.riserHeightMinApplied = true;
+        rules.riserHeightMaxApplied = true;
+        rules.ruleMinApplied = false;
+        rules.ruleMaxApplied = false;
+        rules.riserPlusGoingMinApplied = false;
+        rules.riserPlusGoingMaxApplied = false;
+        rules.riserGoingRatioMinApplied = false;
+        rules.riserGoingRatioMaxApplied = false;
+        rules.stairPitchMinApplied = false;
+        rules.stairPitchMaxApplied = false;
+    }
+    if (totalHeight.HasValue ()) {
+        element.stair.totalHeightLocked = true;
     }
 
     // Build the baseline polyline in the memo

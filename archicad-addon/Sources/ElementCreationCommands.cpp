@@ -153,6 +153,7 @@ GS::ObjectState	CreateElementsCommandBase::Execute (const GS::ObjectState& param
                 elements (CreateErrorResponse (err, "Failed to create new " + elemTypeName));
                 continue;
             }
+            AfterCreate (element, data);
 
             notification = {};
             notification.notifID = APINotifyElement_New;

@@ -4028,6 +4028,64 @@ GS::Optional<GS::UniString> CreateStairsCommand::GetInputParametersSchema () con
     })";
 }
 
+// Measured on Archicad 27 (fork Imaginns, 18/10/2026): even with the rules pinned, ACAPI_Element_Create solves the
+// layout from its own defaults (run 5.60 m, height of the story above). So the requested values are applied again
+// right after creation by ACAPI_Element_Change, as the DevKit's Do_CreateStair does a Change after its Create.
+void CreateStairsCommand::AfterCreate (API_Element& element, const GS::ObjectState& parameters) const
+{
+    API_Element elem = {};
+    elem.header.guid = element.header.guid;
+    if (ACAPI_Element_Get (&elem) != NoError) {
+        return;
+    }
+    API_Element mask;
+    ACAPI_ELEMENT_MASK_CLEAR (mask);
+    auto totalHeight = GetOptionalDouble (parameters, "totalHeight");
+    auto treadDepth = GetOptionalDouble (parameters, "treadDepth");
+    auto riserHeight = GetOptionalDouble (parameters, "riserHeight");
+    Int32 stepNum = 0;
+    parameters.Get ("stepNum", stepNum);
+    API_StairRulesData& rules = elem.stair.rules;
+    if (totalHeight.HasValue ()) {
+        elem.stair.totalHeight = totalHeight.Get ();
+        elem.stair.totalHeightLocked = true;
+        elem.stair.relativeTopStory = 0;
+        ACAPI_ELEMENT_MASK_SET (mask, API_StairType, totalHeight);
+        ACAPI_ELEMENT_MASK_SET (mask, API_StairType, totalHeightLocked);
+        ACAPI_ELEMENT_MASK_SET (mask, API_StairType, relativeTopStory);
+    }
+    if (stepNum > 0) {
+        elem.stair.stepNum = static_cast<UInt32> (stepNum);
+        ACAPI_ELEMENT_MASK_SET (mask, API_StairType, stepNum);
+    }
+    double riser = riserHeight.HasValue () ? riserHeight.Get () : (totalHeight.HasValue () && stepNum > 0 ? totalHeight.Get () / stepNum : 0.0);
+    if (riser > 0.0) {
+        elem.stair.riserHeight = riser;
+        rules.riserHeightMinValue = riser - 0.0005;
+        rules.riserHeightMaxValue = riser + 0.0005;
+        rules.riserHeightMinApplied = rules.riserHeightMaxApplied = true;
+        ACAPI_ELEMENT_MASK_SET (mask, API_StairType, riserHeight);
+    }
+    if (treadDepth.HasValue ()) {
+        elem.stair.treadDepth = treadDepth.Get ();
+        elem.stair.treadDepthLocked = true;
+        rules.treadDepthMinValue = rules.treadDepthMaxValue = treadDepth.Get ();
+        rules.treadDepthMinApplied = rules.treadDepthMaxApplied = true;
+        ACAPI_ELEMENT_MASK_SET (mask, API_StairType, treadDepth);
+        ACAPI_ELEMENT_MASK_SET (mask, API_StairType, treadDepthLocked);
+    }
+    if (riser > 0.0 || treadDepth.HasValue ()) {
+        rules.ruleMinApplied = rules.ruleMaxApplied = false;
+        rules.riserPlusGoingMinApplied = rules.riserPlusGoingMaxApplied = false;
+        rules.riserGoingRatioMinApplied = rules.riserGoingRatioMaxApplied = false;
+        rules.stairPitchMinApplied = rules.stairPitchMaxApplied = false;
+        ACAPI_ELEMENT_MASK_SET (mask, API_StairType, rules);
+    }
+    if (ACAPI_Element_Change (&elem, &mask, nullptr, 0, true) == NoError) {
+        element = elem;
+    }
+}
+
 GS::Optional<GS::ObjectState> CreateStairsCommand::SetTypeSpecificParameters (API_Element& element, API_ElementMemo& memo, const Stories& stories, const GS::ObjectState& parameters) const
 {
     GS::Array<GS::ObjectState> baseLinePoints;
@@ -4116,6 +4174,7 @@ GS::Optional<GS::ObjectState> CreateStairsCommand::SetTypeSpecificParameters (AP
     }
     if (totalHeight.HasValue ()) {
         element.stair.totalHeightLocked = true;
+        element.stair.relativeTopStory = 0;      // measured: a stair linked to the story above came out 3.80 m high for 1.70 asked
     }
 
     // Build the baseline polyline in the memo

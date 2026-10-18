@@ -36,6 +36,9 @@ public:
     virtual GS::ObjectState Execute (const GS::ObjectState& parameters, GS::ProcessControl& processControl) const override;
 protected:
     virtual GS::Optional<GS::ObjectState> SetTypeSpecificParameters (API_Element& element, API_ElementMemo& memo, const Stories& stories, const GS::ObjectState& parameters) const = 0;
+    // Called right after ACAPI_Element_Create succeeded, inside the same undoable command. Default: nothing.
+    // For elements whose layout Archicad solves at creation (stairs), this is where the requested values are applied.
+    virtual void AfterCreate (API_Element& /*element*/, const GS::ObjectState& /*parameters*/) const {}
 protected:
     GS::String     commandName;
     API_ElemTypeID elemTypeID;

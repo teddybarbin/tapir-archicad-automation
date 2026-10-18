@@ -11109,6 +11109,13 @@
                 },
                 "creationInfo": {
                     "$ref": "#/AttributeCreationInfo"
+                },
+                "folderPath": {
+                    "type": "array",
+                    "description": "The names of the attribute folders from the root folder of the attribute type down to the folder holding the attribute, the root folder itself not included. An empty array is the root folder. Attribute folders exist from Archicad 26, so before that the array is always empty.",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             },
             "additionalProperties": false,
@@ -11116,6 +11123,7 @@
                 "attributeId",
                 "index",
                 "name",
+                "folderPath",
                 "modificationTime"
             ]
         }

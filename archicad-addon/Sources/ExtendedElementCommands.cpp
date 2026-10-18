@@ -4342,6 +4342,34 @@ GS::Optional<GS::ObjectState> CreateStairsCommand::SetTypeSpecificParameters (AP
         rules.riserGoingRatioMaxApplied = false;
     }
 
+    // Riser height, by the same mechanism: pinned in the rules (min == max, a half millimetre apart so the
+    // layout solver keeps a solution), from riserHeight, or else from totalHeight / stepNum when both are given.
+    // Without the pin the solver picks its own riser count (fork Imaginns, 18/10/2026).
+    double pinnedRiser = 0.0;
+    if (riserHeight.HasValue ()) {
+        pinnedRiser = riserHeight.Get ();
+    } else if (totalHeight.HasValue () && stepNum > 0) {
+        pinnedRiser = totalHeight.Get () / stepNum;
+    }
+    if (pinnedRiser > 0.0) {
+        API_StairRulesData& rules = element.stair.rules;
+        rules.riserHeightMinValue = pinnedRiser - 0.0005;
+        rules.riserHeightMaxValue = pinnedRiser + 0.0005;
+        rules.riserHeightMinApplied = true;
+        rules.riserHeightMaxApplied = true;
+        rules.ruleMinApplied = false;
+        rules.ruleMaxApplied = false;
+        rules.riserPlusGoingMinApplied = false;
+        rules.riserPlusGoingMaxApplied = false;
+        rules.riserGoingRatioMinApplied = false;
+        rules.riserGoingRatioMaxApplied = false;
+        rules.stairPitchMinApplied = false;
+        rules.stairPitchMaxApplied = false;
+    }
+    if (totalHeight.HasValue ()) {
+        element.stair.totalHeightLocked = true;
+    }
+
     // Build the baseline polyline in the memo
     const Int32 nCoords = static_cast<Int32> (baseLinePoints.GetSize ());
 

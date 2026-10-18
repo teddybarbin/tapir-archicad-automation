@@ -520,6 +520,10 @@ GSErrCode Initialize (void)
             elementCommands, "1.1.5",
             "Creates Polyline elements based on the given parameters."
         );
+        err |= RegisterCommand<CreateRailingsCommand> (
+            elementCommands, "1.7.3",
+            "Creates Railing elements along a 2D reference line, from the Railing tool defaults or a Railing favorite."
+        );
         err |= RegisterCommand<CreateLineElementsCommand> (
             elementCommands, "1.5.6",
             "Creates Line elements based on the given parameters."

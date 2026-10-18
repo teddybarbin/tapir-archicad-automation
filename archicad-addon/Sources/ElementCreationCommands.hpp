@@ -94,6 +94,14 @@ public:
     virtual GS::Optional<GS::ObjectState> SetTypeSpecificParameters (API_Element& element, API_ElementMemo& memo, const Stories& stories, const GS::ObjectState& parameters) const override;
 };
 
+class CreateRailingsCommand : public CreateElementsCommandBase
+{
+public:
+    CreateRailingsCommand ();
+    virtual GS::Optional<GS::UniString> GetInputParametersSchema () const override;
+    virtual GS::Optional<GS::ObjectState> SetTypeSpecificParameters (API_Element& element, API_ElementMemo& memo, const Stories& stories, const GS::ObjectState& parameters) const override;
+};
+
 class CreateLineElementsCommand : public CreateElementsCommandBase
 {
 public:
@@ -174,18 +182,20 @@ public:
     virtual GS::Optional<GS::ObjectState> SetTypeSpecificParameters (API_Element& element, API_ElementMemo& memo, const Stories& stories, const GS::ObjectState& parameters) const override;
 };
 
-class CreateRailingsCommand : public CreateElementsCommandBase
+class CreateRailingsUpstreamCommand : public CreateElementsCommandBase
 {
 public:
-    CreateRailingsCommand ();
+    CreateRailingsUpstreamCommand ();
     virtual GS::ObjectState Execute (const GS::ObjectState& parameters, GS::ProcessControl& processControl) const override;
     virtual GS::Optional<GS::UniString> GetInputParametersSchema () const override;
     virtual GS::Optional<GS::ObjectState> SetTypeSpecificParameters (API_Element& element, API_ElementMemo& memo, const Stories& stories, const GS::ObjectState& parameters) const override;
 };
 
-// Railings along a 3D reference polyline with arc segments. Derived from CreateRailingsCommand for its
+// The fork registers its own CreateRailings (ElementCreationCommands above); upstream's is kept
+// under this class name, unregistered, as the base of CreateRailingsFromPolyline.
+// Railings along a 3D reference polyline with arc segments. Derived from CreateRailingsUpstreamCommand for its
 // Execute, which creates each railing with its home story made active.
-class CreateRailingsFromPolylineCommand : public CreateRailingsCommand
+class CreateRailingsFromPolylineCommand : public CreateRailingsUpstreamCommand
 {
 public:
     virtual GS::String GetName () const override;

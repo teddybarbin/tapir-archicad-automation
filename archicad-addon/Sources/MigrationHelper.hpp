@@ -155,6 +155,7 @@ inline GSErrCode ACAPI_Navigator_ChangeLayoutSets (const API_LayoutInfo* layoutI
 #define ACAPI_Navigator_CreateLayout(par1, par2) ACAPI_Environment (APIEnv_CreateLayoutID, par1, par2)
 #define ACAPI_Navigator_GetSubSetDefault(par1) ACAPI_Database (APIDb_GetSubSetDefaultID, par1)
 #define ACAPI_Navigator_CreateSubSet(par1, par2) ACAPI_Database (APIDb_CreateSubSetID, par1, (void*)par2)
+#define ACAPI_Navigator_GetSubSet(par1, par2) ACAPI_Database (APIDb_GetSubSetID, (void*)par1, par2)
 
 #define ACAPI_View_IsSuspendGroupOn(par1)   ACAPI_Environment (APIEnv_IsSuspendGroupOnID, par1)
 #define ACAPI_View_IsAutoIntersectOn(par1)  ACAPI_Environment (APIEnv_IsAutoIntersectOnID, par1)

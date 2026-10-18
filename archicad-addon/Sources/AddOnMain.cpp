@@ -24,6 +24,7 @@
 #include "ElementCommands.hpp"
 #include "ElementGDLParameterCommands.hpp"
 #include "ElementCreationCommands.hpp"
+#include "RailingCommands.hpp"
 #include "ExtendedElementCommands.hpp"
 #include "ElementGroupingCommands.hpp"
 #include "AttributeCommands.hpp"
@@ -523,6 +524,14 @@ GSErrCode Initialize (void)
         err |= RegisterCommand<CreateRailingsCommand> (
             elementCommands, "1.7.3",
             "Creates Railing elements along a 2D reference line, from the Railing tool defaults or a Railing favorite."
+        );
+        err |= RegisterCommand<GetRailingsCommand> (
+            elementCommands, "1.7.3",
+            "Gets the reference line (2D coordinates and absolute elevations), floor, bottom offset and segment height of Railing elements."
+        );
+        err |= RegisterCommand<ModifyRailingsCommand> (
+            elementCommands, "1.7.3",
+            "Modifies the reference line, its elevation and the segment height of Railing elements."
         );
         err |= RegisterCommand<CreateLineElementsCommand> (
             elementCommands, "1.5.6",

@@ -156,6 +156,7 @@ GS::ObjectState	CreateElementsCommandBase::Execute (const GS::ObjectState& param
                 elements (CreateErrorResponse (err, "Failed to create new " + elemTypeName));
                 continue;
             }
+            AfterCreateFromParameters (element, data);
 
             // As for the id below, a new element that could not be finished is deleted again.
             err = AfterCreate (requestedElement, element.header.guid);

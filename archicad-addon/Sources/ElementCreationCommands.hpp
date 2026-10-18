@@ -45,6 +45,9 @@ protected:
     // Called right after ACAPI_Element_Create with the element as SetTypeSpecificParameters
     // prepared it, for what the create itself does not keep. An error deletes the new element.
     virtual GSErrCode AfterCreate (const API_Element& /*requestedElement*/, const API_Guid& /*newElementGuid*/) const { return NoError; }
+    // Called right after ACAPI_Element_Create succeeded, inside the same undoable command. Default: nothing.
+    // For elements whose layout Archicad solves at creation (stairs), this is where the requested values are applied.
+    virtual void AfterCreateFromParameters (API_Element& /*element*/, const GS::ObjectState& /*parameters*/) const {}
 protected:
     GS::String     commandName;
     API_ElemTypeID elemTypeID;

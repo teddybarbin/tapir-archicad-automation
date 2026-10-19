@@ -5969,6 +5969,42 @@ GS::Optional<GS::UniString> MoveElementsCommand::GetRawResponseSchema () const
     })";
 }
 
+// Move, Elevate, Rotate and Mirror edit the elements one by one through ACAPI_Element_Edit. With groups active, editing
+// one member edits its WHOLE group: two members of one group listed with the same 1 m vector both moved 2 m (Imaginns
+// fork bench, 18/10/2026; seen first on two grouped flat roofs). The Suspend Groups mode is switched on for the
+// duration of the command and put back as the user had it, so each listed element is edited once, alone. To move a
+// whole group, list its members (GetElementsOfGroups).
+class SuspendGroupsScope {
+public:
+    SuspendGroupsScope ()
+    {
+        bool on = false;
+        if (ACAPI_View_IsSuspendGroupOn (&on) == NoError && !on && SetSuspended (true)) {
+            mRestore = true;
+        }
+    }
+    ~SuspendGroupsScope ()
+    {
+        if (mRestore) {
+            SetSuspended (false);
+        }
+    }
+
+private:
+    static bool SetSuspended (bool suspended)
+    {
+#ifdef ServerMainVers_2700
+        return ACAPI_Grouping_ChangeSuspendGroup (suspended) == NoError;
+#else
+        bool current = false;
+        if (ACAPI_View_IsSuspendGroupOn (&current) != NoError) return false;
+        if (current == suspended) return true;
+        return ACAPI_Grouping_Tool (GS::Array<API_Guid> (), APITool_SuspendGroups, nullptr) == NoError;
+#endif
+    }
+    bool mRestore = false;
+};
+
 static GSErrCode MoveElement (const API_Guid& elemGuid, const API_Vector3D& moveVector, bool withCopy)
 {
     GS::Array<API_Neig> elementsToEdit = { API_Neig (elemGuid) };
@@ -5983,6 +6019,7 @@ static GSErrCode MoveElement (const API_Guid& elemGuid, const API_Vector3D& move
 
 GS::ObjectState	MoveElementsCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const
 {
+    const SuspendGroupsScope suspendGroups;
     GS::Array<GS::ObjectState> elementsWithMoveVectors;
     parameters.Get ("elementsWithMoveVectors", elementsWithMoveVectors);
 
@@ -6109,6 +6146,7 @@ static GSErrCode ElevateElement (const API_Guid& elemGuid, double elevation, boo
 
 GS::ObjectState	ElevateElementsCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const
 {
+    const SuspendGroupsScope suspendGroups;
     GS::Array<GS::ObjectState> elementsWithElevations;
     parameters.Get ("elementsWithElevations", elementsWithElevations);
 
@@ -6246,6 +6284,7 @@ GS::Optional<GS::UniString> RotateElementsCommand::GetRawResponseSchema () const
 
 GS::ObjectState RotateElementsCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const
 {
+    const SuspendGroupsScope suspendGroups;
     GS::Array<GS::ObjectState> elementsWithRotations;
     parameters.Get ("elementsWithRotations", elementsWithRotations);
 
@@ -6392,6 +6431,7 @@ GS::Optional<GS::UniString> MirrorElementsCommand::GetRawResponseSchema () const
 
 GS::ObjectState MirrorElementsCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const
 {
+    const SuspendGroupsScope suspendGroups;
     GS::Array<GS::ObjectState> elementsWithMirrorAxes;
     parameters.Get ("elementsWithMirrorAxes", elementsWithMirrorAxes);
 

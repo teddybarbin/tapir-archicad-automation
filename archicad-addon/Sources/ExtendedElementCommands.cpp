@@ -8905,15 +8905,16 @@ GS::Optional<GS::UniString> BuildMeshPolyMemoFromGeometry (
         memo.parcs = nullptr;
     }
 
-    // Vertex IDs of the OLD outline are dropped and none are given, exactly as CreateMeshes does (fresh memo, null
-    // vertexIDs). Reallocating the handle read from the element kept the old IDs for the first vertices and zero for the
-    // others: ArchiCAD merged and inserted vertices and the meshPolyZ heights no longer matched their points. Measured on
-    // 18/10/2026 (Imaginns fork): a 6-point terrain given a 231-point outline read back 257 points, 11 at z = 0, heights
-    // off by up to 8.9 m. Rebuilding the IDs ourselves (sequential, as for slabs) was tried and made every outline change
-    // fail with APIERR_COMMANDFAILED: a mesh does not take user vertex IDs.
+    // The whole outline is NEW: every vertex ID is 0, for ArchiCAD to assign (API_ElementMemo convention, the same one
+    // ApplySlabPolygonChange follows: existing IDs are never renumbered, new vertices get ID 0). Reallocating the handle
+    // read from the element kept the OLD corners' IDs on the first new points: ArchiCAD took them for the old corners,
+    // merged and inserted vertices, and the meshPolyZ heights no longer matched their points. Measured on 18/10/2026
+    // (Imaginns fork): a 6-point terrain given a 231-point outline read back 257 points, 11 at z = 0, heights off by
+    // up to 8.9 m. Tried and failed the same day: sequential IDs (APIERR_COMMANDFAILED on every outline change) and a
+    // null handle (APIERR_BADPOLY). A fresh memo from CreateMeshes has no handle at all and is left as it is.
     if (memo.vertexIDs != nullptr) {
         BMKillHandle (reinterpret_cast<GSHandle*> (&memo.vertexIDs));
-        memo.vertexIDs = nullptr;
+        memo.vertexIDs = reinterpret_cast<UInt32**> (BMAllocateHandle ((nCoords + 1) * sizeof (UInt32), ALLOCATE_CLEAR, 0));
     }
 
     Int32 iCoord = 1;

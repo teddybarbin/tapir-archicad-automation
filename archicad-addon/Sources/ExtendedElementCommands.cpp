@@ -8905,14 +8905,15 @@ GS::Optional<GS::UniString> BuildMeshPolyMemoFromGeometry (
         memo.parcs = nullptr;
     }
 
-    // The whole outline is NEW: every vertex ID is 0, for ArchiCAD to assign (API_ElementMemo convention, the same one
-    // ApplySlabPolygonChange follows: existing IDs are never renumbered, new vertices get ID 0). Reallocating the handle
-    // read from the element kept the OLD corners' IDs on the first new points: ArchiCAD took them for the old corners,
-    // merged and inserted vertices, and the meshPolyZ heights no longer matched their points. Measured on 18/10/2026
-    // (Imaginns fork): a 6-point terrain given a 231-point outline read back 257 points, 11 at z = 0, heights off by
-    // up to 8.9 m. Tried and failed the same day: sequential IDs (APIERR_COMMANDFAILED on every outline change) and a
-    // null handle (APIERR_BADPOLY). A fresh memo from CreateMeshes has no handle at all and is left as it is.
-    if (memo.vertexIDs != nullptr) {
+    // Vertex IDs for a NEW outline: one distinct, non-zero ID per entry of the coords handle, closing points included,
+    // and vertexIDs[0] = the highest. That is what the handle holds after ArchiCAD itself assigned the IDs, and the only
+    // form a mesh accepted on 18/10/2026 (Imaginns fork). Reallocating the handle read from the element kept the OLD
+    // corners' IDs on the first new points and zero on the others: ArchiCAD took them for the old corners, merged and
+    // inserted vertices, and meshPolyZ no longer matched (6 -> 231 points read back 257, 11 at z = 0, heights off by up
+    // to 8.9 m). Also tried that day: closing point sharing its contour's first ID (APIERR_COMMANDFAILED), all IDs 0 and
+    // a null handle (APIERR_BADPOLY). A fresh memo from CreateMeshes has no handle and is left as it is.
+    const bool hadVertexIDs = memo.vertexIDs != nullptr;
+    if (hadVertexIDs) {
         BMKillHandle (reinterpret_cast<GSHandle*> (&memo.vertexIDs));
         memo.vertexIDs = reinterpret_cast<UInt32**> (BMAllocateHandle ((nCoords + 1) * sizeof (UInt32), ALLOCATE_CLEAR, 0));
     }
@@ -8928,6 +8929,13 @@ GS::Optional<GS::UniString> BuildMeshPolyMemoFromGeometry (
         if (GetHoleGeometry (hole, holeCoords, holeArcs)) {
             AddPolyToMemo (holeCoords, holeArcs, iCoord, iArc, iPends, memo);
         }
+    }
+
+    if (hadVertexIDs && memo.vertexIDs != nullptr) {
+        for (Int32 v = 1; v <= nCoords; ++v) {
+            (*memo.vertexIDs)[v] = (UInt32) v;
+        }
+        (*memo.vertexIDs)[0] = (UInt32) nCoords;
     }
 
     return {};

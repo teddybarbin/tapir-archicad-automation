@@ -15,6 +15,38 @@ static bool IsRailing (const API_Element& elem)
 #endif
 }
 
+// Element ID, edited property values and classifications of one element onto another (a railing rebuilt on a new
+// reference line). Each property is set on its own so that one refused value does not drop the others.
+static void CopyIdentity (const API_Guid& from, const API_Guid& to)
+{
+    GS::Array<API_PropertyDefinition> definitions;
+    if (ACAPI_Element_GetPropertyDefinitions (from, API_PropertyDefinitionFilter_All, definitions) == NoError) {
+        GS::Array<API_PropertyDefinition> editable;
+        for (const API_PropertyDefinition& definition : definitions) {
+            if (definition.canValueBeEditable) {
+                editable.Push (definition);
+            }
+        }
+        GS::Array<API_Property> properties;
+        if (ACAPI_Element_GetPropertyValues (from, editable, properties) == NoError) {
+            for (const API_Property& property : properties) {
+                if (property.isDefault || property.status != API_Property_HasValue) {
+                    continue;
+                }
+                GS::Array<API_Property> one;
+                one.Push (property);
+                ACAPI_Element_SetProperties (to, one);
+            }
+        }
+    }
+    GS::Array<GS::Pair<API_Guid, API_Guid>> classifications;
+    if (ACAPI_Element_GetClassificationItems (from, classifications) == NoError) {
+        for (const auto& systemAndItem : classifications) {
+            ACAPI_Element_AddClassificationItem (to, systemAndItem.second);
+        }
+    }
+}
+
 GetRailingsCommand::GetRailingsCommand () :
     CommandBase (CommonSchema::Used)
 {
@@ -274,6 +306,10 @@ GS::ObjectState ModifyRailingsCommand::Execute (const GS::ObjectState& parameter
                     outElements (CreateElementIdObjectState (oldGuid));
                     continue;
                 }
+                // The rebuilt railing only carries the settings of the API_Element: its Element ID, property values and
+                // classifications were lost (bench, 19/10/2026: GARDE_CORPS-014 came back as GARDE_CORPS-017). Copy them
+                // from the old railing before it is deleted.
+                CopyIdentity (oldGuid, elem.header.guid);
                 GS::Array<API_Guid> toDelete;
                 toDelete.Push (oldGuid);
                 ACAPI_Element_Delete (toDelete);

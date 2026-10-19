@@ -8905,23 +8905,35 @@ GS::Optional<GS::UniString> BuildMeshPolyMemoFromGeometry (
         memo.parcs = nullptr;
     }
 
+    // Vertex IDs are rebuilt for the NEW outline. Reallocating the handle read from the element kept the IDs of the OLD
+    // outline for the first vertices and zero for the others: ArchiCAD then merged and inserted vertices, and the
+    // meshPolyZ heights no longer matched their points. Measured on 18/10/2026 (Imaginns fork): a 6-point terrain given a
+    // 231-point outline read back 257 points, 11 at z = 0 and heights off by up to 8.9 m; the same call repeated on the
+    // already-dense mesh came back exact. Each vertex gets its own ID, each closing point the ID of its contour's first
+    // vertex, and vertexIDs[0] the highest ID (as BuildSlabMemoFromGeometry does).
     if (memo.vertexIDs != nullptr) {
-        memo.vertexIDs = reinterpret_cast<UInt32**> (
-            BMReallocHandle (reinterpret_cast<GSHandle> (memo.vertexIDs), (nCoords + 1) * sizeof (UInt32), REALLOC_CLEAR, 0));
+        BMKillHandle (reinterpret_cast<GSHandle*> (&memo.vertexIDs));
     }
+    memo.vertexIDs = reinterpret_cast<UInt32**> (BMAllocateHandle ((nCoords + 1) * sizeof (UInt32), ALLOCATE_CLEAR, 0));
 
     Int32 iCoord = 1;
     Int32 iArc   = 0;
     Int32 iPends = 1;
-    AddPolyToMemo (polygonCoordinates, polygonArcs, iCoord, iArc, iPends, memo);
+    AddPolyToMemo (polygonCoordinates, polygonArcs, iCoord, iArc, iPends, memo, nullptr, nullptr, true);
 
     for (const GS::ObjectState& hole : holes) {
         GS::Array<GS::ObjectState> holeCoords;
         GS::Array<GS::ObjectState> holeArcs;
         if (GetHoleGeometry (hole, holeCoords, holeArcs)) {
-            AddPolyToMemo (holeCoords, holeArcs, iCoord, iArc, iPends, memo);
+            AddPolyToMemo (holeCoords, holeArcs, iCoord, iArc, iPends, memo, nullptr, nullptr, true);
         }
     }
+
+    UInt32 maxVertexID = 0;
+    for (Int32 i = 1; i <= nCoords; ++i) {
+        maxVertexID = std::max (maxVertexID, (*memo.vertexIDs)[i]);
+    }
+    (*memo.vertexIDs)[0] = maxVertexID;
 
     return {};
 }

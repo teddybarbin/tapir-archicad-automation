@@ -9044,12 +9044,17 @@ GS::ObjectState ModifyMeshesCommand::Execute (const GS::ObjectState& parameters,
 
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
+    USize nResults = 0;
 
-    ACAPI_CallUndoableCommand ("ModifyMeshes", [&] () -> GSErrCode {
+    // The return code of ACAPI_CallUndoableCommand was ignored: when ArchiCAD refused the undo step or the body was
+    // interrupted, the caller got an EMPTY executionResults and no error (18/10/2026, Imaginns fork bench). Every mesh
+    // left without a result now gets a failed one carrying the real error code.
+    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("ModifyMeshes", [&] () -> GSErrCode {
         for (const GS::ObjectState& meshEntry : meshesData) {
             const GS::ObjectState* elementId = meshEntry.Get ("elementId");
             if (elementId == nullptr) {
                 executionResults (CreateFailedExecutionResult (APIERR_BADPARS, "elementId is missing"));
+                ++nResults;
                 continue;
             }
 
@@ -9058,6 +9063,7 @@ GS::ObjectState ModifyMeshesCommand::Execute (const GS::ObjectState& parameters,
             GSErrCode err = ACAPI_Element_Get (&elem);
             if (err != NoError) {
                 executionResults (CreateFailedExecutionResult (err, "Failed to find the element"));
+                ++nResults;
                 continue;
             }
 
@@ -9067,12 +9073,14 @@ GS::ObjectState ModifyMeshesCommand::Execute (const GS::ObjectState& parameters,
             if (elem.header.typeID != API_MeshID) {
 #endif
                 executionResults (CreateFailedExecutionResult (APIERR_BADID, "Element is not a Mesh."));
+                ++nResults;
                 continue;
             }
 
             const GS::ObjectState* meshData = meshEntry.Get ("meshData");
             if (meshData == nullptr) {
                 executionResults (CreateFailedExecutionResult (APIERR_BADPARS, "meshData is missing"));
+                ++nResults;
                 continue;
             }
 
@@ -9101,6 +9109,7 @@ GS::ObjectState ModifyMeshesCommand::Execute (const GS::ObjectState& parameters,
                     err = ACAPI_Element_GetMemo (elem.header.guid, &memo, loadMask);
                     if (err != NoError) {
                         executionResults (CreateFailedExecutionResult (err, "Failed to get mesh memo"));
+                        ++nResults;
                         continue;
                     }
                 }
@@ -9167,6 +9176,7 @@ GS::ObjectState ModifyMeshesCommand::Execute (const GS::ObjectState& parameters,
                 auto geoErr = BuildMeshPolyMemoFromGeometry (elem, memo, polygonCoordinates, polygonArcs, holes);
                 if (geoErr.HasValue ()) {
                     executionResults (CreateFailedExecutionResult (APIERR_BADPARS, geoErr.Get ()));
+                    ++nResults;
                     continue;
                 }
                 memoChangeMask |= APIMemoMask_Polygon | APIMemoMask_MeshPolyZ;
@@ -9222,14 +9232,21 @@ GS::ObjectState ModifyMeshesCommand::Execute (const GS::ObjectState& parameters,
             err = ACAPI_Element_Change (&elem, &mask, memoChangeMask != 0 ? &memo : nullptr, memoChangeMask, true);
             if (err != NoError) {
                 executionResults (CreateFailedExecutionResult (err, "Failed to modify mesh"));
+                ++nResults;
                 continue;
             }
 
             executionResults (CreateSuccessfulExecutionResult ());
+            ++nResults;
         }
 
         return NoError;
     });
+
+    for (USize k = nResults; k < meshesData.GetSize (); ++k) {
+        executionResults (CreateFailedExecutionResult (undoErr != NoError ? undoErr : APIERR_GENERAL,
+            undoErr != NoError ? "The undoable command was refused or interrupted." : "No result was produced for this mesh."));
+    }
 
     return response;
 }

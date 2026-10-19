@@ -8905,17 +8905,14 @@ GS::Optional<GS::UniString> BuildMeshPolyMemoFromGeometry (
         memo.parcs = nullptr;
     }
 
-    // Vertex IDs for a NEW outline: one distinct, non-zero ID per entry of the coords handle, closing points included,
-    // and vertexIDs[0] = the highest. That is what the handle holds after ArchiCAD itself assigned the IDs, and the only
-    // form a mesh accepted on 18/10/2026 (Imaginns fork). Reallocating the handle read from the element kept the OLD
-    // corners' IDs on the first new points and zero on the others: ArchiCAD took them for the old corners, merged and
-    // inserted vertices, and meshPolyZ no longer matched (6 -> 231 points read back 257, 11 at z = 0, heights off by up
-    // to 8.9 m). Also tried that day: closing point sharing its contour's first ID (APIERR_COMMANDFAILED), all IDs 0 and
-    // a null handle (APIERR_BADPOLY). A fresh memo from CreateMeshes has no handle and is left as it is.
-    const bool hadVertexIDs = memo.vertexIDs != nullptr;
-    if (hadVertexIDs) {
-        BMKillHandle (reinterpret_cast<GSHandle*> (&memo.vertexIDs));
-        memo.vertexIDs = reinterpret_cast<UInt32**> (BMAllocateHandle ((nCoords + 1) * sizeof (UInt32), ALLOCATE_CLEAR, 0));
+    // Vertex IDs: the handle read from the element is kept and resized (existing IDs kept, new entries 0, the
+    // API_ElementMemo convention). Alone, this can come back WRONG when the point count changes: ArchiCAD may merge and
+    // insert vertices and meshPolyZ no longer matches (18/10/2026, 6 -> 231 points read back 257, 11 at z = 0). Every ID
+    // scheme built by hand was refused (sequential: APIERR_COMMANDFAILED; all 0 or null: APIERR_BADPOLY), so
+    // ModifyMeshes reads the outline back and reapplies it (see ApplyMeshOutlineVerified).
+    if (memo.vertexIDs != nullptr) {
+        memo.vertexIDs = reinterpret_cast<UInt32**> (
+            BMReallocHandle (reinterpret_cast<GSHandle> (memo.vertexIDs), (nCoords + 1) * sizeof (UInt32), REALLOC_CLEAR, 0));
     }
 
     Int32 iCoord = 1;
@@ -8929,13 +8926,6 @@ GS::Optional<GS::UniString> BuildMeshPolyMemoFromGeometry (
         if (GetHoleGeometry (hole, holeCoords, holeArcs)) {
             AddPolyToMemo (holeCoords, holeArcs, iCoord, iArc, iPends, memo);
         }
-    }
-
-    if (hadVertexIDs && memo.vertexIDs != nullptr) {
-        for (Int32 v = 1; v <= nCoords; ++v) {
-            (*memo.vertexIDs)[v] = (UInt32) v;
-        }
-        (*memo.vertexIDs)[0] = (UInt32) nCoords;
     }
 
     return {};
@@ -9038,6 +9028,33 @@ GS::Optional<GS::UniString> ModifyMeshesCommand::GetRawResponseSchema () const
             "executionResults"
         ]
     })";
+}
+
+// Reads a mesh outline back and checks it against what was asked: same number of coords, every asked point present
+// (1 mm) at its height (1 mm). Used by ModifyMeshes, which reapplies an outline that came back wrong (see
+// BuildMeshPolyMemoFromGeometry).
+static bool MeshOutlineMatches (const API_Guid& guid, const std::vector<API_Coord3D>& asked, Int32 askedNCoords)
+{
+    API_Element e = {};
+    e.header.guid = guid;
+    if (ACAPI_Element_Get (&e) != NoError || e.mesh.poly.nCoords != askedNCoords) {
+        return false;
+    }
+    API_ElementMemo m = {};
+    const GS::OnExit guard ([&m] () { ACAPI_DisposeElemMemoHdls (&m); });
+    if (ACAPI_Element_GetMemo (guid, &m, APIMemoMask_Polygon | APIMemoMask_MeshPolyZ) != NoError || m.coords == nullptr || m.meshPolyZ == nullptr) {
+        return false;
+    }
+    for (const API_Coord3D& a : asked) {
+        bool found = false;
+        for (Int32 i = 1; i <= e.mesh.poly.nCoords && !found; ++i) {
+            found = std::abs ((*m.coords)[i].x - a.x) < 0.001 && std::abs ((*m.coords)[i].y - a.y) < 0.001 && std::abs ((*m.meshPolyZ)[i] - a.z) < 0.001;
+        }
+        if (!found) {
+            return false;
+        }
+    }
+    return true;
 }
 
 GS::ObjectState ModifyMeshesCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const
@@ -9232,9 +9249,44 @@ GS::ObjectState ModifyMeshesCommand::Execute (const GS::ObjectState& parameters,
                 }
             }
 
+            std::vector<API_Coord3D> asked;
+            Int32 askedNCoords = 0;
+            if (hasPolyGeom) {
+                askedNCoords = elem.mesh.poly.nCoords;
+                for (Int32 v = 1; v <= askedNCoords; ++v) {
+                    asked.push_back ({ (*memo.coords)[v].x, (*memo.coords)[v].y, (*memo.meshPolyZ)[v] });
+                }
+            }
+
             err = ACAPI_Element_Change (&elem, &mask, memoChangeMask != 0 ? &memo : nullptr, memoChangeMask, true);
             if (err != NoError) {
                 executionResults (CreateFailedExecutionResult (err, "Failed to modify mesh"));
+                ++nResults;
+                continue;
+            }
+
+            // A changed point count can come back wrong (vertices merged or inserted, heights shifted): read it back and
+            // reapply from the element's NEW vertex IDs, at most 3 times. Measured on 18/10/2026: the second identical
+            // call on the already-changed mesh came back exact. Never report a success that was not read back.
+            bool outlineOk = !hasPolyGeom || MeshOutlineMatches (elem.header.guid, asked, askedNCoords);
+            for (int pass = 0; pass < 3 && !outlineOk && err == NoError; ++pass) {
+                API_Element again = {};
+                again.header.guid = elem.header.guid;
+                API_ElementMemo memo2 = {};
+                const GS::OnExit memo2Guard ([&memo2] () { ACAPI_DisposeElemMemoHdls (&memo2); });
+                err = ACAPI_Element_Get (&again);
+                if (err == NoError) err = ACAPI_Element_GetMemo (again.header.guid, &memo2, APIMemoMask_Polygon | APIMemoMask_MeshPolyZ);
+                if (err != NoError) break;
+                auto againErr = BuildMeshPolyMemoFromGeometry (again, memo2, polygonCoordinates, polygonArcs, holes);
+                if (againErr.HasValue ()) { err = APIERR_BADPARS; break; }
+                API_Element mask2 = {};
+                ACAPI_ELEMENT_MASK_CLEAR (mask2);
+                err = ACAPI_Element_Change (&again, &mask2, &memo2, APIMemoMask_Polygon | APIMemoMask_MeshPolyZ, true);
+                outlineOk = err == NoError && MeshOutlineMatches (elem.header.guid, asked, askedNCoords);
+            }
+            if (!outlineOk) {
+                executionResults (CreateFailedExecutionResult (err != NoError ? err : APIERR_GENERAL,
+                    "The mesh outline read back does not match the requested one (points or heights)."));
                 ++nResults;
                 continue;
             }

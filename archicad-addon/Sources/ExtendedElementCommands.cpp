@@ -395,7 +395,7 @@ GSErrCode PrepareWindowOrDoorDefaults (API_ElemTypeID elemTypeId, API_Element& e
 // The parameter is a FAVORITE name (as returned by `GetFavoritesByType
 // (elementType=Door|Window)`), NOT a libpart `docu_UName`. To place a
 // library part by its name instead, `libraryPartName` goes through
-// ApplyWindowOrDoorLibraryPartToDefaults; a favorite also carries the
+// ApplyWindowOrDoorLibraryPartToNewElement; a favorite also carries the
 // settings saved with it.
 //
 // This is the workaround for `-2130313110 Failed to create door` /
@@ -4307,60 +4307,51 @@ GS::Optional<GS::UniString> CreateWindowsCommand::GetRawResponseSchema () const
     })";
 }
 
-// Applies a library part, given by its localized name (docu_UName), to the Door/Window tool
-// defaults BEFORE PrepareWindowOrDoorDefaults, so the cloned defaults and marker are consistent
-// (same reason as for ApplyWindowOrDoorFavoriteToDefaults). Without libraryPartName the tool
-// defaults are kept. This places parts that have no favorite, such as shutters or grilles.
-// The type of a library part is its place in the subtype hierarchy: the typeID that a search or
-// ACAPI_LibraryPart_Get returns does not tell a window from an object (Archicad 30 returns
-// APILib_ObjectID for windows and doors). Given to the search together with the name, the
-// window (or door) typeID limits it to that subtype, so a part of another type (an object, a
-// lamp, a door for CreateWindows) is not found and the tool defaults are left unchanged.
-static GSErrCode ApplyWindowOrDoorLibraryPartToDefaults (const GS::ObjectState& data, API_ElemTypeID typeId)
+// Gives the window/door being created the library part named in `libraryPartName` WITH that part's own parameters,
+// and makes sure an opening never goes to ACAPI_Element_CreateExt with parameters that belong to another part.
+// Imaginns fork, 18/10/2026: the part used to be applied to the TOOL DEFAULTS with a mask on libInd only; ArchiCAD took
+// the libInd and kept the previous part's parameters, so every door or window created afterwards - by name or with
+// plain tool defaults - was born with a parameter set that ACAPI_LibraryPart_OpenParameters refuses (unreadable and
+// unsettable through GetGDLParametersOfElements, still so after a save), and the user's tool defaults were left changed.
+// The tool defaults are no longer touched.
+static GSErrCode ApplyWindowOrDoorLibraryPartToNewElement (const GS::ObjectState& data, API_ElemTypeID typeId, API_Element& element, API_ElementMemo& memo)
 {
     GS::UniString libName;
-    if (!data.Get ("libraryPartName", libName) || libName.IsEmpty ()) {
-        return NoError;
+    Int32 libInd = element.window.openingBase.libInd;
+    if (data.Get ("libraryPartName", libName) && !libName.IsEmpty ()) {
+        API_LibPart libPart = {};
+        libPart.typeID = (typeId == API_DoorID) ? APILib_DoorID : APILib_WindowID;
+        GS::ucscpy (libPart.docu_UName, libName.ToUStr ());
+        GSErrCode err = ACAPI_LibraryPart_Search (&libPart, false, true);
+        delete libPart.location;
+        if (err != NoError) {
+            return err;
+        }
+        libInd = libPart.index;
     }
-    API_LibPart libPart = {};
-    libPart.typeID = (typeId == API_DoorID) ? APILib_DoorID : APILib_WindowID;
-    GS::ucscpy (libPart.docu_UName, libName.ToUStr ());
-    GSErrCode err = ACAPI_LibraryPart_Search (&libPart, false, true);
-    delete libPart.location;
-    if (err != NoError) {
-        return err;
-    }
-
-    API_Element element = {};
-    API_ElementMemo memo = {};
-#ifdef ServerMainVers_2600
-    element.header.type = typeId;
-#else
-    element.header.typeID = typeId;
-#endif
-    err = ACAPI_Element_GetDefaults (&element, &memo);
-    if (err != NoError) {
-        return err;
-    }
-    const GS::OnExit cleanup ([&]() { ACAPI_DisposeElemMemoHdls (&memo); });
-
     double a = 0.0, b = 0.0;
     Int32 addParNum = 0;
     API_AddParType** addPars = nullptr;
-    err = ACAPI_LibraryPart_GetParams (libPart.index, &a, &b, &addParNum, &addPars);
-    if (err != NoError) {
-        return err;
+    GSErrCode err = ACAPI_LibraryPart_GetParams (libInd, &a, &b, &addParNum, &addPars);
+    if (err != NoError || addPars == nullptr) {
+        return libName.IsEmpty () ? NoError : (err != NoError ? err : APIERR_GENERAL);
+    }
+    const GSSize nPart = BMGetHandleSize ((GSHandle) addPars) / sizeof (API_AddParType);
+    const GSSize nMemo = memo.params != nullptr ? BMGetHandleSize ((GSHandle) memo.params) / sizeof (API_AddParType) : 0;
+    bool same = !libName.IsEmpty () ? false : (nPart == nMemo);
+    for (GSSize i = 0; same && i < nPart; ++i) {
+        same = CHEqualCStrings ((*addPars)[i].name, (*memo.params)[i].name);
+    }
+    if (same) {
+        ACAPI_DisposeAddParHdl (&addPars);        // the tool defaults are coherent: keep the user's settings
+        return NoError;
     }
     if (memo.params != nullptr) {
         ACAPI_DisposeAddParHdl (&memo.params);
     }
     memo.params = addPars;
-    element.window.openingBase.libInd = libPart.index;
-
-    API_Element mask;
-    ACAPI_ELEMENT_MASK_CLEAR (mask);
-    ACAPI_ELEMENT_MASK_SET (mask, API_WindowType, openingBase.libInd);
-    return ACAPI_Element_ChangeDefaults (&element, &memo, &mask);
+    element.window.openingBase.libInd = libInd;
+    return NoError;
 }
 
 GS::ObjectState CreateWindowsCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl&) const
@@ -4419,13 +4410,6 @@ GS::ObjectState CreateWindowsCommand::Execute (const GS::ObjectState& parameters
             // after leaves the marker pointing at the previous libpart,
             // causing CreateExt to fail with -2130313110.
             GSErrCode err = ApplyWindowOrDoorFavoriteToDefaults (data, API_WindowID);
-            if (err == NoError) {
-                err = ApplyWindowOrDoorLibraryPartToDefaults (data, API_WindowID);
-                if (err != NoError) {
-                    elements.Push (CreateErrorResponse (err, "Failed to resolve `libraryPartName`: no window library part with that name."));
-                    continue;
-                }
-            }
             if (err != NoError) {
                 elements.Push (CreateErrorResponse (err, "Failed to resolve `favoriteName` for window."));
                 continue;
@@ -4434,6 +4418,11 @@ GS::ObjectState CreateWindowsCommand::Execute (const GS::ObjectState& parameters
             err = PrepareWindowOrDoorDefaults (API_WindowID, element, memo, marker);
             if (err != NoError) {
                 elements.Push (CreateErrorResponse (err, "Failed to prepare window defaults."));
+                continue;
+            }
+            err = ApplyWindowOrDoorLibraryPartToNewElement (data, API_WindowID, element, memo);
+            if (err != NoError) {
+                elements.Push (CreateErrorResponse (err, "Failed to resolve `libraryPartName`: no window library part with that name."));
                 continue;
             }
 
@@ -4600,13 +4589,6 @@ GS::ObjectState CreateDoorsCommand::Execute (const GS::ObjectState& parameters, 
             // after leaves the marker pointing at the previous libpart,
             // causing CreateExt to fail with -2130313110.
             GSErrCode err = ApplyWindowOrDoorFavoriteToDefaults (data, API_DoorID);
-            if (err == NoError) {
-                err = ApplyWindowOrDoorLibraryPartToDefaults (data, API_DoorID);
-                if (err != NoError) {
-                    elements.Push (CreateErrorResponse (err, "Failed to resolve `libraryPartName`: no door library part with that name."));
-                    continue;
-                }
-            }
             if (err != NoError) {
                 elements.Push (CreateErrorResponse (err, "Failed to resolve `favoriteName` for door."));
                 continue;
@@ -4615,6 +4597,11 @@ GS::ObjectState CreateDoorsCommand::Execute (const GS::ObjectState& parameters, 
             err = PrepareWindowOrDoorDefaults (API_DoorID, element, memo, marker);
             if (err != NoError) {
                 elements.Push (CreateErrorResponse (err, "Failed to prepare door defaults."));
+                continue;
+            }
+            err = ApplyWindowOrDoorLibraryPartToNewElement (data, API_DoorID, element, memo);
+            if (err != NoError) {
+                elements.Push (CreateErrorResponse (err, "Failed to resolve `libraryPartName`: no door library part with that name."));
                 continue;
             }
 

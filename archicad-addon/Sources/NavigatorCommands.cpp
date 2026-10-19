@@ -2053,7 +2053,7 @@ GS::ObjectState MoveNavigatorItemCommand::Execute (const GS::ObjectState& parame
     }
 
     GSErrCode err = NoError;
-    ACAPI_CallUndoableCommand ("MoveNavigatorItemCommand", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("MoveNavigatorItemCommand", [&]() -> GSErrCode {
         err = ACAPI_Navigator_SetNavigatorItemPosition (&sourceGuid, &parentGuid, prevGuidPtr);
         return err;
     });
@@ -2301,7 +2301,7 @@ GS::ObjectState RenameNavigatorItemCommand::Execute (const GS::ObjectState& para
         // The read-back runs inside the undoable command: when the navigator item
         // does not show the new name, the error rolls the element change back, so a
         // failed rename never leaves the element renamed.
-        const GSErrCode undoErr = ACAPI_CallUndoableCommand ("RenameNavigatorItemCommand", [&]() -> GSErrCode {
+        const GSErrCode undoErr = TAPIR_CallUndoableCommand ("RenameNavigatorItemCommand", [&]() -> GSErrCode {
             err = RenameViewpointElement (dbInfo,
                                           hasNewName ? &newName : nullptr,
                                           hasNewId ? &newId : nullptr,

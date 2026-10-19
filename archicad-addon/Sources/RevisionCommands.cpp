@@ -236,7 +236,7 @@ GS::ObjectState ModifyRevisionIssuesCommand::Execute (const GS::ObjectState& par
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Modify Revision Issues", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Modify Revision Issues", [&]() -> GSErrCode {
         for (const GS::ObjectState& issueData : revisionIssues) {
             const GS::ObjectState* revisionIssueId = issueData.Get ("revisionIssueId");
             if (revisionIssueId == nullptr) {

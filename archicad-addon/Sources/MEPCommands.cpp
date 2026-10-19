@@ -778,7 +778,7 @@ GS::ObjectState CreateMEPRoutingElementsCommand::Execute (const GS::ObjectState&
     GS::ObjectState response;
     const auto& elements = response.AddList<GS::ObjectState> ("elements");
 
-    ACAPI_CallUndoableCommand ("Create MEP Routing Elements", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Create MEP Routing Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& routingElementData : routingElementsData) {
             GS::UniString domainStr;
             routingElementData.Get ("domain", domainStr);
@@ -976,7 +976,7 @@ GS::ObjectState CreateMEPElementsCommand::Execute (const GS::ObjectState& parame
     GS::ObjectState response;
     const auto& elements = response.AddList<GS::ObjectState> ("elements");
 
-    ACAPI_CallUndoableCommand ("Create MEP Elements", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Create MEP Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementData : elementsData) {
             GS::UniString typeStr;
             elementData.Get ("type", typeStr);
@@ -2437,7 +2437,7 @@ GS::ObjectState CreateElectricalPanelsCommand::Execute (const GS::ObjectState& p
     GS::ObjectState response;
     const auto& elements = response.AddList<GS::ObjectState> ("elements");
 
-    ACAPI_CallUndoableCommand ("Create Electrical Panels", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Create Electrical Panels", [&]() -> GSErrCode {
         for (const GS::ObjectState& panelData : electricalPanelsData) {
             const GS::ObjectState* position = panelData.Get ("position");
             if (position == nullptr) {
@@ -2615,7 +2615,7 @@ GS::ObjectState CreateElectricalDevicesCommand::Execute (const GS::ObjectState& 
     GS::ObjectState response;
     const auto& elements = response.AddList<GS::ObjectState> ("elements");
 
-    ACAPI_CallUndoableCommand ("Create Electrical Devices", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Create Electrical Devices", [&]() -> GSErrCode {
         for (const GS::ObjectState& deviceData : electricalDevicesData) {
             const GS::ObjectState* position = deviceData.Get ("position");
             if (position == nullptr) {

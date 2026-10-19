@@ -188,7 +188,7 @@ GS::ObjectState Set3DProjectionSettingsCommand::Execute (const GS::ObjectState& 
     persp.rollAngle = rollAngle;
     persp.isTwoPointPersp = isTwoPointPersp;
 
-    err = ACAPI_CallUndoableCommand ("Set3DProjectionSettingsCommand", [&]() -> GSErrCode {
+    err = TAPIR_CallUndoableCommand ("Set3DProjectionSettingsCommand", [&]() -> GSErrCode {
         return ACAPI_View_Change3DProjectionSets (&projectionInfo, nullptr);
     });
 
@@ -292,7 +292,7 @@ GS::ObjectState SetCurrent3DStyleCommand::Execute (const GS::ObjectState& parame
 
     // The 3D style is a setting of the 3D window, like the projection: it is changed
     // in an undoable command the same way Set3DProjectionSettings does.
-    const GSErrCode err = ACAPI_CallUndoableCommand ("SetCurrent3DStyleCommand", [&]() -> GSErrCode {
+    const GSErrCode err = TAPIR_CallUndoableCommand ("SetCurrent3DStyleCommand", [&]() -> GSErrCode {
         return ACAPI_View_SetCurrent3DStyle (&name);
     });
 

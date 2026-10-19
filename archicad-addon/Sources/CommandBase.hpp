@@ -9,6 +9,7 @@
 #include "HashSet.hpp"
 
 #include <vector>
+#include <functional>
 #include <map>
 
 enum class CommonSchema
@@ -16,6 +17,12 @@ enum class CommonSchema
     Used,
     NotUsed
 };
+
+// Every undoable step of the add-on goes through this wrapper (Imaginns fork, 18/10/2026). 100 of the 122 calls to
+// ACAPI_CallUndoableCommand ignored its return code: a refused or interrupted step then answered an EMPTY result and no
+// error. The wrapper returns the code unchanged and, on error, appends one line (time, step name, code) to
+// %TEMP%/tapir_annulations_refusees.log, which the bench reads after every test: a silent refusal fails the test.
+GSErrCode TAPIR_CallUndoableCommand (const GS::UniString& undoString, const std::function<GSErrCode ()>& command);
 
 class CommandBase : public API_AddOnCommand
 {

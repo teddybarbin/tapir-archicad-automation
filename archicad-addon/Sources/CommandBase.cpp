@@ -4,6 +4,10 @@
 #include "MigrationHelper.hpp"
 
 #include <cmath>
+#include <cstdio>
+#include <ctime>
+#include <string>
+#include <functional>
 
 constexpr double EPS = 0.001;
 constexpr const char* CommandNamespace = "TapirCommand";
@@ -1221,4 +1225,24 @@ GSErrCode ChangeElementId (const API_Guid& elementGuid, const GS::UniString& id)
     // ACAPI_Element_ChangeMemo takes the guid by non-const reference.
     API_Guid guid = elementGuid;
     return ACAPI_Element_ChangeMemo (guid, APIMemoMask_ElemInfoString, &memo);
+}
+
+GSErrCode TAPIR_CallUndoableCommand (const GS::UniString& undoString, const std::function<GSErrCode ()>& command)
+{
+    const GSErrCode err = ACAPI_CallUndoableCommand (undoString, command);
+    if (err != NoError) {
+        const wchar_t* temp = _wgetenv (L"TEMP");
+        if (temp != nullptr) {
+            std::wstring path = std::wstring (temp) + L"\\tapir_annulations_refusees.log";
+            FILE* f = _wfopen (path.c_str (), L"a");
+            if (f != nullptr) {
+                const std::time_t now = std::time (nullptr);
+                char stamp[32] = {};
+                std::strftime (stamp, sizeof (stamp), "%Y-%m-%d %H:%M:%S", std::localtime (&now));
+                std::fprintf (f, "%s\t%s\t%d\n", stamp, undoString.ToCStr (CC_UTF8).Get (), (int) err);
+                std::fclose (f);
+            }
+        }
+    }
+    return err;
 }

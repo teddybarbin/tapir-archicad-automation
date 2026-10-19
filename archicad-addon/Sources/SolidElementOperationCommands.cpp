@@ -99,7 +99,7 @@ GS::ObjectState CreateSolidElementLinksCommand::Execute (const GS::ObjectState& 
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("CreateSolidElementLinks", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("CreateSolidElementLinks", [&] () -> GSErrCode {
         for (const GS::ObjectState& link : solidLinks) {
             GS::ObjectState targetIdOs, operatorIdOs;
             if (!link.Get ("targetId", targetIdOs) || !link.Get ("operatorId", operatorIdOs)) {
@@ -190,7 +190,7 @@ GS::ObjectState RemoveSolidElementLinksCommand::Execute (const GS::ObjectState& 
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("RemoveSolidElementLinks", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("RemoveSolidElementLinks", [&] () -> GSErrCode {
         for (const GS::ObjectState& link : solidLinks) {
             GS::ObjectState targetIdOs, operatorIdOs;
             if (!link.Get ("targetId", targetIdOs) || !link.Get ("operatorId", operatorIdOs)) {
@@ -408,7 +408,7 @@ GS::ObjectState TrimElementsCommand::Execute (const GS::ObjectState& parameters,
     const API_TrimTypeID trimType = TrimTypeFromString (trimTypeStr);
 
     GSErrCode err = NoError;
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("TrimElements", [&] () -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("TrimElements", [&] () -> GSErrCode {
         err = withElement
             ? ACAPI_Element_Trim_ElementsWith (guids, GetGuidFromObjectState (trimmingOs), trimType)
             : ACAPI_Element_Trim_Elements (guids);
@@ -489,7 +489,7 @@ GS::ObjectState RemoveElementTrimsCommand::Execute (const GS::ObjectState& param
     parameters.Get ("elementPairs", pairs);
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("RemoveElementTrims", [&] () -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("RemoveElementTrims", [&] () -> GSErrCode {
         for (const GS::ObjectState& pair : pairs) {
             GS::ObjectState elementOs, trimmingOs;
             if (!pair.Get ("elementId", elementOs) || !pair.Get ("trimmingElementId", trimmingOs)) {
@@ -658,7 +658,7 @@ GS::ObjectState MergeElementsCommand::Execute (const GS::ObjectState& parameters
     // The element types are not filtered here: the API reports the ones it cannot merge
     // (APIERR_BADELEMENTTYPE), and which types it accepts is not documented.
     GSErrCode err = NoError;
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("MergeElements", [&] () -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("MergeElements", [&] () -> GSErrCode {
         err = ACAPI_Element_Merge_Elements (guids);
         return err;
     });
@@ -737,7 +737,7 @@ GS::ObjectState UnmergeElementsCommand::Execute (const GS::ObjectState& paramete
     parameters.Get ("elementPairs", pairs);
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("UnmergeElements", [&] () -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("UnmergeElements", [&] () -> GSErrCode {
         for (const GS::ObjectState& pair : pairs) {
             GS::ObjectState element1Os, element2Os;
             if (!pair.Get ("elementId1", element1Os) || !pair.Get ("elementId2", element2Os)) {

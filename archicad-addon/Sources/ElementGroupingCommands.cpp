@@ -80,7 +80,7 @@ GS::ObjectState CreateGroupsCommand::Execute(const GS::ObjectState& parameters, 
 
 #ifdef ServerMainVers_2600
 
-    ACAPI_CallUndoableCommand("Create Element Groups", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Create Element Groups", [&]() -> GSErrCode {
         for (const GS::ObjectState& groupParam : elementGroups) {
 
             GS::Array<GS::ObjectState> elements;
@@ -187,7 +187,7 @@ GS::ObjectState UngroupElementsCommand::Execute(const GS::ObjectState& parameter
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState>("executionResults");
 
-    ACAPI_CallUndoableCommand("Ungroup Elements", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Ungroup Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& group : groups) {
             const GS::ObjectState* groupId = group.Get("groupId");
             if (groupId == nullptr) {

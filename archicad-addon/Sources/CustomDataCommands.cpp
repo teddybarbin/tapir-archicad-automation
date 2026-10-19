@@ -150,7 +150,7 @@ GS::ObjectState SetProjectDataCommand::Execute (const GS::ObjectState& parameter
 
     // One undo step for the whole call. The lambda reports success when any item was stored, so a
     // failed item does not roll back the others; each item carries its own result anyway.
-    ACAPI_CallUndoableCommand ("SetProjectData", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("SetProjectData", [&] () -> GSErrCode {
         GSErrCode firstErr = NoError;
         bool anyStored = false;
         for (const GS::ObjectState& item : projectData) {
@@ -340,7 +340,7 @@ GS::ObjectState DeleteProjectDataCommand::Execute (const GS::ObjectState& parame
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("DeleteProjectData", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("DeleteProjectData", [&] () -> GSErrCode {
         GSErrCode firstErr = NoError;
         bool anyDeleted = false;
         for (const GS::UniString& key : keys) {
@@ -619,7 +619,7 @@ GS::ObjectState SetElementUserDataCommand::Execute (const GS::ObjectState& param
     // One undo step for the whole call. The lambda reports success when any element was changed,
     // so a failed element does not roll back the others; each element carries its own result.
     bool executed = false;
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("SetElementUserData", [&] () -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("SetElementUserData", [&] () -> GSErrCode {
         executed = true;
         GSErrCode firstErr = NoError;
         bool anyStored = false;

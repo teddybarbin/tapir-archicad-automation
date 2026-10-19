@@ -343,7 +343,7 @@ GSErrCode PlaceNewLayout (const API_Guid& layoutDatabaseId, const API_Guid& pare
     }
 
     GSErrCode err = NoError;
-    ACAPI_CallUndoableCommand ("CreateLayoutCommand", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("CreateLayoutCommand", [&]() -> GSErrCode {
         err = ACAPI_Navigator_SetNavigatorItemPosition (&sourceGuid, &parentGSGuid, prevGuidPtr);
         return err;
     });
@@ -1280,7 +1280,7 @@ GS::ObjectState CreateDrawingsCommand::Execute (const GS::ObjectState& parameter
     const GSErrCode startingDatabaseErr = ACAPI_Database_GetCurrentDatabase (&startingDatabase);
 
     GS::Array<GS::ObjectState> elementResults;
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("CreateDrawingsCommand", [&]() -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("CreateDrawingsCommand", [&]() -> GSErrCode {
         for (const auto& item : items) {
             if (startingDatabaseErr == NoError) {
                 const GS::ObjectState* layoutDatabaseId = item.Get ("layoutDatabaseId");
@@ -1404,7 +1404,7 @@ GS::ObjectState ChangeDrawingLinkCommand::Execute (const GS::ObjectState& parame
     bool windowSwitched = false;
 
     GS::Array<GS::ObjectState> results;
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("ChangeDrawingLinkCommand", [&]() -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("ChangeDrawingLinkCommand", [&]() -> GSErrCode {
         for (const auto& item : items) {
             const GS::ObjectState* elementIdState        = item.Get ("elementId");
             const GS::ObjectState* navigatorItemIdState  = item.Get ("navigatorItemId");

@@ -934,7 +934,7 @@ GS::ObjectState ExecuteCreateWithElements (const GS::String& commandName, Func&&
     notification.notifID = APINotifyElement_BeginEvents;
     AddElementNotificationClientCommand::ElementEventHandlerProc (&notification);
 
-    ACAPI_CallUndoableCommand (commandName, [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand (commandName, [&]() -> GSErrCode {
         createFunc (results);
         return NoError;
     });
@@ -951,7 +951,7 @@ GS::ObjectState ExecuteModifyWithResults (const GS::String& commandName, Func&& 
 {
     GS::Array<GS::ObjectState> results;
 
-    ACAPI_CallUndoableCommand (commandName, [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand (commandName, [&]() -> GSErrCode {
         modifyFunc (results);
         return NoError;
     });
@@ -8623,7 +8623,7 @@ GS::ObjectState SetSectionsAndElevationsDetailsCommand::Execute (const GS::Objec
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Set Sections/Elevations Details", [&]() {
+    TAPIR_CallUndoableCommand ("Set Sections/Elevations Details", [&]() {
         for (const GS::ObjectState& item : elementsWithDetails) {
             const GS::ObjectState* elementId = item.Get ("elementId");
             const GS::ObjectState* details = item.Get ("details");
@@ -9069,7 +9069,7 @@ GS::ObjectState ModifyMeshesCommand::Execute (const GS::ObjectState& parameters,
     // The return code of ACAPI_CallUndoableCommand was ignored: when ArchiCAD refused the undo step or the body was
     // interrupted, the caller got an EMPTY executionResults and no error (18/10/2026, Imaginns fork bench). Every mesh
     // left without a result now gets a failed one carrying the real error code.
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("ModifyMeshes", [&] () -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("ModifyMeshes", [&] () -> GSErrCode {
         for (const GS::ObjectState& meshEntry : meshesData) {
             const GS::ObjectState* elementId = meshEntry.Get ("elementId");
             if (elementId == nullptr) {

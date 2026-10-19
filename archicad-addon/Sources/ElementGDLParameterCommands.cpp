@@ -773,7 +773,7 @@ GS::ObjectState	SetGDLParametersOfElementsCommand::Execute (const GS::ObjectStat
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Set GDL Parameters of Elements", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Set GDL Parameters of Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementWithGDLParameters : elementsWithGDLParameters) {
             GSErrCode err = NoError;
             GS::UniString errMessage;
@@ -1779,7 +1779,7 @@ GS::ObjectState SetMarkerParametersOfElementsCommand::Execute (const GS::ObjectS
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Set Marker Parameters of Elements", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Set Marker Parameters of Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementWithMarkerParameters : elementsWithMarkerParameters) {
             const GS::ObjectState* elementId = elementWithMarkerParameters.Get ("elementId");
             if (elementId == nullptr) {

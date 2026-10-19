@@ -388,7 +388,7 @@ GS::ObjectState SetCurrentWindowDrawingScaleCommand::Execute (const GS::ObjectSt
         return CreateFailedExecutionResult (APIERR_BADDATABASE, "The current window is a layout: a layout is always 1:1 and its scale cannot be changed. Activate a floor plan, section, elevation, detail or worksheet window first (see ChangeWindow).");
     }
 
-    err = ACAPI_CallUndoableCommand ("SetCurrentWindowDrawingScaleCommand", [&] () -> GSErrCode {
+    err = TAPIR_CallUndoableCommand ("SetCurrentWindowDrawingScaleCommand", [&] () -> GSErrCode {
         return ACAPI_Drawing_ChangeDrawingScale (&scale, rebuild);
     });
     if (err != NoError) {

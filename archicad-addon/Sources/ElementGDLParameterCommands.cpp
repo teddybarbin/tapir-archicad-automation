@@ -611,6 +611,11 @@ GS::ObjectState	GetGDLParametersOfElementsCommand::Execute (const GS::ObjectStat
 
         API_GetParamsType getParams = {};
         err = ACAPI_LibraryPart_OpenParameters (&paramOwner);
+        // The parameter session was never closed: the first element was read, and every OpenParameters after it failed
+        // (APIERR_GENERAL) until the end of the session, so a list of elements came back with one good entry and errors
+        // (Imaginns fork, 18/10/2026). It is now closed at the end of each element, error paths included.
+        const bool sessionOpen = (err == NoError);
+        const GS::OnExit closeParams ([sessionOpen] () { if (sessionOpen) { ACAPI_LibraryPart_CloseParameters (); } });
         if (err == NoError) {
             err = ACAPI_LibraryPart_GetActParameters (&getParams);
             if (err != NoError) {
@@ -655,7 +660,7 @@ GS::ObjectState	GetGDLParametersOfElementsCommand::Execute (const GS::ObjectStat
 
             GS::ObjectState gdlParameterDetails;
             gdlParameterDetails.Add ("name", actParam.name);
-            gdlParameterDetails.Add ("displayName", GS::UniString (actLibPartParam.uDescname));
+            gdlParameterDetails.Add ("displayName", ii < nLibPartParams ? GS::UniString ((*addPars)[ii].uDescname) : GS::UniString ());
             gdlParameterDetails.Add ("index", actParam.index);
             gdlParameterDetails.Add ("type", ConvertAddParIDToString (actParam.typeID));
             AddValueAndDescriptions (gdlParameterDetails, actParam);

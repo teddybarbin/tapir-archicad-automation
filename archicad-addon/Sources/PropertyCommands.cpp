@@ -746,7 +746,7 @@ GS::ObjectState SetPropertyValuesOfElementsCommand::Execute (const GS::ObjectSta
         results.PushNew ();
     }
 
-    ACAPI_CallUndoableCommand ("SetPropertyValuesOfElementsCommand", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("SetPropertyValuesOfElementsCommand", [&]() -> GSErrCode {
         for (const auto& kv : propertiesForElements) {
 #ifdef ServerMainVers_2800
             const API_Guid& elemGuid = kv.key;
@@ -933,7 +933,7 @@ GS::ObjectState SetPropertyValuesOfElementDefaultsCommand::Execute (const GS::Ob
 
     PropertyConversionUtils conversionUtils;
 
-    ACAPI_CallUndoableCommand ("SetPropertyValuesOfElementDefaultsCommand", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("SetPropertyValuesOfElementDefaultsCommand", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementDefaultPropertyValue : elementDefaultPropertyValues) {
             GS::UniString elementTypeStr;
             if (!elementDefaultPropertyValue.Get ("elementType", elementTypeStr)) {
@@ -1301,7 +1301,7 @@ GS::ObjectState SetPropertyValuesOfAttributesCommand::Execute (const GS::ObjectS
         results.PushNew ();
     }
 
-    ACAPI_CallUndoableCommand ("SetPropertyValuesOfAttributesCommand", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("SetPropertyValuesOfAttributesCommand", [&]() -> GSErrCode {
         for (const auto& kv : propertiesForAttributes) {
 #ifdef ServerMainVers_2800
             const API_Guid& attGuid = kv.key;
@@ -1764,7 +1764,7 @@ GS::ObjectState AddPropertyToAttributesCommand::Execute (const GS::ObjectState& 
         return failedResult;
     }
 
-    GSErrCode err = ACAPI_CallUndoableCommand ("AddPropertyToAttributesCommand", [&]() -> GSErrCode {
+    GSErrCode err = TAPIR_CallUndoableCommand ("AddPropertyToAttributesCommand", [&]() -> GSErrCode {
 #ifdef ServerMainVers_2700
         return ACAPI_Attribute_AddProperty (definition, attrHeads);
 #else
@@ -1829,7 +1829,7 @@ GS::ObjectState RemovePropertyFromAttributesCommand::Execute (const GS::ObjectSt
         return failedResult;
     }
 
-    GSErrCode err = ACAPI_CallUndoableCommand ("RemovePropertyFromAttributesCommand", [&]() -> GSErrCode {
+    GSErrCode err = TAPIR_CallUndoableCommand ("RemovePropertyFromAttributesCommand", [&]() -> GSErrCode {
 #ifdef ServerMainVers_2700
         return ACAPI_Attribute_DeleteProperty (definition.guid, attrHeads);
 #else
@@ -1904,7 +1904,7 @@ GS::ObjectState CreatePropertyGroupsCommand::Execute (const GS::ObjectState& par
     GS::ObjectState response;
     const auto& propertyGroupIds = response.AddList<GS::ObjectState> ("propertyGroupIds");
 
-    ACAPI_CallUndoableCommand ("CreatePropertyGroups", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("CreatePropertyGroups", [&]() -> GSErrCode {
         for (const GS::ObjectState& g : propertyGroups) {
             const GS::ObjectState* propertyGroup = g.Get ("propertyGroup");
             if (propertyGroup == nullptr) {
@@ -1988,7 +1988,7 @@ GS::ObjectState DeletePropertyGroupsCommand::Execute (const GS::ObjectState& par
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("DeletePropertyGroups", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("DeletePropertyGroups", [&]() -> GSErrCode {
         for (const GS::ObjectState& p : propertyGroupIds) {
             const GS::ObjectState* propertyGroupId = p.Get ("propertyGroupId");
             if (propertyGroupId == nullptr) {
@@ -2242,7 +2242,7 @@ GS::ObjectState CreatePropertyDefinitionsCommand::Execute (const GS::ObjectState
     GS::ObjectState response;
     const auto& propertyIds = response.AddList<GS::ObjectState> ("propertyIds");
 
-    ACAPI_CallUndoableCommand ("CreatePropertyDefinitions", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("CreatePropertyDefinitions", [&]() -> GSErrCode {
         for (const GS::ObjectState& p : propertyDefinitions) {
             const GS::ObjectState* propertyDefinition = p.Get ("propertyDefinition");
             if (propertyDefinition == nullptr) {
@@ -2421,7 +2421,7 @@ GS::ObjectState DeletePropertyDefinitionsCommand::Execute (const GS::ObjectState
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("DeletePropertyDefinitions", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("DeletePropertyDefinitions", [&]() -> GSErrCode {
         for (const GS::ObjectState& p : propertyIds) {
             const GS::ObjectState* propertyId = p.Get ("propertyId");
             if (propertyId == nullptr) {
@@ -2673,7 +2673,7 @@ GS::ObjectState UpdatePropertyDefinitionsCommand::Execute (const GS::ObjectState
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("UpdatePropertyDefinitions", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("UpdatePropertyDefinitions", [&]() -> GSErrCode {
         for (const GS::ObjectState& item : propertyDefinitions) {
             const GS::ObjectState* propertyId = item.Get ("propertyId");
             if (propertyId == nullptr) {
@@ -2810,7 +2810,7 @@ GS::ObjectState UpdatePropertyGroupsCommand::Execute (const GS::ObjectState& par
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("UpdatePropertyGroups", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("UpdatePropertyGroups", [&]() -> GSErrCode {
         for (const GS::ObjectState& item : propertyGroups) {
             const GS::ObjectState* groupId = item.Get ("propertyGroupId");
             if (groupId == nullptr) {
@@ -2910,7 +2910,7 @@ GS::ObjectState ImportPropertiesXmlCommand::Execute (const GS::ObjectState& para
     GS::ObjectState response;
     const GS::HashSet<API_Guid> before = AllCustomPropertyGuids ();
     GSErrCode err = NoError;
-    ACAPI_CallUndoableCommand ("ImportPropertiesXml", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("ImportPropertiesXml", [&]() -> GSErrCode {
         err = ACAPI_Property_Import (xml, policy);
         return err;
     });
@@ -3013,7 +3013,7 @@ GS::ObjectState ModifyPropertyValueOfElementsCommand::Execute (const GS::ObjectS
         return CreateFailedExecutionResult (err, "the value cannot be converted to the type of the property");
     }
 
-    err = ACAPI_CallUndoableCommand ("ModifyPropertyValueOfElementsCommand", [&]() -> GSErrCode {
+    err = TAPIR_CallUndoableCommand ("ModifyPropertyValueOfElementsCommand", [&]() -> GSErrCode {
         return ACAPI_Property_ModifyPropertyValue (property, elemGuids);
     });
 
@@ -3109,7 +3109,7 @@ GS::ObjectState MakePropertyAvailableForElementsCommand::Execute (const GS::Obje
         return failedResult;
     }
 
-    GSErrCode err = ACAPI_CallUndoableCommand ("MakePropertyAvailableForElements", [&]() -> GSErrCode {
+    GSErrCode err = TAPIR_CallUndoableCommand ("MakePropertyAvailableForElements", [&]() -> GSErrCode {
         return ACAPI_Property_AddProperty (definition, elemGuids);
     });
 
@@ -3170,7 +3170,7 @@ GS::ObjectState MakePropertyUnavailableForElementsCommand::Execute (const GS::Ob
         return failedResult;
     }
 
-    GSErrCode err = ACAPI_CallUndoableCommand ("MakePropertyUnavailableForElements", [&]() -> GSErrCode {
+    GSErrCode err = TAPIR_CallUndoableCommand ("MakePropertyUnavailableForElements", [&]() -> GSErrCode {
         return ACAPI_Property_DeleteProperty (definition.guid, elemGuids);
     });
 

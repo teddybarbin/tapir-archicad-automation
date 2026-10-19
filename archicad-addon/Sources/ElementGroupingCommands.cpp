@@ -81,7 +81,7 @@ GS::ObjectState CreateGroupsCommand::Execute(const GS::ObjectState& parameters, 
 
 #ifdef ServerMainVers_2600
 
-    ACAPI_CallUndoableCommand("Create Element Groups", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Create Element Groups", [&]() -> GSErrCode {
         for (const GS::ObjectState& groupParam : elementGroups) {
 
             GS::Array<GS::ObjectState> elements;
@@ -188,7 +188,7 @@ GS::ObjectState UngroupElementsCommand::Execute(const GS::ObjectState& parameter
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState>("executionResults");
 
-    ACAPI_CallUndoableCommand("Ungroup Elements", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Ungroup Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& group : groups) {
             const GS::ObjectState* groupId = group.Get("groupId");
             if (groupId == nullptr) {
@@ -804,7 +804,7 @@ GS::ObjectState SetUserDataOfGroupsCommand::Execute(const GS::ObjectState& param
     // whole call; the lambda reports success when any group was changed, so a failed group does not
     // roll back the others, and each group carries its own result.
     bool executed = false;
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand("SetUserDataOfGroups", [&]() -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("SetUserDataOfGroups", [&]() -> GSErrCode {
         executed = true;
         GSErrCode firstErr = NoError;
         bool anyStored = false;
@@ -1083,7 +1083,7 @@ GS::ObjectState CreateElementSetsCommand::Execute(const GS::ObjectState& paramet
     GS::ObjectState response;
     const auto& elementSetIds = response.AddList<GS::ObjectState>("elementSets");
 
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand("Create Element Sets", [&]() -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("Create Element Sets", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementSet : elementSets) {
             GS::Array<GS::ObjectState> elements;
             if (!elementSet.Get("elements", elements) || elements.IsEmpty()) {

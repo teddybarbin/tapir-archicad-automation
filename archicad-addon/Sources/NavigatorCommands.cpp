@@ -1753,7 +1753,7 @@ GS::ObjectState SetGhostStorySettingsCommand::Execute (const GS::ObjectState& pa
         }
     }
 
-    err = ACAPI_CallUndoableCommand ("SetGhostStorySettingsCommand", [&]() -> GSErrCode {
+    err = TAPIR_CallUndoableCommand ("SetGhostStorySettingsCommand", [&]() -> GSErrCode {
         return hasRecord
             ? ACAPI_View_ChangeGhostRecord (&ghostRecord)
             : ACAPI_View_CreateGhostRecord (&ghostRecord);
@@ -2996,7 +2996,7 @@ GS::ObjectState MoveNavigatorItemCommand::Execute (const GS::ObjectState& parame
 
     GSErrCode     err = NoError;
     GS::UniString errorMessage;
-    ACAPI_CallUndoableCommand ("MoveNavigatorItemCommand", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("MoveNavigatorItemCommand", [&]() -> GSErrCode {
         err = ACAPI_Navigator_SetNavigatorItemPosition (&sourceGuid, &parentGuid, prevGuidPtr);
         if (err != NoError) {
             errorMessage = "Failed to move navigator item.";
@@ -3331,7 +3331,7 @@ GS::ObjectState RenameNavigatorItemCommand::Execute (const GS::ObjectState& para
         // as a failed rename. The item is not passed to ChangeNavigatorItem on this
         // path, so the read-back shows what the item really carries.
         GS::UniString failureMessage;
-        const GSErrCode undoErr = ACAPI_CallUndoableCommand ("RenameNavigatorItemCommand", [&]() -> GSErrCode {
+        const GSErrCode undoErr = TAPIR_CallUndoableCommand ("RenameNavigatorItemCommand", [&]() -> GSErrCode {
             err = RenameViewpointElement (dbInfo,
                                           hasNewName ? &newName : nullptr,
                                           hasNewId ? &newId : nullptr,

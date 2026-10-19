@@ -53,7 +53,7 @@ GS::ObjectState	CreateElementsCommandBase::Execute (const GS::ObjectState& param
     notification.notifID = APINotifyElement_BeginEvents;
     AddElementNotificationClientCommand::ElementEventHandlerProc (&notification);
 
-    ACAPI_CallUndoableCommand ("Create " + elemTypeName, [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Create " + elemTypeName, [&] () -> GSErrCode {
         API_Element element = {};
         API_ElementMemo memo = {};
         const GS::OnExit guard ([&memo] () { ACAPI_DisposeElemMemoHdls (&memo); });
@@ -2821,7 +2821,7 @@ static GS::ObjectState ExecuteModifyObjectOrLamp (const GS::ObjectState& paramet
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand (undoableCommandName, [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand (undoableCommandName, [&] () -> GSErrCode {
         for (const GS::ObjectState& item : itemsWithDetails) {
             const GS::ObjectState* elementId = item.Get ("elementId");
             if (elementId == nullptr) {
@@ -3006,7 +3006,7 @@ GS::ObjectState ModifyTextsCommand::Execute (const GS::ObjectState& parameters, 
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
     const Stories stories = GetStories ();
 
-    ACAPI_CallUndoableCommand ("ModifyTexts", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("ModifyTexts", [&] () -> GSErrCode {
         // Same autotext flag handling as CreateTexts (CreateElementsCommandBase::Execute): with the
         // flag on, a content starting with a Project Info autotext key followed by a line break
         // failed to change or lost its later lines, while CreateTexts wrote it correctly (#1096).
@@ -3192,7 +3192,7 @@ GS::ObjectState ModifyLabelsCommand::Execute (const GS::ObjectState& parameters,
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("ModifyLabels", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("ModifyLabels", [&] () -> GSErrCode {
         // Same autotext flag handling as CreateLabels, see ModifyTexts.
         bool savedAutoTextFlag;
         ACAPI_AutoText_GetAutoTextFlag (&savedAutoTextFlag);
@@ -3394,7 +3394,7 @@ GS::ObjectState ChangeTextContentCommand::Execute (const GS::ObjectState& parame
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
     // ACAPI_Element_ChangeContent modifies the database, so it runs in an undo scope.
-    ACAPI_CallUndoableCommand ("ChangeTextContent", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("ChangeTextContent", [&] () -> GSErrCode {
         for (const GS::ObjectState& change : contentChanges) {
             const GS::ObjectState* elementId = change.Get ("elementId");
             if (elementId == nullptr) {

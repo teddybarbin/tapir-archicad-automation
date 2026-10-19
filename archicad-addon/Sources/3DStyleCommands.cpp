@@ -336,7 +336,7 @@ GS::ObjectState Create3DStylesCommand::Execute (const GS::ObjectState& parameter
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Create3DStylesCommand", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Create3DStylesCommand", [&]() -> GSErrCode {
         for (const GS::ObjectState& styleOS : styles) {
             GS::UniString name;
             if (!styleOS.Get ("name", name) || name.IsEmpty ()) {
@@ -430,7 +430,7 @@ GS::ObjectState Change3DStylesCommand::Execute (const GS::ObjectState& parameter
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Change3DStylesCommand", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Change3DStylesCommand", [&]() -> GSErrCode {
         for (const GS::ObjectState& styleOS : styles) {
             GS::UniString name;
             if (!styleOS.Get ("name", name) || name.IsEmpty ()) {

@@ -519,7 +519,7 @@ GS::ObjectState CreateGridElementsCommand::Execute (const GS::ObjectState& param
     GS::Array<GS::UniString> warnings;
 
 #ifdef ServerMainVers_2600
-    ACAPI_CallUndoableCommand ("Create Grid Elements", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Create Grid Elements", [&] () -> GSErrCode {
         UIndex itemIndex = 0;
         for (const GS::ObjectState& item : items) {
             const GS::UniString prefix = GS::UniString::Printf ("item %u: ", (unsigned) itemIndex++);

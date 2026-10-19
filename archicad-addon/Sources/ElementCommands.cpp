@@ -2427,7 +2427,7 @@ GS::ObjectState SetDetailsOfElementsCommand::Execute (const GS::ObjectState& par
             sortedElements.Push (ewd);
     }
 
-    ACAPI_CallUndoableCommand ("SetDetailsOfElementsCommand", [&]() {
+    TAPIR_CallUndoableCommand ("SetDetailsOfElementsCommand", [&]() {
         for (const GS::ObjectState& elementWithDetails : sortedElements) {
             const GS::ObjectState* elementId = elementWithDetails.Get ("elementId");
             if (elementId == nullptr) {
@@ -4463,7 +4463,7 @@ GS::ObjectState LinkElementsCommand::Execute (const GS::ObjectState& parameters,
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("LinkElements", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("LinkElements", [&] () -> GSErrCode {
         for (const GS::ObjectState& linkOS : links) {
             API_Guid fromGuid = APINULLGuid;
             API_Guid toGuid = APINULLGuid;
@@ -4544,7 +4544,7 @@ GS::ObjectState UnlinkElementsCommand::Execute (const GS::ObjectState& parameter
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("UnlinkElements", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("UnlinkElements", [&] () -> GSErrCode {
         for (const GS::ObjectState& linkOS : links) {
             API_Guid fromGuid = APINULLGuid;
             API_Guid toGuid = APINULLGuid;
@@ -5262,7 +5262,7 @@ static GSErrCode UpdateSelectedZones (API_RoomUpdateParams& roomUpdateParams)
 {
     GSErrCode err = NoError;
 
-    ACAPI_CallUndoableCommand ("UpdateZonesCommand", [&]() {
+    TAPIR_CallUndoableCommand ("UpdateZonesCommand", [&]() {
         err = ACAPI_Internal (APIInternal_UpdateRoomsID, &roomUpdateParams);
 
         return err;
@@ -5989,7 +5989,7 @@ GS::ObjectState	MoveElementsCommand::Execute (const GS::ObjectState& parameters,
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Move Elements", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Move Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementWithMoveVector : elementsWithMoveVectors) {
             const GS::ObjectState* elementId = elementWithMoveVector.Get ("elementId");
             if (elementId == nullptr) {
@@ -6115,7 +6115,7 @@ GS::ObjectState	ElevateElementsCommand::Execute (const GS::ObjectState& paramete
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Elevate Elements", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Elevate Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementWithElevation : elementsWithElevations) {
             const GS::ObjectState* elementId = elementWithElevation.Get ("elementId");
             if (elementId == nullptr) {
@@ -6252,7 +6252,7 @@ GS::ObjectState RotateElementsCommand::Execute (const GS::ObjectState& parameter
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Rotate Elements", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Rotate Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementWithRotation : elementsWithRotations) {
             const GS::ObjectState* elementId = elementWithRotation.Get ("elementId");
             if (elementId == nullptr) {
@@ -6398,7 +6398,7 @@ GS::ObjectState MirrorElementsCommand::Execute (const GS::ObjectState& parameter
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Mirror Elements", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Mirror Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementWithMirrorAxis : elementsWithMirrorAxes) {
             const GS::ObjectState* elementId = elementWithMirrorAxis.Get ("elementId");
             if (elementId == nullptr) {
@@ -8056,7 +8056,7 @@ GS::ObjectState DeleteElementsCommand::Execute (const GS::ObjectState& parameter
 
     GSErrCode deleteErr = NoError;
     if (!zoneGuids.IsEmpty () || !otherGuids.IsEmpty ()) {
-        ACAPI_CallUndoableCommand ("DeleteElementsCommand", [&]() {
+        TAPIR_CallUndoableCommand ("DeleteElementsCommand", [&]() {
             if (!zoneGuids.IsEmpty ()) {
                 deleteErr = ACAPI_Element_Delete (zoneGuids);
             }
@@ -8126,7 +8126,7 @@ GS::Optional<GS::UniString> DeleteSelectedElementsCommand::GetRawResponseSchema 
 
 GS::ObjectState DeleteSelectedElementsCommand::Execute (const GS::ObjectState& /*parameters*/, GS::ProcessControl& /*processControl*/) const
 {
-    GSErrCode err = ACAPI_CallUndoableCommand ("DeleteSelectedElementsCommand", [&]() {
+    GSErrCode err = TAPIR_CallUndoableCommand ("DeleteSelectedElementsCommand", [&]() {
         return ACAPI_Element_DeleteSelected ();
     });
 
@@ -8177,7 +8177,7 @@ GS::ObjectState LockElementsCommand::Execute (const GS::ObjectState& parameters,
 
     GSErrCode err = NoError;
 
-    ACAPI_CallUndoableCommand ("LockElementsCommand", [&]() {
+    TAPIR_CallUndoableCommand ("LockElementsCommand", [&]() {
         err = ACAPI_Grouping_Tool (elements.Transform<API_Guid> (GetGuidFromElementsArrayItem), APITool_Lock, nullptr);
         return err;
     });
@@ -8227,7 +8227,7 @@ GS::ObjectState UnlockElementsCommand::Execute (const GS::ObjectState& parameter
 
     GSErrCode err = NoError;
 
-    ACAPI_CallUndoableCommand ("UnlockElementsCommand", [&]() {
+    TAPIR_CallUndoableCommand ("UnlockElementsCommand", [&]() {
         err = ACAPI_Grouping_Tool (elements.Transform<API_Guid> (GetGuidFromElementsArrayItem), APITool_Unlock, nullptr);
         return err;
     });

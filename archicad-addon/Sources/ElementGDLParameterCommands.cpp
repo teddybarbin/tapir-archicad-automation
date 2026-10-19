@@ -937,7 +937,7 @@ GS::ObjectState	SetGDLParametersOfElementsCommand::Execute (const GS::ObjectStat
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Set GDL Parameters of Elements", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Set GDL Parameters of Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementWithGDLParameters : elementsWithGDLParameters) {
             GSErrCode err = NoError;
             GS::UniString errMessage;
@@ -1905,7 +1905,7 @@ GS::ObjectState SetMarkerParametersOfElementsCommand::Execute (const GS::ObjectS
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Set Marker Parameters of Elements", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Set Marker Parameters of Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementWithMarkerParameters : elementsWithMarkerParameters) {
             const GS::ObjectState* elementId = elementWithMarkerParameters.Get ("elementId");
             if (elementId == nullptr) {
@@ -2590,7 +2590,7 @@ GS::ObjectState ChangeLibraryPartOfElementsCommand::Execute (const GS::ObjectSta
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Change Library Part of Elements", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Change Library Part of Elements", [&]() -> GSErrCode {
         LibraryPartGuidTable guidTable;
         for (const GS::ObjectState& elementWithLibraryPart : elementsWithLibraryPart) {
             GS::UniString errMessage;
@@ -2781,7 +2781,7 @@ GS::ObjectState RunParameterScriptOfElementsCommand::Execute (const GS::ObjectSt
 
     // Running the parameter script can change the element's parameters, so it runs in an
     // undoable command like SetGDLParametersOfElements. The mask is left at its default (0).
-    ACAPI_CallUndoableCommand ("Run Parameter Script of Elements", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Run Parameter Script of Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& element : elements) {
             const GS::ObjectState* elementId = element.Get ("elementId");
             if (elementId == nullptr) {

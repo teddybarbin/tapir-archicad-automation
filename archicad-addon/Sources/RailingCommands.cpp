@@ -197,7 +197,7 @@ GS::ObjectState ModifyRailingsCommand::Execute (const GS::ObjectState& parameter
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
     const auto& outElements = response.AddList<GS::ObjectState> ("elements");
 
-    ACAPI_CallUndoableCommand ("ModifyRailings", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("ModifyRailings", [&] () -> GSErrCode {
         for (const GS::ObjectState& item : items) {
             const GS::ObjectState* elementId = item.Get ("elementId");
             if (elementId == nullptr) {

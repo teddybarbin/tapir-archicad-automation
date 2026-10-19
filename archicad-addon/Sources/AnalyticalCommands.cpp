@@ -1885,7 +1885,7 @@ GS::ObjectState UpdateAnalyticalModelCommand::Execute (const GS::ObjectState& pa
         }
     }
 
-    const GSErrCode err = ACAPI_CallUndoableCommand ("Update Analytical Model", [&] () -> GSErrCode {
+    const GSErrCode err = TAPIR_CallUndoableCommand ("Update Analytical Model", [&] () -> GSErrCode {
         return ACAPI_Analytical_UpdateAnalyticalModel (ACAPI_GetToken (), analyticalModelGuid);
     });
     if (err != NoError) {
@@ -1919,7 +1919,7 @@ GS::Optional<GS::UniString> SetAnalyticalGenerationSettingsToNoRuleCommand::GetR
 GS::ObjectState SetAnalyticalGenerationSettingsToNoRuleCommand::Execute (const GS::ObjectState& /*parameters*/, GS::ProcessControl& /*processControl*/) const
 {
 #ifdef ServerMainVers_2700
-    const GSErrCode err = ACAPI_CallUndoableCommand ("Set Analytical Generation Settings To No Rule", [&] () -> GSErrCode {
+    const GSErrCode err = TAPIR_CallUndoableCommand ("Set Analytical Generation Settings To No Rule", [&] () -> GSErrCode {
         return ACAPI_Analytical_SetGenerationSettingsToNoRule (ACAPI_GetToken ());
     });
     if (err != NoError) {
@@ -2199,7 +2199,7 @@ GS::ObjectState SetAnalyticalVisibilitySettingsCommand::Execute (const GS::Objec
         return CreateFailedExecutionResult (APIERR_BADPARS, GS::UniString::Printf ("Unknown loadVisibilityMode '%T'.", loadVisibilityMode.ToPrintf ()));
     }
 
-    err = ACAPI_CallUndoableCommand ("Set Analytical Visibility Settings", [&] () -> GSErrCode {
+    err = TAPIR_CallUndoableCommand ("Set Analytical Visibility Settings", [&] () -> GSErrCode {
         return TAPIR_SetAnalyticalVisibilitySettings (settings);
     });
     if (err != NoError) {
@@ -2762,7 +2762,7 @@ GS::ObjectState DeleteAnalyticalLoadObjects (const GS::Array<API_Guid>& guids, c
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand (undoName, [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand (undoName, [&] () -> GSErrCode {
         for (const API_Guid& guid : guids) {
             if (guid == APINULLGuid) {
                 executionResults (CreateFailedExecutionResult (APIERR_BADPARS, GS::UniString::Printf ("%s is missing or invalid.", idKey)));
@@ -3085,7 +3085,7 @@ GS::ObjectState CreateAnalyticalLoadGroupsCommand::Execute (const GS::ObjectStat
     GS::ObjectState response;
     const auto& loadGroupIds = response.AddList<GS::ObjectState> ("loadGroupIds");
 
-    ACAPI_CallUndoableCommand ("Create Analytical Load Groups", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Create Analytical Load Groups", [&] () -> GSErrCode {
         for (const GS::ObjectState& loadGroupOS : loadGroups) {
             API_AnalyticalLoadGroup loadGroup = {};
             const GS::Optional<GS::ObjectState> error = GetAnalyticalLoadGroupFromObjectState (loadGroupOS, loadGroup);
@@ -3210,7 +3210,7 @@ GS::ObjectState CreateAnalyticalLoadCasesCommand::Execute (const GS::ObjectState
     GS::ObjectState response;
     const auto& loadCaseIds = response.AddList<GS::ObjectState> ("loadCaseIds");
 
-    ACAPI_CallUndoableCommand ("Create Analytical Load Cases", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Create Analytical Load Cases", [&] () -> GSErrCode {
         for (const GS::ObjectState& loadCaseOS : loadCases) {
             API_AnalyticalLoadCase loadCase = {};
             const GS::Optional<GS::ObjectState> error = GetAnalyticalLoadCaseFromObjectState (loadCaseOS, loadCase);
@@ -3336,7 +3336,7 @@ GS::ObjectState CreateAnalyticalLoadCombinationsCommand::Execute (const GS::Obje
     GS::ObjectState response;
     const auto& loadCombinationIds = response.AddList<GS::ObjectState> ("loadCombinationIds");
 
-    ACAPI_CallUndoableCommand ("Create Analytical Load Combinations", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Create Analytical Load Combinations", [&] () -> GSErrCode {
         for (const GS::ObjectState& loadCombinationOS : loadCombinations) {
             API_AnalyticalLoadCombination loadCombination = {};
             const GS::Optional<GS::ObjectState> error = GetAnalyticalLoadCombinationFromObjectState (loadCombinationOS, loadCombination);
@@ -3572,7 +3572,7 @@ GS::ObjectState AddLoadCasesToLoadCombinationCommand::Execute (const GS::ObjectS
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Add Load Cases To Load Combination", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Add Load Cases To Load Combination", [&] () -> GSErrCode {
         for (const GS::ObjectState& loadFactorOS : loadFactors) {
             API_AnalyticalLoadFactor loadFactor = {};
             const GS::Optional<GS::ObjectState> error = GetAnalyticalLoadFactorFromObjectState (loadFactorOS, loadFactor);

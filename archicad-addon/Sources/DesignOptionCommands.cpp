@@ -611,7 +611,7 @@ GS::ObjectState CreateDesignOptionSetsCommand::Execute (const GS::ObjectState& p
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Create Design Option Sets", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Create Design Option Sets", [&]() -> GSErrCode {
         for (auto&& designOptionSet : designOptionSets) {
             auto result = manager->CreateDesignOptionSet ({}, designOptionSet);
             executionResults (result.IsOk () ? CreateSuccessfulExecutionResult () : CreateFailedExecutionResult (result.UnwrapErr ().kind, "Failed to create design option set."));
@@ -697,7 +697,7 @@ GS::ObjectState CreateDesignOptionsCommand::Execute (const GS::ObjectState& para
     GS::ObjectState response;
     const auto& designOptionIdsOrErrors = response.AddList<GS::ObjectState> ("designOptionIdsOrErrors");
 
-    ACAPI_CallUndoableCommand ("Create Design Options", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Create Design Options", [&]() -> GSErrCode {
         for (auto&& designOption : designOptions) {
             GS::UniString name;
             if (!designOption.Get ("name", name)) {
@@ -809,7 +809,7 @@ GS::ObjectState CreateDesignOptionCombinationsCommand::Execute (const GS::Object
     GS::ObjectState response;
     const auto& designOptionCombinationIdsOrErrors = response.AddList<GS::ObjectState> ("designOptionCombinationIdsOrErrors");
 
-    ACAPI_CallUndoableCommand ("Create Design Option Combinations", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Create Design Option Combinations", [&]() -> GSErrCode {
         for (auto&& designOptionCombination : designOptionCombinations) {
             GS::UniString name;
             if (!designOptionCombination.Get ("name", name)) {
@@ -948,7 +948,7 @@ GS::ObjectState DeactivateDesignOptionsInCombinationsCommand::Execute (const GS:
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Deactivate Design Options In Combinations", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Deactivate Design Options In Combinations", [&]() -> GSErrCode {
         for (auto&& deactivatedDesignOptionsInCombination : deactivatedDesignOptionsInCombinations) {
             GS::Guid combinationGuid = APIGuid2GSGuid (GetGuidFromArrayItem ("designOptionCombinationId", deactivatedDesignOptionsInCombination));
             if (combinationGuid.IsNull ()) {
@@ -1095,7 +1095,7 @@ GS::ObjectState SetActiveDesignOptionsInCombinationsCommand::Execute (const GS::
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Set Active Design Options In Combinations", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Set Active Design Options In Combinations", [&]() -> GSErrCode {
         for (auto&& activeDesignOptionsInCombination : activeDesignOptionsInCombinations) {
             GS::Guid combinationGuid = APIGuid2GSGuid (GetGuidFromArrayItem ("designOptionCombinationId", activeDesignOptionsInCombination));
             if (combinationGuid.IsNull()) {
@@ -1238,7 +1238,7 @@ GS::ObjectState ActivateDesignOptionsInCombinationsCommand::Execute (const GS::O
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Activate Design Options In Combinations", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Activate Design Options In Combinations", [&]() -> GSErrCode {
         for (auto&& designOptionToActivate : designOptionsToActivate) {
             GS::Guid combinationGuid = APIGuid2GSGuid (GetGuidFromArrayItem ("designOptionCombinationId", designOptionToActivate));
             if (combinationGuid.IsNull ()) {
@@ -1341,7 +1341,7 @@ GS::ObjectState DuplicateDesignOptionCombinationsCommand::Execute (const GS::Obj
     GS::ObjectState response;
     const auto& designOptionCombinationIdsOrErrors = response.AddList<GS::ObjectState> ("designOptionCombinationIdsOrErrors");
 
-    ACAPI_CallUndoableCommand ("Duplicate Design Option Combinations", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Duplicate Design Option Combinations", [&]() -> GSErrCode {
         for (auto&& designOptionCombination : designOptionCombinations) {
             GS::Guid combinationGuid = APIGuid2GSGuid (GetGuidFromArrayItem ("designOptionCombinationId", designOptionCombination));
             if (combinationGuid.IsNull ()) {
@@ -1446,7 +1446,7 @@ GS::ObjectState MoveElementsToDesignOptionsCommand::Execute (const GS::ObjectSta
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Create Design Option Sets", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Create Design Option Sets", [&]() -> GSErrCode {
         for (auto&& elementDesignOptionPair : elementDesignOptionPairs) {
             API_Guid elemGuid = GetGuidFromElementsArrayItem (elementDesignOptionPair);
             if (elemGuid == APINULLGuid) {
@@ -1565,7 +1565,7 @@ GS::ObjectState MoveDesignOptionsToAnotherSetCommand::Execute (const GS::ObjectS
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Move Design Options to Another Set", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Move Design Options to Another Set", [&]() -> GSErrCode {
         for (auto&& designOptionAndSetPair : designOptionAndSetPairs) {
             DesignOption* optionPtr = nullptr;
             GS::Guid designOptionGuid = APIGuid2GSGuid (GetGuidFromArrayItem ("designOptionId", designOptionAndSetPair));
@@ -1693,7 +1693,7 @@ GS::ObjectState RenameDesignOptionsCommand::Execute (const GS::ObjectState& para
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Rename Design Options", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Rename Design Options", [&]() -> GSErrCode {
         for (auto&& designOption : designOptions) {
             GS::Guid designOptionGuid = APIGuid2GSGuid (GetGuidFromArrayItem ("designOptionId", designOption));
             if (designOptionGuid.IsNull ()) {
@@ -1820,7 +1820,7 @@ GS::ObjectState RenameDesignOptionSetsCommand::Execute (const GS::ObjectState& p
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Rename Design Option Sets", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Rename Design Option Sets", [&]() -> GSErrCode {
         for (auto&& designOptionSet : designOptionSets) {
             GS::Guid setGuid = APIGuid2GSGuid (GetGuidFromArrayItem ("designOptionSetId", designOptionSet));
             if (setGuid.IsNull ()) {
@@ -1931,7 +1931,7 @@ GS::ObjectState RenameDesignOptionCombinationsCommand::Execute (const GS::Object
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Rename Design Option Combinations", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Rename Design Option Combinations", [&]() -> GSErrCode {
         for (auto&& designOptionCombination : designOptionCombinations) {
             GS::Guid combinationGuid = APIGuid2GSGuid (GetGuidFromArrayItem ("designOptionCombinationId", designOptionCombination));
             if (combinationGuid.IsNull ()) {
@@ -2028,7 +2028,7 @@ GS::ObjectState DeleteDesignOptionsCommand::Execute (const GS::ObjectState& para
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Delete Design Options", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Delete Design Options", [&]() -> GSErrCode {
         for (auto&& designOption : designOptions) {
             GS::Guid designOptionGuid = APIGuid2GSGuid (GetGuidFromArrayItem ("designOptionId", designOption));
             if (designOptionGuid.IsNull ()) {
@@ -2120,7 +2120,7 @@ GS::ObjectState DeleteDesignOptionSetsCommand::Execute (const GS::ObjectState& p
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Delete Design Option Sets", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Delete Design Option Sets", [&]() -> GSErrCode {
         for (auto&& designOptionSet : designOptionSets) {
             GS::Guid setGuid = APIGuid2GSGuid (GetGuidFromArrayItem ("designOptionSetId", designOptionSet));
             if (setGuid.IsNull ()) {
@@ -2212,7 +2212,7 @@ GS::ObjectState DeleteDesignOptionCombinationsCommand::Execute (const GS::Object
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Delete Design Option Combinations", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Delete Design Option Combinations", [&]() -> GSErrCode {
         for (auto&& designOptionCombination : designOptionCombinations) {
             GS::Guid combinationGuid = APIGuid2GSGuid (GetGuidFromArrayItem ("designOptionCombinationId", designOptionCombination));
             if (combinationGuid.IsNull ()) {
@@ -2486,7 +2486,7 @@ GS::ObjectState SetDesignOptionCombinationOfViewsCommand::Execute (const GS::Obj
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Set Design Option Combination of Views", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Set Design Option Combination of Views", [&]() -> GSErrCode {
         for (auto&& navigatorItemIdWithCombination : navigatorItemIdsWithCombination) {
             const API_Guid navigatorItemGuid = GetGuidFromNavigatorItemIdArrayItem (navigatorItemIdWithCombination);
             if (navigatorItemGuid == APINULLGuid) {
@@ -2817,7 +2817,7 @@ GS::ObjectState SetDefaultDesignOptionCommand::Execute (const GS::ObjectState& p
     }
 
     GSErrCode err = NoError;
-    ACAPI_CallUndoableCommand ("Set Default Design Option", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Set Default Design Option", [&]() -> GSErrCode {
         auto result = manager->SetDesignOptionAsDefault (defaultDesignOption);
         if (result.IsErr ()) {
             err = result.UnwrapErr ().kind;
@@ -2913,7 +2913,7 @@ GS::ObjectState ReorderDesignOptionSetsCommand::Execute (const GS::ObjectState& 
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Reorder Design Option Sets", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Reorder Design Option Sets", [&]() -> GSErrCode {
         for (auto&& designOptionSet : designOptionSets) {
             GS::Guid setGuid = APIGuid2GSGuid (GetGuidFromArrayItem ("designOptionSetId", designOptionSet));
             if (setGuid.IsNull ()) {
@@ -3034,7 +3034,7 @@ GS::ObjectState ReorderDesignOptionsInSetCommand::Execute (const GS::ObjectState
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Reorder Design Options", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Reorder Design Options", [&]() -> GSErrCode {
         for (auto&& designOption : designOptions) {
             GS::Guid designOptionGuid = APIGuid2GSGuid (GetGuidFromArrayItem ("designOptionId", designOption));
             if (designOptionGuid.IsNull ()) {

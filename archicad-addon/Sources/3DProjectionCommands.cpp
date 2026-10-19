@@ -269,7 +269,7 @@ static GS::ObjectState SetPerspective (const GS::ObjectState& perspective)
     persp.rollAngle = rollAngle;
     persp.isTwoPointPersp = isTwoPointPersp;
 
-    err = ACAPI_CallUndoableCommand ("Set3DProjectionSettingsCommand", [&]() -> GSErrCode {
+    err = TAPIR_CallUndoableCommand ("Set3DProjectionSettingsCommand", [&]() -> GSErrCode {
         return ACAPI_View_Change3DProjectionSets (&projectionInfo, nullptr);
     });
 

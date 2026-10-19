@@ -73,7 +73,7 @@ static GS::ObjectState ModifyLibraryPart (GSMObjectResult& gsmObject, const GS::
     }
 
     GS::ObjectState result = CreateSuccessfulExecutionResult ();
-    ACAPI_CallUndoableCommand (undoString, [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand (undoString, [&]() -> GSErrCode {
         GS::UniString failedChange;
         GS::UniString failedText;
         ACAPI::Result<void> modifyResult = gsmObject->Modify ([&] (GSMObject::Modifier& modifier) -> GSErrCode {
@@ -782,7 +782,7 @@ GS::ObjectState CreateLibraryPartCommand::Execute (const GS::ObjectState& parame
         }
 
         GS::ObjectState response;
-        ACAPI_CallUndoableCommand ("Create Library Part", [&]() -> GSErrCode {
+        TAPIR_CallUndoableCommand ("Create Library Part", [&]() -> GSErrCode {
             auto newObject = GSMObject::CreateNew (fileLocation, ancestorObject.Unwrap ());
             if (newObject.IsErr ()) {
                 GS::UniString errorMessage = "Failed to create the library part";

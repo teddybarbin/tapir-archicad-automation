@@ -3552,7 +3552,7 @@ GS::ObjectState SetLibraryPartScriptsCommand::Execute (const GS::ObjectState& pa
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Set Library Part Scripts", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Set Library Part Scripts", [&]() -> GSErrCode {
         for (const GS::ObjectState& libraryPart : libraryParts) {
             GS::UniString name;
             const GS::ObjectState* scripts = libraryPart.Get ("scripts");
@@ -3747,7 +3747,7 @@ GS::ObjectState SetLibraryPartMetadataCommand::Execute (const GS::ObjectState& p
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Set Library Part Metadata", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Set Library Part Metadata", [&]() -> GSErrCode {
         for (const GS::ObjectState& libraryPart : libraryParts) {
             GS::UniString name;
             const GS::ObjectState* metadata = libraryPart.Get ("metadata");

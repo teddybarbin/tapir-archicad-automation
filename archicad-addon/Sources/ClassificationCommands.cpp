@@ -250,7 +250,7 @@ GS::ObjectState SetClassificationsOfElementsCommand::Execute (const GS::ObjectSt
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("SetClassificationsOfElementsCommand", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("SetClassificationsOfElementsCommand", [&] () -> GSErrCode {
         for (const GS::ObjectState& elementClassification : elementClassifications) {
             const GS::ObjectState* elementId = elementClassification.Get ("elementId");
             if (elementId == nullptr) {
@@ -504,7 +504,7 @@ GS::ObjectState SetClassificationsOfAttributesCommand::Execute (const GS::Object
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("SetClassificationsOfAttributesCommand", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("SetClassificationsOfAttributesCommand", [&] () -> GSErrCode {
         for (const GS::ObjectState& attributeClassification : attributeClassifications) {
             const GS::ObjectState* attributeId = attributeClassification.Get ("attributeId");
             if (attributeId == nullptr) {
@@ -860,7 +860,7 @@ GS::ObjectState SetClassificationsOfElementDefaultsCommand::Execute (const GS::O
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("SetClassificationsOfElementDefaultsCommand", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("SetClassificationsOfElementDefaultsCommand", [&] () -> GSErrCode {
         for (const GS::ObjectState& elementDefaultClassification : elementDefaultClassifications) {
             GS::UniString elementTypeStr;
             if (!elementDefaultClassification.Get ("elementType", elementTypeStr)) {
@@ -1218,7 +1218,7 @@ GS::ObjectState CreateClassificationSystemsCommand::Execute (const GS::ObjectSta
         classificationSystemIds (CreateErrorResponse (err, message));
     };
 
-    ACAPI_CallUndoableCommand ("CreateClassificationSystemsCommand", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("CreateClassificationSystemsCommand", [&] () -> GSErrCode {
         for (const GS::ObjectState& classificationSystemWithItems : classificationSystemsWithItems) {
             GS::ObjectState classificationSystem;
             if (!classificationSystemWithItems.Get ("classificationSystem", classificationSystem)) {
@@ -1330,7 +1330,7 @@ GS::ObjectState CreateClassificationItemsCommand::Execute (const GS::ObjectState
         classificationItemIds (CreateErrorResponse (err, message));
     };
 
-    ACAPI_CallUndoableCommand ("CreateClassificationItemsCommand", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("CreateClassificationItemsCommand", [&] () -> GSErrCode {
         for (const GS::ObjectState& newClassificationItem : newClassificationItems) {
             GS::ObjectState classificationItemDetails;
             if (!newClassificationItem.Get ("classificationItemDetails", classificationItemDetails)) {
@@ -1430,7 +1430,7 @@ GS::ObjectState DeleteClassificationSystemsCommand::Execute (const GS::ObjectSta
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("DeleteClassificationSystemsCommand", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("DeleteClassificationSystemsCommand", [&]() -> GSErrCode {
         for (const GS::ObjectState& classificationSystemId : classificationSystemIds) {
             const GS::ObjectState* systemId = classificationSystemId.Get ("classificationSystemId");
             if (systemId == nullptr) {
@@ -1505,7 +1505,7 @@ GS::ObjectState DeleteClassificationItemsCommand::Execute (const GS::ObjectState
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("DeleteClassificationItemsCommand", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("DeleteClassificationItemsCommand", [&]() -> GSErrCode {
         for (const GS::ObjectState& classificationItemId : classificationItemIds) {
             const GS::ObjectState* itemId = classificationItemId.Get ("classificationItemId");
             if (itemId == nullptr) {
@@ -1575,7 +1575,7 @@ GS::ObjectState UpdateClassificationSystemsCommand::Execute (const GS::ObjectSta
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("UpdateClassificationSystems", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("UpdateClassificationSystems", [&]() -> GSErrCode {
         for (const GS::ObjectState& item : systems) {
             const GS::ObjectState* systemId = item.Get ("classificationSystemId");
             if (systemId == nullptr) {
@@ -1663,7 +1663,7 @@ GS::ObjectState UpdateClassificationItemsCommand::Execute (const GS::ObjectState
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("UpdateClassificationItems", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("UpdateClassificationItems", [&]() -> GSErrCode {
         for (const GS::ObjectState& item : items) {
             const GS::ObjectState* itemId = item.Get ("classificationItemId");
             if (itemId == nullptr) {
@@ -1901,7 +1901,7 @@ GS::ObjectState ImportClassificationsXmlCommand::Execute (const GS::ObjectState&
     GS::ObjectState response;
     const GS::HashSet<API_Guid> before = AllClassificationGuids ();
     GSErrCode err = NoError;
-    ACAPI_CallUndoableCommand ("ImportClassificationsXml", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("ImportClassificationsXml", [&]() -> GSErrCode {
         err = ACAPI_Classification_Import (xml, systemPolicy, itemPolicy);
         return err;
     });

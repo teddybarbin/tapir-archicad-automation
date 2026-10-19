@@ -668,7 +668,7 @@ GS::ObjectState SetLinkedPropertyObjectsOfElementsCommand::Execute (const GS::Ob
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("SetLinkedPropertyObjectsOfElementsCommand", [&]() {
+    TAPIR_CallUndoableCommand ("SetLinkedPropertyObjectsOfElementsCommand", [&]() {
         for (const GS::ObjectState& elementWithLinkedPropertyObjects : elementsWithLinkedPropertyObjects) {
             API_Elem_Head elemHead = {};
             GS::ObjectState error;

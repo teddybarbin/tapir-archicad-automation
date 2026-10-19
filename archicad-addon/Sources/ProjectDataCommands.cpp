@@ -383,7 +383,7 @@ GS::ObjectState SetProjectDataCommand::Execute (const GS::ObjectState& parameter
         results.Push (CreateSuccessfulExecutionResult ());
     }
 
-    const GSErrCode err = ACAPI_CallUndoableCommand ("Set Project Data", [&] () -> GSErrCode {
+    const GSErrCode err = TAPIR_CallUndoableCommand ("Set Project Data", [&] () -> GSErrCode {
         GS::HashSet<GS::UniString> seenNames;
         GS::Array<UIndex> newUniqueIndices;
         GS::Array<GS::UniString> newUniqueNames;
@@ -552,7 +552,7 @@ GS::ObjectState DeleteProjectDataCommand::Execute (const GS::ObjectState& parame
 
     GS::Array<GS::ObjectState> results;
 
-    const GSErrCode err = ACAPI_CallUndoableCommand ("Delete Project Data", [&] () -> GSErrCode {
+    const GSErrCode err = TAPIR_CallUndoableCommand ("Delete Project Data", [&] () -> GSErrCode {
         for (const GS::UniString& name : names) {
             API_Guid objectGuid;
             bool clientOnly;

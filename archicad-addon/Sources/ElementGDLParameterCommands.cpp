@@ -1106,6 +1106,13 @@ SetGDLParametersOfElementsCommand::SetOneGDLParameter (
             break;
     }
 
+    // GetGDLParametersOfElements returns angles in radians, but ACAPI_LibraryPart_ChangeAParameter takes them in degrees:
+    // a value read then written back was divided by 57 (19/10/2026, bench test_gdl_angles.py). Input is radians, like
+    // the output.
+    if (gdlParametersTypeDictionary[changeParam.name] == APIParT_Angle) {
+        changeParam.realValue *= 180.0 / 3.14159265358979323846;
+    }
+
     // A written A or B is read in the stored size unit (see GetStoredSizeScale).
     if (xRatioPerA.HasValue () && CHCompareCStrings (changeParam.name, "A") == 0) {
         changeParam.realValue *= *xRatioPerA;

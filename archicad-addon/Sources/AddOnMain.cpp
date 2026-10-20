@@ -1476,6 +1476,10 @@ GSErrCode Initialize (void)
             navigatorCommands, "1.3.1",
             "Sets the 3D cut planes."
         );
+        err |= RegisterCommand<Get3DCutPlanesCommand> (
+            navigatorCommands, "1.3.1",
+            "Gets the current 3D cut planes (raw shapes, to save and restore a cut)."
+        );
         err |= RegisterCommand<Get3DStyleDetailsCommand> (
             navigatorCommands, "1.7.2",
             "Gets the settings of 3D styles by name (an empty name or no names means the current 3D style): rendering engine, model type, monochrome and background colors, contours, shadows and hatching. Available from Archicad 27."

@@ -47,6 +47,11 @@ static GSErrCode _Set3DCutPlanes (const GS::Array<GS::ObjectState>& cutPlanes)
             cutPlanes[i].Get ("pb", (*cutInfo.shapes)[i].pb);
             cutPlanes[i].Get ("pc", (*cutInfo.shapes)[i].pc);
             cutPlanes[i].Get ("pd", (*cutInfo.shapes)[i].pd);
+            // Imaginns fork: cutStatus as Get3DCutPlanes returns it, so that a cut round-trips.
+            Int32 cutStatus = 0;
+            if (cutPlanes[i].Get ("cutStatus", cutStatus)) {
+                (*cutInfo.shapes)[i].cutStatus = static_cast<short> (cutStatus);
+            }
         }
 
         err = ACAPI_View_Change3DCuttingPlanes (&cutInfo);
@@ -84,6 +89,10 @@ GS::Optional<GS::UniString> Set3DCutPlanesCommand::GetInputParametersSchema () c
                     "pd": {
                         "type": "number",
                         "description": "Constant term in the plane equation, in meters. The distance of the plane from the origin along the normal vector."
+                    },
+                    "cutStatus": {
+                        "type": "integer",
+                        "description": "Optional raw cutStatus of the shape, as Get3DCutPlanes returns it (copy it back to restore a cut)."
                     }
                 },
                 "required": [
@@ -158,9 +167,11 @@ GS::Optional<GS::UniString> Get3DCutPlanesCommand::GetRawResponseSchema () const
                     "pa": { "type": "number" },
                     "pb": { "type": "number" },
                     "pc": { "type": "number" },
-                    "pd": { "type": "number" }
+                    "pd": { "type": "number" },
+                    "cutStatus": { "type": "integer", "description": "Raw cutStatus of the shape; pass it back to Set3DCutPlanes to restore the cut." },
+                    "cutPen": { "type": "integer" }
                 },
-                "required": ["pa", "pb", "pc", "pd"],
+                "required": ["pa", "pb", "pc", "pd", "cutStatus", "cutPen"],
                 "additionalProperties": false
             }
         }
@@ -191,6 +202,8 @@ GS::ObjectState Get3DCutPlanesCommand::Execute (const GS::ObjectState& /*paramet
             plane.Add ("pb", (*cutInfo.shapes)[i].pb);
             plane.Add ("pc", (*cutInfo.shapes)[i].pc);
             plane.Add ("pd", (*cutInfo.shapes)[i].pd);
+            plane.Add ("cutStatus", static_cast<Int32> ((*cutInfo.shapes)[i].cutStatus));
+            plane.Add ("cutPen", static_cast<Int32> ((*cutInfo.shapes)[i].cutPen));
             cutPlanes (plane);
         }
         BMKillHandle ((GSHandle*) &(cutInfo.shapes));

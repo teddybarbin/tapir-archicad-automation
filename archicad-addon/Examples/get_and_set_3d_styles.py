@@ -1,15 +1,7 @@
 import aclib
 
 # The 3D styles of the project (Document > 3D Styles) and the one the 3D window uses.
+# SetCurrent3DStyle was dropped (it crashed Archicad): read the styles, and change them with Change3DStyles.
 styles = aclib.RunTapirCommand ('Get3DStyles')
-originalStyle = styles['currentStyleName']
-
-# Make another style current, then restore the original one.
-for styleName in styles['styleNames']:
-    if styleName != originalStyle:
-        aclib.RunTapirCommand ('SetCurrent3DStyle', {'name': styleName})
-        print ('Current style after SetCurrent3DStyle: {}'.format (aclib.RunTapirCommand ('Get3DStyles', debug = False)['currentStyleName']))
-        break
-
-aclib.RunTapirCommand ('SetCurrent3DStyle', {'name': originalStyle})
-print ('Current style after switching back: {}'.format (aclib.RunTapirCommand ('Get3DStyles', debug = False)['currentStyleName']))
+print ('Current style: {}'.format (styles['currentStyleName']))
+aclib.RunTapirCommand ('Get3DStyleDetails', {'names': [styles['currentStyleName']]})

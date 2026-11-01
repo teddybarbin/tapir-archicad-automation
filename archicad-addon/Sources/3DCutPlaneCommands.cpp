@@ -24,7 +24,6 @@ static GSErrCode _Set3DCutPlanes (const GS::Array<GS::ObjectState>& cutPlanes)
         if (cutInfo.shapes != nullptr)
             BMKillHandle ((GSHandle*) &(cutInfo.shapes));
 
-        const bool originalUseCustom = cutInfo.useCustom;
         cutInfo.useCustom = false;
         cutInfo.nShapes = (short) cutPlanes.GetSize ();
         if (cutPlanes.IsEmpty ()) {
@@ -56,13 +55,6 @@ static GSErrCode _Set3DCutPlanes (const GS::Array<GS::ObjectState>& cutPlanes)
         }
 
         err = ACAPI_View_Change3DCuttingPlanes (&cutInfo);
-        // Imaginns fork: before the merge of 01/11/2026 useCustom was left as Archicad had it, and a cut with
-        // cutStatus 24 (the format read on a cut Teddy placed) was accepted. Forced to false it is refused
-        // (bench test_sonde_coupe_ebrasure, 01/11/2026), so the original setting is tried again.
-        if (err != NoError && originalUseCustom) {
-            cutInfo.useCustom = originalUseCustom;
-            err = ACAPI_View_Change3DCuttingPlanes (&cutInfo);
-        }
 
         BMKillHandle ((GSHandle*) &(cutInfo.shapes));
     }

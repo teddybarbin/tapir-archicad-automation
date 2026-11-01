@@ -402,7 +402,7 @@ def gen_execute (cmd, input_schema, output_schema, common):
         inner.append (' ' * loop_indent + success)
         loop = [' ' * (loop_indent - 4) + f'for (const GS::ObjectState& item : {batch_var}) {{'] + inner + [' ' * (loop_indent - 4) + '}']
         if undoable:
-            body.append (f'    ACAPI_CallUndoableCommand ("{cpp_string (words (name))}", [&] () -> GSErrCode {{')
+            body.append (f'    TAPIR_CallUndoableCommand ("{cpp_string (words (name))}", [&] () -> GSErrCode {{')
             body += loop
             body.append ('        return NoError;')
             body.append ('    });')
@@ -425,7 +425,7 @@ def gen_execute (cmd, input_schema, output_schema, common):
                 body.append (f'    // TODO: response.Add ("{field}", ...);')
         body += unused_lines (used, 4)
         if undoable:
-            body.append (f'    ACAPI_CallUndoableCommand ("{cpp_string (words (name))}", [&] () -> GSErrCode {{')
+            body.append (f'    TAPIR_CallUndoableCommand ("{cpp_string (words (name))}", [&] () -> GSErrCode {{')
             body.append ('        // TODO: call the Archicad API here.')
             body.append ('        return NoError;')
             body.append ('    });')

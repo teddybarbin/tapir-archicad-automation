@@ -588,11 +588,9 @@ GS::ObjectState	GetGDLParametersOfElementsCommand::Execute (const GS::ObjectStat
 
         API_GetParamsType getParams = {};
         err = ACAPI_LibraryPart_OpenParameters (&paramOwner);
-        // The parameter session was never closed: the first element was read, and every OpenParameters after it failed
-        // (APIERR_GENERAL) until the end of the session, so a list of elements came back with one good entry and errors
-        // (Imaginns fork, 18/10/2026). It is now closed at the end of each element, error paths included.
-        const bool sessionOpen = (err == NoError);
-        const GS::OnExit closeParams ([sessionOpen] () { if (sessionOpen) { ACAPI_LibraryPart_CloseParameters (); } });
+        // The session is closed on the error path below and at the end of the element (upstream fix). The fork's own
+        // close on exit (18/10/2026) came on top of it after the merge of 01/11/2026 and closed it twice: the third
+        // element of a list, and the third call in a row, came back unreadable (bench test_gdl.py).
         if (err == NoError) {
             err = ACAPI_LibraryPart_GetActParameters (&getParams);
             if (err != NoError) {
@@ -1153,13 +1151,6 @@ SetGDLParametersOfElementsCommand::SetOneGDLParameter (
         case APIParT_Dictionary:
             // Not supported by the Archicad API yet
             break;
-    }
-
-    // GetGDLParametersOfElements returns angles in radians, but ACAPI_LibraryPart_ChangeAParameter takes them in degrees:
-    // a value read then written back was divided by 57 (19/10/2026, bench test_gdl_angles.py). Input is radians, like
-    // the output.
-    if (gdlParametersTypeDictionary[changeParam.name] == APIParT_Angle) {
-        changeParam.realValue *= 180.0 / 3.14159265358979323846;
     }
 
     // A written A or B is read in the stored size unit (see GetStoredSizeScale).

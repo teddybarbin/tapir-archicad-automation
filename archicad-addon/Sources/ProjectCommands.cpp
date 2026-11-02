@@ -6020,6 +6020,208 @@ GS::ObjectState SetProjectPreferencesCommand::Execute (const GS::ObjectState& pa
 #endif
 }
 
+// Reference levels (Options > Project Preferences > Reference Levels)
+//
+// The page has the project zero, two named reference levels and the sea level. The DevKit
+// gives the two named ones in API_RefLevelsPrefs, as heights above the project zero. The sea
+// level is not on that page in the API: Archicad measures it from the altitude of the project
+// location (Options > Project Preferences > Project Location > Altitude), the altitude of the
+// project zero above the sea. So the commands read and write that one through the geolocation.
+
+static const char* ReferenceLevelSchema = R"({
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "The name of the reference level."
+                    },
+                    "level": {
+                        "type": "number",
+                        "description": "The height of the reference level above the project zero, in meters."
+                    }
+                },
+                "additionalProperties": false,
+                "required": []
+            })";
+
+static const char* ProjectZeroAltitudeDescription =
+    "The altitude of the project zero above the sea level, in meters (Project Location > Altitude). Archicad measures the Sea Level reference from it: a story at level z is at z + projectZeroAltitude above the sea.";
+
+// API_RefLevelsPrefs holds the two names by pointer. Archicad fills strings it is handed, so
+// the struct always points at two strings owned here.
+struct RefLevelsPrefsWithNames {
+    GS::UniString       name1;
+    GS::UniString       name2;
+    API_RefLevelsPrefs  prefs = {};
+
+    RefLevelsPrefsWithNames ()
+    {
+        prefs.level1UStr = &name1;
+        prefs.level2UStr = &name2;
+    }
+    RefLevelsPrefsWithNames (const RefLevelsPrefsWithNames&) = delete;
+    RefLevelsPrefsWithNames& operator= (const RefLevelsPrefsWithNames&) = delete;
+};
+
+GetReferenceLevelsCommand::GetReferenceLevelsCommand () :
+    CommandBase (CommonSchema::NotUsed)
+{
+}
+
+GS::String GetReferenceLevelsCommand::GetName () const
+{
+    return "GetReferenceLevels";
+}
+
+GS::Optional<GS::UniString> GetReferenceLevelsCommand::GetRawResponseSchema () const
+{
+    GS::UniString schema = R"({
+        "type": "object",
+        "properties": {
+            "referenceLevel1": )";
+    schema += ReferenceLevelSchema;
+    schema += R"(,
+            "referenceLevel2": )";
+    schema += ReferenceLevelSchema;
+    schema += R"(,
+            "projectZeroAltitude": {
+                "type": "number",
+                "description": ")";
+    schema += ProjectZeroAltitudeDescription;
+    schema += R"("
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "referenceLevel1",
+            "referenceLevel2",
+            "projectZeroAltitude"
+        ]
+    })";
+    return schema;
+}
+
+GS::ObjectState GetReferenceLevelsCommand::Execute (const GS::ObjectState& /*parameters*/, GS::ProcessControl& /*processControl*/) const
+{
+    RefLevelsPrefsWithNames refLevels;
+    GSErrCode err = ACAPI_ProjectSetting_GetPreferences (&refLevels.prefs, APIPrefs_ReferenceLevelsID);
+    if (err != NoError) {
+        return CreateErrorResponse (err, "Failed to read the reference levels.");
+    }
+
+    API_GeoLocation apiGeoLocation = {};
+    err = ACAPI_GeoLocation_GetGeoLocation (&apiGeoLocation);
+    if (err != NoError) {
+        return CreateErrorResponse (err, "Failed to read the project location.");
+    }
+
+    return GS::ObjectState (
+        "referenceLevel1", GS::ObjectState ("name", *refLevels.prefs.level1UStr, "level", refLevels.prefs.level1val),
+        "referenceLevel2", GS::ObjectState ("name", *refLevels.prefs.level2UStr, "level", refLevels.prefs.level2val),
+        "projectZeroAltitude", apiGeoLocation.placeInfo.altitude);
+}
+
+SetReferenceLevelsCommand::SetReferenceLevelsCommand () :
+    CommandBase (CommonSchema::NotUsed)
+{
+}
+
+GS::String SetReferenceLevelsCommand::GetName () const
+{
+    return "SetReferenceLevels";
+}
+
+GS::Optional<GS::UniString> SetReferenceLevelsCommand::GetInputParametersSchema () const
+{
+    GS::UniString schema = R"({
+        "type": "object",
+        "properties": {
+            "referenceLevel1": )";
+    schema += ReferenceLevelSchema;
+    schema += R"(,
+            "referenceLevel2": )";
+    schema += ReferenceLevelSchema;
+    schema += R"(,
+            "projectZeroAltitude": {
+                "type": "number",
+                "description": ")";
+    schema += ProjectZeroAltitudeDescription;
+    schema += R"("
+            }
+        },
+        "additionalProperties": false,
+        "required": []
+    })";
+    return schema;
+}
+
+GS::Optional<GS::UniString> SetReferenceLevelsCommand::GetRawResponseSchema () const
+{
+    return R"({
+        "$ref": "#/ExecutionResult"
+    })";
+}
+
+GS::ObjectState SetReferenceLevelsCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const
+{
+#ifdef ServerMainVers_2700
+    RefLevelsPrefsWithNames refLevels;
+    GSErrCode err = ACAPI_ProjectSetting_GetPreferences (&refLevels.prefs, APIPrefs_ReferenceLevelsID);
+    if (err != NoError) {
+        return CreateFailedExecutionResult (err, "Failed to read the reference levels.");
+    }
+
+    bool refLevelsChanged = false;
+    GS::ObjectState referenceLevel;
+    if (parameters.Get ("referenceLevel1", referenceLevel)) {
+        refLevelsChanged |= referenceLevel.Get ("name", *refLevels.prefs.level1UStr);
+        refLevelsChanged |= referenceLevel.Get ("level", refLevels.prefs.level1val);
+    }
+    if (parameters.Get ("referenceLevel2", referenceLevel)) {
+        refLevelsChanged |= referenceLevel.Get ("name", *refLevels.prefs.level2UStr);
+        refLevelsChanged |= referenceLevel.Get ("level", refLevels.prefs.level2val);
+    }
+
+    API_GeoLocation apiGeoLocation = {};
+    err = ACAPI_GeoLocation_GetGeoLocation (&apiGeoLocation);
+    if (err != NoError) {
+        return CreateFailedExecutionResult (err, "Failed to read the project location.");
+    }
+    const bool altitudeChanged = parameters.Get ("projectZeroAltitude", apiGeoLocation.placeInfo.altitude);
+
+    if (!refLevelsChanged && !altitudeChanged) {
+        return CreateFailedExecutionResult (APIERR_BADPARS, "Nothing to set. Give referenceLevel1, referenceLevel2 or projectZeroAltitude.");
+    }
+
+    GS::UniString errorMessage;
+    err = TAPIR_CallUndoableCommand ("Set Reference Levels", [&] () -> GSErrCode {
+        if (refLevelsChanged) {
+            const GSErrCode stepErr = ACAPI_ProjectSetting_SetPreferences (&refLevels.prefs, APIPrefs_ReferenceLevelsID);
+            if (stepErr != NoError) {
+                errorMessage = "Failed to set the reference levels. In Teamwork the PreferencesDialog lockable object set has to be reserved first.";
+                return stepErr;
+            }
+        }
+        if (altitudeChanged) {
+            const GSErrCode stepErr = ACAPI_GeoLocation_SetGeoLocation (&apiGeoLocation);
+            if (stepErr != NoError) {
+                errorMessage = "Failed to set the altitude of the project location.";
+                return stepErr;
+            }
+        }
+        return NoError;
+    });
+    if (err != NoError) {
+        return CreateFailedExecutionResult (err, errorMessage.IsEmpty () ? GS::UniString ("Failed to set the reference levels.") : errorMessage);
+    }
+
+    return CreateSuccessfulExecutionResult ();
+#else
+    (void) parameters;
+    return CreateFailedExecutionResult (APIERR_NOTSUPPORTED, "SetReferenceLevels requires Archicad 27 or newer.");
+#endif
+}
+
 static bool ParseElementsToIfcExport (const GS::UniString& str, API_ElementsToIfcExportID& result)
 {
     if (str == "EntireProject") {

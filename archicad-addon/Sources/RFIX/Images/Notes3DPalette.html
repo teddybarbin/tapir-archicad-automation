@@ -141,7 +141,10 @@ function choisir (n) {
 	etat.sel = n;
 	etat.traits = JSON.parse (JSON.stringify (n.traits || []));
 	Array.prototype.forEach.call (document.querySelectorAll (".note"), function (d) { d.classList.toggle ("sel", d.dataset.id === n.id); });
-	if (!n.image) { etat.image = null; dessinerToile (); message ("Note sans capture."); return Promise.resolve (); }
+	// la capture de la note precedente s'efface tout de suite : un trait commence pendant le chargement partait sur
+	// la nouvelle note avec l'ancienne image sous les yeux (revue du 02/11/2026) ; toile vide = pas de trait
+	etat.image = null; etat.enCours = null; dessinerToile ();
+	if (!n.image) { message ("Note sans capture."); return Promise.resolve (); }
 	return NOTES3D.Image (n.id).then (function (url) {
 		if (!url) { etat.image = null; dessinerToile (); return; }
 		return new Promise (function (ok) {
@@ -287,9 +290,13 @@ function simulerDoubleClic (id) {
 	d.dispatchEvent (new MouseEvent ("dblclick", { bubbles: true }));
 }
 function simulerTrait (id, pointsJson) {
-	var n = etat.notes.filter (function (x) { return x.id === id; })[0];
-	if (!n) { journal ("tracer : note absente " + id); return; }
-	Promise.resolve (etat.attente).then (function () { return choisir (n); }).then (function () {
+	// la note se cherche APRES la prise de note en cours, dans la liste relue (traits poses par l'API compris) ; une
+	// relecture echouee n'empeche pas le trait
+	Promise.resolve (etat.attente).catch (function () {}).then (function () {
+		var n = etat.notes.filter (function (x) { return x.id === id; })[0];
+		if (!n) { journal ("tracer : note absente " + id); return Promise.reject ("absente"); }
+		return choisir (n);
+	}).then (function () {
 		var pts = JSON.parse (pointsJson), c = $("toile"), r = c.getBoundingClientRect ();
 		if (!etat.image || !r.width) { journal ("tracer : toile vide (" + r.width + ")"); return; }
 		var ev = function (type, p) {
@@ -298,7 +305,7 @@ function simulerTrait (id, pointsJson) {
 		ev ("pointerdown", pts[0]);
 		for (var i = 1; i < pts.length; i++) ev ("pointermove", pts[i]);
 		ev ("pointerup", pts[pts.length - 1]);
-	});
+	}).catch (function () {});
 }
 function journalEtat () {
 	journal ("etat notes=" + etat.notes.length + " sel=" + (etat.sel ? etat.sel.id : "-") + " image=" + (etat.image ? etat.image.naturalWidth + "x" + etat.image.naturalHeight : "-") +

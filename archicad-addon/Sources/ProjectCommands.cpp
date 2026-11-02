@@ -6193,6 +6193,13 @@ GS::ObjectState SetReferenceLevelsCommand::Execute (const GS::ObjectState& param
         return CreateFailedExecutionResult (APIERR_BADPARS, "Nothing to set. Give referenceLevel1, referenceLevel2 or projectZeroAltitude.");
     }
 
+    // Copies of what was asked: SetPreferences may write back into the strings it was given, so the read-back is
+    // compared with these, not with refLevels.
+    const GS::UniString wantedName1 = *refLevels.prefs.level1UStr;
+    const GS::UniString wantedName2 = *refLevels.prefs.level2UStr;
+    const double wantedLevel1 = refLevels.prefs.level1val;
+    const double wantedLevel2 = refLevels.prefs.level2val;
+
     GS::UniString errorMessage;
     err = TAPIR_CallUndoableCommand ("Set Reference Levels", [&] () -> GSErrCode {
         if (refLevelsChanged) {
@@ -6213,6 +6220,25 @@ GS::ObjectState SetReferenceLevelsCommand::Execute (const GS::ObjectState& param
     });
     if (err != NoError) {
         return CreateFailedExecutionResult (err, errorMessage.IsEmpty () ? GS::UniString ("Failed to set the reference levels.") : errorMessage);
+    }
+
+    // Measured on AC27 (bench, 01/11/2026): SetPreferences answers NoError and takes both heights and the name of
+    // Reference Level 2, but keeps the name of Reference Level 1 as it was. What was not applied is said, not hidden.
+    RefLevelsPrefsWithNames readBack;
+    if (refLevelsChanged && ACAPI_ProjectSetting_GetPreferences (&readBack.prefs, APIPrefs_ReferenceLevelsID) == NoError) {
+        GS::UniString notApplied;
+        if (*readBack.prefs.level1UStr != wantedName1) {
+            notApplied += "the name of Reference Level 1 (Archicad kept \"" + *readBack.prefs.level1UStr + "\")";
+        }
+        if (*readBack.prefs.level2UStr != wantedName2) {
+            notApplied += GS::UniString (notApplied.IsEmpty () ? "" : ", ") + "the name of Reference Level 2 (Archicad kept \"" + *readBack.prefs.level2UStr + "\")";
+        }
+        if (std::abs (readBack.prefs.level1val - wantedLevel1) > 1e-6 || std::abs (readBack.prefs.level2val - wantedLevel2) > 1e-6) {
+            notApplied += GS::UniString (notApplied.IsEmpty () ? "" : ", ") + "a reference level height";
+        }
+        if (!notApplied.IsEmpty ()) {
+            return CreateFailedExecutionResult (APIERR_GENERAL, "Archicad did not apply " + notApplied + ". Everything else was set.");
+        }
     }
 
     return CreateSuccessfulExecutionResult ();

@@ -75,3 +75,9 @@
 
 #define ID_COMMON_SCHEMA_DEFINITIONS_FILE 32001
 #define ID_ACLIB_INIT_PY_FILE             32000
+
+// Notes 3D Imaginns (fork Imaginns, 01/11/2026): notes on any view, with the camera, a capture and drawn strokes.
+#define ID_NOTES3D_MENU_PALETTE         32042
+#define ID_NOTES3D_MENU_NOTER           32043
+#define ID_NOTES3D_PALETTE              32044
+#define ID_NOTES3D_PALETTE_HTML_FILE    32002

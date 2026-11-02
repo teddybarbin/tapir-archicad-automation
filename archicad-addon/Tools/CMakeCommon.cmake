@@ -110,6 +110,7 @@ function (GenerateAddOnProject target acVersion devKitDir addOnName addOnSources
 
     file (GLOB AddOnImageFiles CONFIGURE_DEPENDS
         ${addOnResourcesFolder}/RFIX/Images/*.svg
+        ${addOnResourcesFolder}/RFIX/Images/*.html
     )
     file (GLOB AddOnSchemaFiles CONFIGURE_DEPENDS
         ${addOnResourcesFolder}/RFIX/Images/*.json

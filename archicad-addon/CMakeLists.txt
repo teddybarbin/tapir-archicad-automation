@@ -22,3 +22,9 @@ project (${AddOnName})
 set (AddOnSourcesFolder Sources)
 set (AddOnResourcesFolder Sources)
 GenerateAddOnProject (AddOn ${AC_VERSION} ${AC_API_DEVKIT_DIR} ${AddOnName} ${AddOnSourcesFolder} ${AddOnResourcesFolder} INT)
+# Notes 3D Imaginns (fork Imaginns): GDI+ draws the strokes on the captures, shell32 finds Documents.
+if (WIN32)
+    target_link_libraries (AddOn gdiplus shell32 ole32)
+    # notes.json is read and written with the DevKit's RapidJSON, as "RapidJSON/document.h"
+    target_include_directories (AddOn SYSTEM PRIVATE ${AC_API_DEVKIT_DIR}/Modules)
+endif ()

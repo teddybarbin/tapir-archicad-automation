@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Notes 3D Imaginns</title>
+<style>
+	:root { --fond:#f4f4f2; --texte:#1d1d1b; --doux:#6b6b66; --ligne:#d6d6d0; --accent:#c62828; --sel:#fff3e0; }
+	* { box-sizing: border-box; }
+	html, body { margin:0; height:100%; background:var(--fond); color:var(--texte); font:13px "Segoe UI", Arial, sans-serif; }
+	body { display:flex; flex-direction:column; }
+	#saisie { display:flex; gap:6px; padding:8px; border-bottom:1px solid var(--ligne); }
+	#texte { flex:1; padding:6px 8px; border:1px solid var(--ligne); border-radius:4px; font:inherit; background:#fff; }
+	#texte:focus { outline:2px solid var(--accent); outline-offset:-1px; }
+	button { font:inherit; border:1px solid var(--ligne); background:#fff; border-radius:4px; padding:5px 9px; cursor:pointer; }
+	button:hover { border-color:var(--doux); }
+	#noter { background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600; }
+	#etat { padding:3px 8px; min-height:20px; color:var(--doux); font-size:12px; }
+	#etat.erreur { color:var(--accent); }
+	#liste { flex:0 0 auto; max-height:34%; overflow:auto; border-top:1px solid var(--ligne); border-bottom:1px solid var(--ligne); background:#fff; }
+	.note { display:flex; align-items:flex-start; gap:6px; padding:6px 8px; border-bottom:1px solid #eee; cursor:default; user-select:none; }
+	.note:hover { background:#fafafa; }
+	.note.sel { background:var(--sel); }
+	.note .corps { flex:1; min-width:0; }
+	.note .t { white-space:pre-wrap; word-break:break-word; }
+	.note .d { color:var(--doux); font-size:11px; }
+	.note .suppr { padding:1px 7px; color:var(--doux); }
+	.note .suppr.confirmer { background:var(--accent); color:#fff; border-color:var(--accent); }
+	#vide { padding:10px 8px; color:var(--doux); }
+	#outils { display:flex; flex-wrap:wrap; gap:4px; align-items:center; padding:6px 8px; }
+	.coul { width:22px; height:22px; padding:0; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1px var(--ligne); }
+	.coul.actif, .ep.actif, #gomme.actif { box-shadow:0 0 0 2px var(--texte); }
+	.ep { padding:2px 7px; }
+	#zone { flex:1; min-height:0; overflow:auto; padding:0 8px 8px; }
+	#toile { display:block; max-width:100%; background:#ddd; touch-action:none; cursor:crosshair; }
+	#toile.gomme { cursor:cell; }
+	#aide { color:var(--doux); font-size:11px; padding:0 8px 6px; }
+</style>
+</head>
+<body>
+	<div id="saisie">
+		<input id="texte" type="text" placeholder="Ta note, puis Entrée" autocomplete="off">
+		<button id="noter" title="Noter la vue (Entrée)">Noter</button>
+	</div>
+	<div id="etat"></div>
+	<div id="liste"><div id="vide">Aucune note pour ce projet.</div></div>
+	<div id="outils">
+		<button class="coul actif" data-c="#ff1744" style="background:#ff1744" title="Rouge"></button>
+		<button class="coul" data-c="#ffd600" style="background:#ffd600" title="Jaune"></button>
+		<button class="coul" data-c="#00c853" style="background:#00c853" title="Vert"></button>
+		<button class="coul" data-c="#2979ff" style="background:#2979ff" title="Bleu"></button>
+		<button class="coul" data-c="#ffffff" style="background:#ffffff" title="Blanc"></button>
+		<span style="width:6px"></span>
+		<button class="ep" data-e="1">fin</button>
+		<button class="ep actif" data-e="2">moyen</button>
+		<button class="ep" data-e="4">épais</button>
+		<span style="width:6px"></span>
+		<button id="gomme" title="Gomme : efface le trait touché">gomme</button>
+		<button id="annuler" title="Annuler le dernier trait">annuler</button>
+		<button id="effacer" title="Effacer tous les traits">tout effacer</button>
+	</div>
+	<div id="aide">Clic : voir la capture et dessiner dessus. Double-clic : remettre la vue.</div>
+	<div id="zone"><canvas id="toile" width="10" height="10"></canvas></div>
+
+<script>
+"use strict";
+var etat = { notes: [], sel: null, image: null, traits: [], couleur: "#ff1744", ep: 2, gomme: false, enCours: null, occupe: false };
+var $ = function (id) { return document.getElementById (id); };
+
+function journal (m) { try { NOTES3D.Journal (String (m)); } catch (e) {} }
+function message (m, erreur) { var e = $("etat"); e.textContent = m || ""; e.className = erreur ? "erreur" : ""; }
+function lire (s) { try { return JSON.parse (s); } catch (e) { return { ok: false, erreur: "réponse illisible" }; } }
+
+function dateCourte (iso) {
+	if (!iso) return "";
+	var d = iso.replace ("T", " ");
+	return d.substring (8, 10) + "/" + d.substring (5, 7) + " " + d.substring (11, 16);
+}
+function nomVue (n) {
+	var f = n.vue && n.vue.fenetre;
+	if (!f) return "";
+	var nom = f.type === "3D" ? "3D" : (f.type + (f.nom ? " " + f.nom : ""));
+	if (f.type === "plan" && n.vue.etage && n.vue.etage.nom) nom = "plan " + n.vue.etage.nom;
+	return nom;
+}
+
+function rafraichir (idVoulu, choixDepuis) {
+	// une note choisie pendant que la liste se relit garde la main : sans ce garde, le choix attendu par la relecture
+	// (la note qu'on vient de prendre) l'ecrasait et un trait partait sur une autre note (banc, 01/11/2026)
+	var choixAvant = choixDepuis === undefined ? etat.choix : choixDepuis;
+	etat.attente = NOTES3D.Lister ().then (function (s) {
+		var r = lire (s);
+		if (!r.ok) { message (r.erreur, true); return; }
+		etat.notes = r.notes || [];
+		dessinerListe ();
+		if (etat.choix !== choixAvant && etat.sel) { dessinerListe (); return; }
+		var id = idVoulu || (etat.sel && etat.sel.id);
+		var n = etat.notes.filter (function (x) { return x.id === id; })[0];
+		if (n) return choisir (n); else if (!idVoulu) { etat.sel = null; etat.image = null; dessinerToile (); }
+	});
+	return etat.attente;
+}
+
+function dessinerListe () {
+	var l = $("liste");
+	l.innerHTML = "";
+	if (!etat.notes.length) { l.innerHTML = '<div id="vide">Aucune note pour ce projet.</div>'; return; }
+	etat.notes.slice ().reverse ().forEach (function (n) {
+		var div = document.createElement ("div");
+		div.className = "note" + (etat.sel && etat.sel.id === n.id ? " sel" : "");
+		div.dataset.id = n.id;
+		var corps = document.createElement ("div"); corps.className = "corps";
+		var t = document.createElement ("div"); t.className = "t"; t.textContent = n.texte || "(sans texte)";
+		var d = document.createElement ("div"); d.className = "d";
+		d.textContent = dateCourte (n.date) + " · " + nomVue (n) + (n.traits && n.traits.length ? " · " + n.traits.length + " trait(s)" : "");
+		corps.appendChild (t); corps.appendChild (d);
+		var x = document.createElement ("button"); x.className = "suppr"; x.textContent = "×"; x.title = "Supprimer (2 clics)";
+		x.onclick = function (ev) {
+			ev.stopPropagation ();
+			if (!x.classList.contains ("confirmer")) {
+				x.classList.add ("confirmer"); x.textContent = "supprimer ?";
+				setTimeout (function () { x.classList.remove ("confirmer"); x.textContent = "×"; }, 3000);
+				return;
+			}
+			NOTES3D.Supprimer (n.id).then (function (s) {
+				var r = lire (s);
+				if (!r.ok) { message (r.erreur, true); return; }
+				message ("Note rangée dans notes-3d\\supprimees.");
+				if (etat.sel && etat.sel.id === n.id) { etat.sel = null; etat.image = null; dessinerToile (); }
+				rafraichir ();
+			});
+		};
+		div.appendChild (corps); div.appendChild (x);
+		div.onclick = function () { choisir (n); };
+		div.ondblclick = function () { aller (n.id); };
+		l.appendChild (div);
+	});
+}
+
+function choisir (n) {
+	etat.choix = (etat.choix || 0) + 1;
+	etat.sel = n;
+	etat.traits = JSON.parse (JSON.stringify (n.traits || []));
+	Array.prototype.forEach.call (document.querySelectorAll (".note"), function (d) { d.classList.toggle ("sel", d.dataset.id === n.id); });
+	if (!n.image) { etat.image = null; dessinerToile (); message ("Note sans capture."); return Promise.resolve (); }
+	return NOTES3D.Image (n.id).then (function (url) {
+		if (!url) { etat.image = null; dessinerToile (); return; }
+		return new Promise (function (ok) {
+			var img = new Image ();
+			img.onload = function () { if (etat.sel && etat.sel.id === n.id) { etat.image = img; dessinerToile (); } ok (); };
+			img.onerror = function () { ok (); };
+			img.src = url;
+		});
+	});
+}
+
+function aller (id) {
+	return NOTES3D.Aller (id).then (function (s) {
+		var r = lire (s);
+		message (r.ok ? "Vue remise." : r.erreur, !r.ok);
+		journal ("aller " + id + " " + (r.ok ? "ok" : r.erreur));
+	});
+}
+
+function noter () {
+	var champ = $("texte");
+	var texte = champ.value.trim ();
+	if (etat.occupe) return Promise.resolve ();
+	if (!texte) { message ("Tape d'abord ta note.", true); champ.focus (); return Promise.resolve (); }
+	etat.occupe = true;
+	message ("Capture…");
+	// le choix d'une note pendant la capture compte aussi (banc, 01/11/2026 : un trait envoye pendant la capture de la
+	// note de coupe partait sur la coupe) ; et ce qui attend la page attend toute la prise de note, relecture comprise
+	var choixAvant = etat.choix;
+	etat.attente = NOTES3D.Noter (texte).then (function (s) {
+		etat.occupe = false;
+		var r = lire (s);
+		journal ("noter " + (r.ok ? r.note.id : r.erreur));
+		if (!r.ok) { message (r.erreur, true); return; }
+		champ.value = "";
+		message ("Notée. Dessine sur la capture si besoin.");
+		return rafraichir (r.note.id, choixAvant);
+	}, function () { etat.occupe = false; });
+	return etat.attente;
+}
+
+// ---- dessin -------------------------------------------------------------------------------------------------------
+function largeurTrait () {
+	var w = etat.image ? etat.image.naturalWidth : 1000;
+	return Math.max (2, Math.round (w / 400 * etat.ep));
+}
+function dessinerToile () {
+	var c = $("toile"), g = c.getContext ("2d");
+	if (!etat.image) { c.width = 10; c.height = 10; g.clearRect (0, 0, 10, 10); return; }
+	c.width = etat.image.naturalWidth; c.height = etat.image.naturalHeight;
+	g.drawImage (etat.image, 0, 0);
+	etat.traits.concat (etat.enCours ? [etat.enCours] : []).forEach (function (t) { tracer (g, t); });
+}
+function tracer (g, t) {
+	if (!t.points.length) return;
+	g.strokeStyle = t.couleur; g.fillStyle = t.couleur; g.lineWidth = t.epaisseur; g.lineCap = "round"; g.lineJoin = "round";
+	if (t.points.length === 1) { g.beginPath (); g.arc (t.points[0].x, t.points[0].y, t.epaisseur / 2, 0, 2 * Math.PI); g.fill (); return; }
+	g.beginPath (); g.moveTo (t.points[0].x, t.points[0].y);
+	for (var i = 1; i < t.points.length; i++) g.lineTo (t.points[i].x, t.points[i].y);
+	g.stroke ();
+}
+function pointImage (ev) {
+	var c = $("toile"), r = c.getBoundingClientRect ();
+	return { x: Math.round ((ev.clientX - r.left) * c.width / r.width * 10) / 10, y: Math.round ((ev.clientY - r.top) * c.height / r.height * 10) / 10 };
+}
+function gommer (p) {
+	var rayon = largeurTrait () * 2;
+	var avant = etat.traits.length;
+	etat.traits = etat.traits.filter (function (t) {
+		return !t.points.some (function (q) { return Math.abs (q.x - p.x) < rayon + t.epaisseur && Math.abs (q.y - p.y) < rayon + t.epaisseur; });
+	});
+	if (etat.traits.length !== avant) dessinerToile ();
+	return etat.traits.length !== avant;
+}
+function sauverTraits () {
+	if (!etat.sel) return Promise.resolve ();
+	var id = etat.sel.id;
+	return NOTES3D.Traits (id + "\n" + JSON.stringify (etat.traits)).then (function (s) {
+		var r = lire (s);
+		journal ("traits " + id + " " + etat.traits.length + " " + (r.ok ? "ok" : r.erreur));
+		if (!r.ok) { message (r.erreur, true); return; }
+		etat.sel.traits = r.note.traits; etat.sel.imageAnnotee = r.note.imageAnnotee;
+		etat.notes.forEach (function (n) { if (n.id === id) { n.traits = r.note.traits; n.imageAnnotee = r.note.imageAnnotee; } });
+		message (etat.traits.length ? "Traits enregistrés (" + etat.traits.length + ")." : "Traits effacés.");
+		dessinerListe ();
+	});
+}
+
+var toile = $("toile"), gommeA = false;
+toile.addEventListener ("pointerdown", function (ev) {
+	if (!etat.image) return;
+	toile.setPointerCapture && toile.setPointerCapture (ev.pointerId);
+	var p = pointImage (ev);
+	if (etat.gomme) { gommeA = gommer (p) || false; etat.enCours = { gomme: true }; return; }
+	etat.enCours = { couleur: etat.couleur, epaisseur: largeurTrait (), points: [p] };
+	dessinerToile ();
+});
+toile.addEventListener ("pointermove", function (ev) {
+	if (!etat.enCours) return;
+	var p = pointImage (ev);
+	if (etat.enCours.gomme) { gommeA = gommer (p) || gommeA; return; }
+	var d = etat.enCours.points[etat.enCours.points.length - 1];
+	if (Math.abs (d.x - p.x) + Math.abs (d.y - p.y) < 1.5) return;
+	etat.enCours.points.push (p);
+	dessinerToile ();
+});
+function finTrait () {
+	if (!etat.enCours) return;
+	var t = etat.enCours; etat.enCours = null;
+	if (t.gomme) { if (gommeA) sauverTraits (); gommeA = false; return; }
+	etat.traits.push (t);
+	dessinerToile ();
+	sauverTraits ();
+}
+toile.addEventListener ("pointerup", finTrait);
+toile.addEventListener ("pointercancel", finTrait);
+
+Array.prototype.forEach.call (document.querySelectorAll (".coul"), function (b) {
+	b.onclick = function () {
+		etat.couleur = b.dataset.c; etat.gomme = false; $("gomme").classList.remove ("actif"); toile.classList.remove ("gomme");
+		Array.prototype.forEach.call (document.querySelectorAll (".coul"), function (x) { x.classList.toggle ("actif", x === b); });
+	};
+});
+Array.prototype.forEach.call (document.querySelectorAll (".ep"), function (b) {
+	b.onclick = function () {
+		etat.ep = Number (b.dataset.e);
+		Array.prototype.forEach.call (document.querySelectorAll (".ep"), function (x) { x.classList.toggle ("actif", x === b); });
+	};
+});
+$("gomme").onclick = function () { etat.gomme = !etat.gomme; this.classList.toggle ("actif", etat.gomme); toile.classList.toggle ("gomme", etat.gomme); };
+$("annuler").onclick = function () { if (etat.traits.length) { etat.traits.pop (); dessinerToile (); sauverTraits (); } };
+$("effacer").onclick = function () { if (etat.traits.length) { etat.traits = []; dessinerToile (); sauverTraits (); } };
+$("noter").onclick = noter;
+$("texte").addEventListener ("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault (); noter (); } });
+
+function focusTexte () { $("texte").focus (); }
+
+// ---- ce que les tests rejouent (commande SimulateNotes3DPalette) --------------------------------------------------
+function simulerNote (texte) { $("texte").value = texte; return noter (); }
+function simulerDoubleClic (id) {
+	var d = document.querySelector ('.note[data-id="' + id + '"]');
+	if (!d) { journal ("double-clic : note absente " + id); return; }
+	d.dispatchEvent (new MouseEvent ("dblclick", { bubbles: true }));
+}
+function simulerTrait (id, pointsJson) {
+	var n = etat.notes.filter (function (x) { return x.id === id; })[0];
+	if (!n) { journal ("tracer : note absente " + id); return; }
+	Promise.resolve (etat.attente).then (function () { return choisir (n); }).then (function () {
+		var pts = JSON.parse (pointsJson), c = $("toile"), r = c.getBoundingClientRect ();
+		if (!etat.image || !r.width) { journal ("tracer : toile vide (" + r.width + ")"); return; }
+		var ev = function (type, p) {
+			c.dispatchEvent (new PointerEvent (type, { bubbles: true, pointerId: 1, clientX: r.left + p.x * r.width / c.width, clientY: r.top + p.y * r.height / c.height }));
+		};
+		ev ("pointerdown", pts[0]);
+		for (var i = 1; i < pts.length; i++) ev ("pointermove", pts[i]);
+		ev ("pointerup", pts[pts.length - 1]);
+	});
+}
+function journalEtat () {
+	journal ("etat notes=" + etat.notes.length + " sel=" + (etat.sel ? etat.sel.id : "-") + " image=" + (etat.image ? etat.image.naturalWidth + "x" + etat.image.naturalHeight : "-") +
+		" traits=" + etat.traits.length + " toile=" + $("toile").getBoundingClientRect ().width + " fenetre=" + window.innerWidth + "x" + window.innerHeight);
+}
+
+function demarrer () {
+	if (typeof NOTES3D === "undefined" || !NOTES3D.Lister) { setTimeout (demarrer, 100); return; }
+	rafraichir ();
+	focusTexte ();
+	journal ("page prete");
+}
+demarrer ();
+</script>
+</body>
+</html>

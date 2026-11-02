@@ -1,4 +1,5 @@
 #include "ElementChangeTrackingCommands.hpp"
+#include "Notes3D/Notes3DCommands.hpp"
 #include "MigrationHelper.hpp"
 
 #include "FileSystem.hpp"
@@ -96,6 +97,10 @@ void AddElementList (GS::ObjectState& response, const char* fieldName, const Ele
 
 GSErrCode ProjectEventHandler (API_NotifyEventID notifID, Int32 /*param*/)
 {
+    // An add-on has one project event handler: Notes 3D (fork Imaginns) is served from here too.
+#if defined (WINDOWS)
+    Notes3D_OnProjectEvent (notifID);
+#endif
     switch (notifID) {
         case APINotify_New:
         case APINotify_Open:
@@ -113,7 +118,7 @@ GSErrCode ProjectEventHandler (API_NotifyEventID notifID, Int32 /*param*/)
 
 GSErrCode InstallElementStateProjectEventHandler ()
 {
-    return ACAPI_ProjectOperation_CatchProjectEvent (APINotify_New | APINotify_Open | APINotify_Close | APINotify_Quit, ProjectEventHandler);
+    return ACAPI_ProjectOperation_CatchProjectEvent (APINotify_New | APINotify_NewAndReset | APINotify_Open | APINotify_Close | APINotify_Save | APINotify_Quit, ProjectEventHandler);
 }
 
 void ReleaseAllElementStates ()

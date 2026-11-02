@@ -2209,6 +2209,25 @@ GS::ObjectState SetStoriesCommand::Execute (const GS::ObjectState& parameters, G
     // story is moved down to the lowest story whose level changes for the duration of the
     // level pass; then no boundary below the anchor has to change at all. The previously
     // active story is restored afterwards.
+    // Imaginns fork (bench, 01/11/2026): APIStory_GoTo only takes effect while the floor plan is the current window.
+    // Run after a test that had left a 3D or section window in front, SetStories stayed anchored on the active story 3
+    // and left the stories below it where they were ("active story: 3"); the same test passed with the plan in front.
+    // So the floor plan is brought to the front for the level pass, and the window the user had is restored after.
+    // Declared before restoreActStory, so that the active story is put back while the plan is still in front.
+    API_WindowInfo originalWindow = {};
+    const bool hasOriginalWindow = ACAPI_Window_GetCurrentWindow (&originalWindow) == NoError;
+    bool windowChanged = false;
+    const GS::OnExit restoreWindow ([&] () {
+        if (windowChanged) {
+            ACAPI_Window_ChangeWindow (&originalWindow);
+        }
+    });
+    if (hasOriginalWindow && originalWindow.typeID != APIWind_FloorPlanID) {
+        API_WindowInfo floorPlan = {};
+        floorPlan.typeID = APIWind_FloorPlanID;
+        windowChanged = ACAPI_Window_ChangeWindow (&floorPlan) == NoError;
+    }
+
     const short originalActStory = storyInfo.actStory;
     bool actStoryMoved = false;
     const GS::OnExit restoreActStory ([&] () {
@@ -2232,15 +2251,28 @@ GS::ObjectState SetStoriesCommand::Execute (const GS::ObjectState& parameters, G
 
     const bool actStoryIsValid = storyInfo.actStory >= storyInfo.firstStory && storyInfo.actStory <= storyInfo.lastStory;
 
-    if (hasChangingStory && actStoryIsValid && storyInfo.actStory > currentStories[lowestChangingStory].index) {
+    // Imaginns fork (bench, 01/11/2026): on AC27 the lowest story cannot be the anchor, SetElevation leaves it where it
+    // is (see below). When it is the lowest story that changes, the ladder is anchored on the story above it from the
+    // start, and the lowest one is positioned through the height of the boundary between the two.
+    const GS::UIndex anchorTarget = (lowestChangingStory == 0 && storyCount > 1) ? 1 : lowestChangingStory;
+    GS::UniString anchorTrace;
+
+    if (hasChangingStory && actStoryIsValid &&
+        (storyInfo.actStory > currentStories[anchorTarget].index ||
+         (anchorTarget == 1 && storyInfo.actStory == currentStories[0].index)))
+    {
         API_StoryCmdType storyCmd = {};
         storyCmd.action = APIStory_GoTo;
-        storyCmd.index  = currentStories[lowestChangingStory].index;
+        storyCmd.index  = currentStories[anchorTarget].index;
 
         // Where the active story cannot be switched (#748) this falls back to anchoring on
         // the story which is active, and the final check reports the levels it could not
         // set, exactly as before.
-        if (ACAPI_ProjectSetting_ChangeStorySettings (&storyCmd) == NoError) {
+        const GSErrCode goToErr = ACAPI_ProjectSetting_ChangeStorySettings (&storyCmd);
+        if (goToErr != NoError) {
+            anchorTrace += GS::UniString::Printf (" GoTo %d answered %d.", static_cast<int> (storyCmd.index), static_cast<int> (goToErr));
+        }
+        if (goToErr == NoError) {
             err = RefreshStoryInfo (storyInfo);
             if (err != NoError) {
                 BMKillHandle (reinterpret_cast<GSHandle *> (&storyInfo.data));
@@ -2289,6 +2321,34 @@ GS::ObjectState SetStoriesCommand::Execute (const GS::ObjectState& parameters, G
         return GS::NoValue;
     };
 
+    // Measured on a live AC27 (bench sonde test_s0111_stories_montee.py, 01/11/2026): APIStory_SetElevation moves only
+    // the story it names and, answering NoError, leaves it where it is when the new level would cross a neighbour (whole
+    // ladder raised by 1 m: done; by 5 m or 7,65 m: nothing moved, story 0 being 2,40 m under story 1). So before the
+    // anchor is set, the side it goes towards is moved by the same amount through the height of the boundary next to it
+    // (SetHeight moves the side further from the active story); step two sets that height again afterwards.
+    const auto makeRoomForAnchor = [&] () {
+        const double delta = targetLevels[anchor] - currentStories[anchor].level;
+        API_StoryCmdType heightCmd = {};
+        heightCmd.action = APIStory_SetHeight;
+        if (delta >= StoryLevelTolerance && anchor + 1 < storyCount) {
+            heightCmd.index  = currentStories[anchor].index;
+            heightCmd.height = currentStories[anchor + 1].level - currentStories[anchor].level + delta;
+        } else if (delta <= -StoryLevelTolerance && anchor > 0) {
+            heightCmd.index  = currentStories[anchor - 1].index;
+            heightCmd.height = currentStories[anchor].level - currentStories[anchor - 1].level - delta;
+        } else {
+            return;
+        }
+        const GSErrCode heightErr = ACAPI_ProjectSetting_ChangeStorySettings (&heightCmd);
+        if (heightErr != NoError) {
+            anchorTrace += GS::UniString::Printf (" Making room for the anchor answered %d.", static_cast<int> (heightErr));
+        }
+        if (heightErr == NoError && RefreshStoryInfo (storyInfo) == NoError) {
+            TakeStorySnapshot (storyInfo, currentStories);
+        }
+    };
+    makeRoomForAnchor ();
+
     GS::Optional<GS::ObjectState> anchorError = setAnchorElevation ();
 
     // Measured on a live AC27 (bench test_stories.py, 01/11/2026): APIStory_SetElevation answers NoError and leaves
@@ -2302,7 +2362,11 @@ GS::ObjectState SetStoriesCommand::Execute (const GS::ObjectState& parameters, G
         API_StoryCmdType storyCmd = {};
         storyCmd.action = APIStory_GoTo;
         storyCmd.index  = currentStories[1].index;
-        if (ACAPI_ProjectSetting_ChangeStorySettings (&storyCmd) == NoError) {
+        const GSErrCode goToErr = ACAPI_ProjectSetting_ChangeStorySettings (&storyCmd);
+        if (goToErr != NoError) {
+            anchorTrace += GS::UniString::Printf (" GoTo %d answered %d.", static_cast<int> (storyCmd.index), static_cast<int> (goToErr));
+        }
+        if (goToErr == NoError) {
             err = RefreshStoryInfo (storyInfo);
             if (err != NoError) {
                 BMKillHandle (reinterpret_cast<GSHandle *> (&storyInfo.data));
@@ -2312,7 +2376,10 @@ GS::ObjectState SetStoriesCommand::Execute (const GS::ObjectState& parameters, G
             actStoryMoved = storyInfo.actStory != originalActStory;
             if (storyInfo.actStory == currentStories[1].index) {
                 anchor = 1;
+                makeRoomForAnchor ();
                 anchorError = setAnchorElevation ();
+            } else {
+                anchorTrace += GS::UniString::Printf (" GoTo %d left story %d active.", static_cast<int> (storyCmd.index), static_cast<int> (storyInfo.actStory));
             }
         }
     }
@@ -2370,7 +2437,7 @@ GS::ObjectState SetStoriesCommand::Execute (const GS::ObjectState& parameters, G
             const GS::UniString message = GS::UniString::Printf (
                 "Failed to set the level of story %d: requested %.4f, got %.4f (active story: %d).",
                 static_cast<int> (currentStories[i].index), targetLevels[i], currentStories[i].level,
-                static_cast<int> (storyInfo.actStory));
+                static_cast<int> (storyInfo.actStory)) + anchorTrace;
             BMKillHandle (reinterpret_cast<GSHandle *> (&storyInfo.data));
             return CreateFailedExecutionResult (APIERR_GENERAL, message);
         }
@@ -5764,6 +5831,13 @@ GS::ObjectState SetReferenceLevelsCommand::Execute (const GS::ObjectState& param
         return CreateFailedExecutionResult (APIERR_BADPARS, "Nothing to set. Give referenceLevel1, referenceLevel2 or projectZeroAltitude.");
     }
 
+    // Copies of what was asked: SetPreferences may write back into the strings it was given, so the read-back is
+    // compared with these, not with refLevels.
+    const GS::UniString wantedName1 = *refLevels.prefs.level1UStr;
+    const GS::UniString wantedName2 = *refLevels.prefs.level2UStr;
+    const double wantedLevel1 = refLevels.prefs.level1val;
+    const double wantedLevel2 = refLevels.prefs.level2val;
+
     GS::UniString errorMessage;
     err = TAPIR_CallUndoableCommand ("Set Reference Levels", [&] () -> GSErrCode {
         if (refLevelsChanged) {
@@ -5784,6 +5858,25 @@ GS::ObjectState SetReferenceLevelsCommand::Execute (const GS::ObjectState& param
     });
     if (err != NoError) {
         return CreateFailedExecutionResult (err, errorMessage.IsEmpty () ? GS::UniString ("Failed to set the reference levels.") : errorMessage);
+    }
+
+    // Measured on AC27 (bench, 01/11/2026): SetPreferences answers NoError and takes both heights and the name of
+    // Reference Level 2, but keeps the name of Reference Level 1 as it was. What was not applied is said, not hidden.
+    RefLevelsPrefsWithNames readBack;
+    if (refLevelsChanged && ACAPI_ProjectSetting_GetPreferences (&readBack.prefs, APIPrefs_ReferenceLevelsID) == NoError) {
+        GS::UniString notApplied;
+        if (*readBack.prefs.level1UStr != wantedName1) {
+            notApplied += "the name of Reference Level 1 (Archicad kept \"" + *readBack.prefs.level1UStr + "\")";
+        }
+        if (*readBack.prefs.level2UStr != wantedName2) {
+            notApplied += GS::UniString (notApplied.IsEmpty () ? "" : ", ") + "the name of Reference Level 2 (Archicad kept \"" + *readBack.prefs.level2UStr + "\")";
+        }
+        if (std::abs (readBack.prefs.level1val - wantedLevel1) > 1e-6 || std::abs (readBack.prefs.level2val - wantedLevel2) > 1e-6) {
+            notApplied += GS::UniString (notApplied.IsEmpty () ? "" : ", ") + "a reference level height";
+        }
+        if (!notApplied.IsEmpty ()) {
+            return CreateFailedExecutionResult (APIERR_GENERAL, "Archicad did not apply " + notApplied + ". Everything else was set.");
+        }
     }
 
     return CreateSuccessfulExecutionResult ();

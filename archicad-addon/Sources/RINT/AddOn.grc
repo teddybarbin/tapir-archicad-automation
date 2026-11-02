@@ -161,3 +161,21 @@
 20   ""        ShortcutLabelEdit6
 21   ""        CloseButton
 }
+
+'STR#' ID_NOTES3D_MENU_PALETTE "Notes 3D Menu" {
+/* [   ] */        "Notes 3D Imaginns"
+/* [  1] */        "Palette Notes 3D^E3^ES^EE^EI^ED^EL^EW^ET^EM"
+}
+
+'STR#' ID_NOTES3D_MENU_NOTER "Notes 3D Menu" {
+/* [   ] */        "Notes 3D Imaginns"
+/* [  1] */        "Noter la vue^E3^ES^EE^EI^ED^EL^EW^ET^EM"
+}
+
+'GDLG' ID_NOTES3D_PALETTE Palette | topCaption | close | grow   0   0  400  680  "Notes 3D Imaginns"  {
+/* [  1] */ Browser                     0   0  400  680
+}
+
+'DLGH' ID_NOTES3D_PALETTE Notes3D_Palette {
+1    ""        BrowserItem
+}

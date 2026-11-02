@@ -61,6 +61,7 @@
 #include "GraphicalOverrideCommands.hpp"
 #include "PolygonCommands.hpp"
 #include "DrawingPrimitiveCommands.hpp"
+#include "Notes3D/Notes3DCommands.hpp"
 
 template <typename CommandType>
 GSErrCode RegisterCommand (CommandGroup& group, const GS::UniString& version, const GS::UniString& description)
@@ -185,6 +186,9 @@ GSErrCode RegisterInterface (void)
     err |= ACAPI_MenuItem_RegisterMenu (ID_ADDON_MENU_RUNSCRIPT_4, 0, MenuCode_UserDef, MenuFlag_Default);
     err |= ACAPI_MenuItem_RegisterMenu (ID_ADDON_MENU_RUNSCRIPT_5, 0, MenuCode_UserDef, MenuFlag_Default);
     err |= ACAPI_MenuItem_RegisterMenu (ID_ADDON_MENU_RUNSCRIPT_6, 0, MenuCode_UserDef, MenuFlag_Default);
+#if defined (WINDOWS)
+    err |= Notes3D_RegisterMenus ();
+#endif
 
     return err;
 }
@@ -207,6 +211,10 @@ GSErrCode Initialize (void)
     err |= ScriptUIPalette::RegisterPaletteControlCallBack ();
     // The element states of CaptureElementState belong to the open project: drop them when it closes.
     err |= InstallElementStateProjectEventHandler ();
+    // Notes 3D Imaginns (fork Imaginns): its menus and palette; its project events come through the handler above.
+#if defined (WINDOWS)
+    err |= Notes3D_Initialize ();
+#endif
 
     // The Add-On is preloaded, so this runs before Archicad opens the first project.
     ApplyDialogAutoCloseFromEnvironment ();
@@ -2732,6 +2740,45 @@ GSErrCode Initialize (void)
         AddCommandGroup (scriptUICommands);
     }
 
+#if defined (WINDOWS)
+    { // Notes 3D Commands (fork Imaginns)
+        CommandGroup notes3DCommands ("Notes 3D Commands");
+        err |= RegisterCommand<GetNotes3DCommand> (
+            notes3DCommands, "1.7.4",
+            "Returns the notes taken in the Notes 3D palette for the open project (notes.json in <folder of the .pln>\\notes-3d): text, date, the view (window, 3D camera or 2D frame), the capture and the strokes drawn on it."
+        );
+        err |= RegisterCommand<GoToNote3DCommand> (
+            notes3DCommands, "1.7.4",
+            "Opens the window of a note again with the same camera (3D) or the same story and frame (2D), as a double-click on the note in the palette does, and returns the view read back."
+        );
+        err |= RegisterCommand<AddNote3DCommand> (
+            notes3DCommands, "1.7.4",
+            "Takes a note on the current window, as the palette does: the text, the view and a PNG capture of the window."
+        );
+        err |= RegisterCommand<AnnotateNote3DCommand> (
+            notes3DCommands, "1.7.4",
+            "Replaces the strokes drawn on the capture of a note and redraws <id>_annot.png from the raw capture."
+        );
+        err |= RegisterCommand<DeleteNote3DCommand> (
+            notes3DCommands, "1.7.4",
+            "Removes a note from notes.json. Nothing is deleted: the note and its images go to notes-3d\\supprimees."
+        );
+        err |= RegisterCommand<GetCurrentViewNotes3DCommand> (
+            notes3DCommands, "1.7.4",
+            "Returns the current view in the form a note keeps it (window, 3D camera or 2D frame)."
+        );
+        err |= RegisterCommand<ShowNotes3DPaletteCommand> (
+            notes3DCommands, "1.7.4",
+            "Shows the Notes 3D palette."
+        );
+        err |= RegisterCommand<SimulateNotes3DPaletteCommand> (
+            notes3DCommands, "1.7.4",
+            "For tests only: plays in the Notes 3D palette what the user would do (type a note, draw a stroke, double-click a note)."
+        );
+        AddCommandGroup (notes3DCommands);
+    }
+#endif
+
     { // Developer Commands
         CommandGroup developerCommands ("Developer Commands");
         err |= RegisterCommand<GenerateDocumentationCommand> (
@@ -2778,5 +2825,8 @@ GSErrCode FreeData (void)
     ScriptUIPalette::Release ();
     // Deletes the files of the states CaptureElementState still holds.
     ReleaseAllElementStates ();
+#if defined (WINDOWS)
+    Notes3D_FreeData ();
+#endif
     return NoError;
 }

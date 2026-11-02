@@ -5863,7 +5863,10 @@ GS::ObjectState SetReferenceLevelsCommand::Execute (const GS::ObjectState& param
     // Measured on AC27 (bench, 01/11/2026): SetPreferences answers NoError and takes both heights and the name of
     // Reference Level 2, but keeps the name of Reference Level 1 as it was. What was not applied is said, not hidden.
     RefLevelsPrefsWithNames readBack;
-    if (refLevelsChanged && ACAPI_ProjectSetting_GetPreferences (&readBack.prefs, APIPrefs_ReferenceLevelsID) == NoError) {
+    if (refLevelsChanged && ACAPI_ProjectSetting_GetPreferences (&readBack.prefs, APIPrefs_ReferenceLevelsID) != NoError) {
+        return CreateFailedExecutionResult (APIERR_GENERAL, "The reference levels were set but could not be read back to check them.");
+    }
+    if (refLevelsChanged) {
         GS::UniString notApplied;
         if (*readBack.prefs.level1UStr != wantedName1) {
             notApplied += "the name of Reference Level 1 (Archicad kept \"" + *readBack.prefs.level1UStr + "\")";

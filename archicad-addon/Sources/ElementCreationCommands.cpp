@@ -1865,6 +1865,11 @@ GS::Optional<GS::ObjectState> CreateRailingsCommand::SetTypeSpecificParameters (
     const auto floorIndexAndOffset = ResolveFloorIndexAndOffset (parameters, "floorIndex", inputLevel, stories);
     element.header.floorInd = floorIndexAndOffset.first;
     element.railing.bottomOffset = floorIndexAndOffset.second;
+    // With linkToSettings.newCreationMode set, as the Railing tool defaults and favorites have it, Archicad ignores
+    // head.floorInd and puts the railing on the story active in the window (bench, 01/11/2026: asked for story 6 at
+    // 9,63, it landed on the active story 4 with a bottom offset of 2,80). So the requested floor is made binding.
+    element.railing.linkToSettings.newCreationMode = false;
+    element.railing.linkToSettings.homeStoryDifference = 0;
 
     GS::Array<GS::ObjectState> coordinates;
     GS::Array<GS::ObjectState> arcs;

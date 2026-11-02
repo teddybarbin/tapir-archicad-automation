@@ -48,9 +48,12 @@ static GSErrCode _Set3DCutPlanes (const GS::Array<GS::ObjectState>& cutPlanes)
             cutPlanes[i].Get ("pc", (*cutInfo.shapes)[i].pc);
             cutPlanes[i].Get ("pd", (*cutInfo.shapes)[i].pd);
             // Imaginns fork: cutStatus as Get3DCutPlanes returns it, so that a cut round-trips.
+            // Measured on AC27 (bench, 01/11/2026): cutStatus 0, 2 and 8 are taken, 16 and 24 are refused with
+            // APIERR_BADPARS, although a cut placed in Archicad reads back as 24. Bit 16 is Archicad's own state of
+            // the shape, not a setting, so it is dropped: a cut read with Get3DCutPlanes can be set again as it is.
             Int32 cutStatus = 0;
             if (cutPlanes[i].Get ("cutStatus", cutStatus)) {
-                (*cutInfo.shapes)[i].cutStatus = static_cast<short> (cutStatus);
+                (*cutInfo.shapes)[i].cutStatus = static_cast<short> (cutStatus & ~16);
             }
         }
 
@@ -92,7 +95,7 @@ GS::Optional<GS::UniString> Set3DCutPlanesCommand::GetInputParametersSchema () c
                     },
                     "cutStatus": {
                         "type": "integer",
-                        "description": "Optional raw cutStatus of the shape, as Get3DCutPlanes returns it (copy it back to restore a cut)."
+                        "description": "Optional raw cutStatus of the shape, as Get3DCutPlanes returns it (copy it back to restore a cut). Bit 16, which Archicad sets on a cut placed by hand and refuses as input, is ignored."
                     }
                 },
                 "required": [

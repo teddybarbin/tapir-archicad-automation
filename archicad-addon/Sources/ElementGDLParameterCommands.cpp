@@ -609,6 +609,8 @@ GS::ObjectState	GetGDLParametersOfElementsCommand::Execute (const GS::ObjectStat
         paramOwner.typeID = apiElement.header.typeID;
 #endif
 
+        const Int32 libInd = GetLibIndOfElement (apiElement);
+
         API_GetParamsType getParams = {};
         err = ACAPI_LibraryPart_OpenParameters (&paramOwner);
         // The session is closed on the error path below and at the end of the element (upstream fix). The fork's own
@@ -622,12 +624,21 @@ GS::ObjectState	GetGDLParametersOfElementsCommand::Execute (const GS::ObjectStat
         }
 
         if (err != NoError) {
-            const GS::UniString errorMsg = GS::UniString::Printf ("Failed to get parameters of element with guid %T!", APIGuidToString (paramOwner.guid).ToPrintf ());
+            GS::UniString errorMsg = GS::UniString::Printf ("Failed to get parameters of element with guid %T!", APIGuidToString (paramOwner.guid).ToPrintf ());
+            // Bench, 01/11/2026: the unreadable windows of a copy of the project were all objects of a library the copy
+            // had not loaded. Say so, it is the usual cause and it is not a fault of the element.
+            API_LibPart libPart = {};
+            libPart.index = libInd;
+            const bool libPartFound = libInd > 0 && ACAPI_LibraryPart_Get (&libPart) == NoError;
+            if (!libPartFound || libPart.missingDef) {
+                errorMsg += " Its library part is missing from the loaded libraries.";
+            }
+            if (libPart.location != nullptr) {
+                delete libPart.location;
+            }
             elemGdlParameterListAdder (CreateErrorResponse (err, errorMsg));
             continue;
         }
-
-        const Int32 libInd = GetLibIndOfElement (apiElement);
 
         // The library part's own parameter list only gives the display names. Its return code was ignored and the
         // handle used unchecked and never freed: now checked, bounded and disposed.

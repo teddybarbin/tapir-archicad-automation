@@ -475,6 +475,14 @@ GSErrCode Initialize (void)
             projectCommands, "1.7.2",
             "Changes pages of the project preferences (Options > Project Preferences): the working units, the dimensions, the calculation units and the zones. Only the given fields change, the rest of each page keeps its value. In Teamwork the PreferencesDialog lockable object set has to be reserved first (ReserveLockableObjectSet). Available from Archicad 27."
         );
+        err |= RegisterCommand<GetReferenceLevelsCommand> (
+            projectCommands, "1.7.4",
+            "Gets the reference levels of the project (Options > Project Preferences > Reference Levels): the name and the height above the project zero of Reference Level 1 and 2, and the altitude of the project zero above the sea level, which the Sea Level reference is measured from."
+        );
+        err |= RegisterCommand<SetReferenceLevelsCommand> (
+            projectCommands, "1.7.4",
+            "Changes the reference levels of the project: the name or the height above the project zero of Reference Level 1 and 2, and the altitude of the project zero above the sea level (Project Location > Altitude). Only the given fields change. Available from Archicad 27."
+        );
         err |= RegisterCommand<ConvertUnitValuesCommand> (
             projectCommands, "1.7.3",
             "Formats lengths, areas, volumes and angles (given in meters, square meters, cubic meters and radians) as Archicad shows them with the unit and rounding of the given Project Preference, returning the text, its extra accuracy decimals and the unit. The output is aligned with the input array of values. Available from Archicad 27."

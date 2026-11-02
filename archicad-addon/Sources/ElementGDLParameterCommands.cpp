@@ -586,24 +586,6 @@ GS::ObjectState	GetGDLParametersOfElementsCommand::Execute (const GS::ObjectStat
         paramOwner.typeID = apiElement.header.typeID;
 #endif
 
-        API_GetParamsType getParams = {};
-        err = ACAPI_LibraryPart_OpenParameters (&paramOwner);
-        // The session is closed on the error path below and at the end of the element (upstream fix). The fork's own
-        // close on exit (18/10/2026) came on top of it after the merge of 01/11/2026 and closed it twice: the third
-        // element of a list, and the third call in a row, came back unreadable (bench test_gdl.py).
-        if (err == NoError) {
-            err = ACAPI_LibraryPart_GetActParameters (&getParams);
-            if (err != NoError) {
-                ACAPI_LibraryPart_CloseParameters ();
-            }
-        }
-
-        if (err != NoError) {
-            const GS::UniString errorMsg = GS::UniString::Printf ("Failed to get parameters of element with guid %T!", APIGuidToString (paramOwner.guid).ToPrintf ());
-            elemGdlParameterListAdder (CreateErrorResponse (err, errorMsg));
-            continue;
-        }
-
         Int32 libInd = -1;
         if (GetElemTypeId (apiElement.header) == API_ObjectID) {
             libInd = apiElement.object.libInd;
@@ -629,6 +611,35 @@ GS::ObjectState	GetGDLParametersOfElementsCommand::Execute (const GS::ObjectStat
             libInd = apiElement.cwJunction.libInd;
         } else if (GetElemTypeId (apiElement.header) == API_CurtainWallAccessoryID) {
             libInd = apiElement.cwAccessory.libInd;
+        }
+
+        API_GetParamsType getParams = {};
+        err = ACAPI_LibraryPart_OpenParameters (&paramOwner);
+        // The session is closed on the error path below and at the end of the element (upstream fix). The fork's own
+        // close on exit (18/10/2026) came on top of it after the merge of 01/11/2026 and closed it twice: the third
+        // element of a list, and the third call in a row, came back unreadable (bench test_gdl.py).
+        if (err == NoError) {
+            err = ACAPI_LibraryPart_GetActParameters (&getParams);
+            if (err != NoError) {
+                ACAPI_LibraryPart_CloseParameters ();
+            }
+        }
+
+        if (err != NoError) {
+            GS::UniString errorMsg = GS::UniString::Printf ("Failed to get parameters of element with guid %T!", APIGuidToString (paramOwner.guid).ToPrintf ());
+            // Bench, 01/11/2026: the unreadable windows of a copy of the project were all objects of a library the copy
+            // had not loaded. Say so, it is the usual cause and it is not a fault of the element.
+            API_LibPart libPart = {};
+            libPart.index = libInd;
+            const bool libPartFound = libInd > 0 && ACAPI_LibraryPart_Get (&libPart) == NoError;
+            if (!libPartFound || libPart.missingDef) {
+                errorMsg += " Its library part is missing from the loaded libraries.";
+            }
+            if (libPart.location != nullptr) {
+                delete libPart.location;
+            }
+            elemGdlParameterListAdder (CreateErrorResponse (err, errorMsg));
+            continue;
         }
 
         // The library part's own parameter list only gives the display names. Its return code was ignored and the

@@ -4536,7 +4536,7 @@ GS::ObjectState SetLast3DDefaultLevelsCommand::Execute (const GS::ObjectState& p
         return CreateFailedExecutionResult (APIERR_BADPARS, "levels must contain one level for each of elementTypes.");
     }
 
-    const GSErrCode err = ACAPI_CallUndoableCommand ("Set Last 3D Default Levels", [&] () -> GSErrCode {
+    const GSErrCode err = TAPIR_CallUndoableCommand ("Set Last 3D Default Levels", [&] () -> GSErrCode {
         return TAPIR_ProjectSetting_SetLast3DDefLevels (typeIDs, levels);
     });
     if (err != NoError) {

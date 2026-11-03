@@ -4053,7 +4053,7 @@ GS::ObjectState SetAnalyticalReleasesCommand::Execute (const GS::ObjectState& pa
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
 #ifdef ServerMainVers_2600
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("Set Analytical Releases", [&] () -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("Set Analytical Releases", [&] () -> GSErrCode {
         for (const GS::ObjectState& item : releases) {
             const API_Guid elemGuid = GetGuidFromElementsArrayItem (item);
             if (elemGuid == APINULLGuid) {
@@ -4272,7 +4272,7 @@ GS::ObjectState SetCustomCurveMemberStretchCommand::Execute (const GS::ObjectSta
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
 #ifdef ServerMainVers_2900
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("Set Custom Curve Member Stretch", [&] () -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("Set Custom Curve Member Stretch", [&] () -> GSErrCode {
         for (const GS::ObjectState& item : stretches) {
             const API_Guid elemGuid = GetGuidFromElementsArrayItem (item);
             double begAdditionalLength = 0.0;
@@ -4884,7 +4884,7 @@ GS::ObjectState CreateAnalyticalSupportsCommand::Execute (const GS::ObjectState&
     const auto& elements = response.AddList<GS::ObjectState> ("elements");
 
 #ifdef ServerMainVers_2600
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("Create Analytical Supports", [&] () -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("Create Analytical Supports", [&] () -> GSErrCode {
         for (const GS::ObjectState& supportOS : supports) {
             API_AnalyticalSupportType support {};
             const GS::Optional<GS::ObjectState> supportError = GetAnalyticalSupportFromObjectState (supportOS, support);
@@ -4965,7 +4965,7 @@ GS::ObjectState CreateAnalyticalLinksCommand::Execute (const GS::ObjectState& pa
     const auto& elements = response.AddList<GS::ObjectState> ("elements");
 
 #ifdef ServerMainVers_2600
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("Create Analytical Links", [&] () -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("Create Analytical Links", [&] () -> GSErrCode {
         for (const GS::ObjectState& linkOS : links) {
             API_AnalyticalLinkType link {};
             const GS::Optional<GS::ObjectState> linkError = GetAnalyticalLinkFromObjectState (linkOS, link);
@@ -5073,7 +5073,7 @@ GS::ObjectState ConvertAnalyticalLinksToNonShortestCommand::Execute (const GS::O
     GS::ObjectState response;
     const auto& links = response.AddList<GS::ObjectState> ("links");
 
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("Convert Analytical Links to Non-Shortest", [&] () -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("Convert Analytical Links to Non-Shortest", [&] () -> GSErrCode {
         for (const GS::ObjectState& item : elements) {
             const API_Guid elemGuid = GetGuidFromElementsArrayItem (item);
             if (elemGuid == APINULLGuid) {
@@ -5354,7 +5354,7 @@ GS::ObjectState CreateAnalyticalLoadsCommand::Execute (const GS::ObjectState& pa
     const auto& elements = response.AddList<GS::ObjectState> ("elements");
 
 #ifdef ServerMainVers_2600
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("Create Analytical Loads", [&] () -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("Create Analytical Loads", [&] () -> GSErrCode {
         for (const GS::ObjectState& load : loads) {
             elements (CreateAnalyticalLoad (load));
         }

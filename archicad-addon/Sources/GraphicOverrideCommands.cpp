@@ -1811,7 +1811,7 @@ GS::ObjectState SetGraphicOverrideRuleGroupOrderCommand::Execute (const GS::Obje
         }
     }
 
-    err = ACAPI_CallUndoableCommand ("Set Graphic Override Rule Group Order", [&] () -> GSErrCode {
+    err = TAPIR_CallUndoableCommand ("Set Graphic Override Rule Group Order", [&] () -> GSErrCode {
         return ACAPI_GraphicalOverride_SetOverrideRuleGroupOrder (orderedRuleGroupIds);
     });
     if (err != NoError) {

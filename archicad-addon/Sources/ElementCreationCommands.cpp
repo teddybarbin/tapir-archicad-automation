@@ -1573,7 +1573,7 @@ GS::ObjectState ModifyZonesCommand::Execute (const GS::ObjectState& parameters, 
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("ModifyZones", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("ModifyZones", [&] () -> GSErrCode {
         for (const GS::ObjectState& item : zonesWithDetails) {
             const GS::ObjectState* elementId = item.Get ("elementId");
             if (elementId == nullptr) {

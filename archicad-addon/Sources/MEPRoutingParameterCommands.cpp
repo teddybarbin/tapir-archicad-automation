@@ -760,7 +760,7 @@ GS::ObjectState SetMEPRoutingParametersCommand::Execute (const GS::ObjectState& 
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Set MEP Routing Parameters", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Set MEP Routing Parameters", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementData : elements) {
             executionResults (SetRoutingParameters (elementData));
         }

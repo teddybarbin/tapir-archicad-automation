@@ -3570,7 +3570,7 @@ GS::ObjectState MoveFavoritesCommand::Execute (const GS::ObjectState& parameters
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
     GS::UniString errorMessage = "Failed to move the Favorites.";
-    const GSErrCode err = ACAPI_CallUndoableCommand ("MoveFavorites", [&]() -> GSErrCode {
+    const GSErrCode err = TAPIR_CallUndoableCommand ("MoveFavorites", [&]() -> GSErrCode {
         const ACAPI::Favorite::FavoriteManager manager = ACAPI::Favorite::GetFavoriteManager ();
         std::optional<ACAPI::Favorite::FavoriteFolder> targetFolder;
         const GSErrCode findErr = FindFavoriteFolderOfPath (manager, targetPath, targetFolder, errorMessage);

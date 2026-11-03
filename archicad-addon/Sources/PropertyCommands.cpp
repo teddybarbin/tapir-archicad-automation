@@ -2011,7 +2011,7 @@ GS::ObjectState SetBuiltInPropertyValuesOfAttributesCommand::Execute (const GS::
 
     PropertyConversionUtils conversionUtils;
 
-    ACAPI_CallUndoableCommand ("SetBuiltInPropertyValuesOfAttributesCommand", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("SetBuiltInPropertyValuesOfAttributesCommand", [&]() -> GSErrCode {
         for (const AttributeToSet& attributeToSet : attributesToSet) {
             const auto setAllResults = [&] (const GSErrCode err, const GS::UniString& message) {
                 for (const PropertyValueToSet& valueToSet : attributeToSet.values) {

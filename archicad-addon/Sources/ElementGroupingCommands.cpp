@@ -1431,7 +1431,7 @@ GS::ObjectState DeleteElementSetsCommand::Execute(const GS::ObjectState& paramet
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState>("executionResults");
 
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand("Delete Element Sets", [&]() -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("Delete Element Sets", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementSet : elementSets) {
             const GS::ObjectState* elementSetId = elementSet.Get("elementSetId");
             if (elementSetId == nullptr) {

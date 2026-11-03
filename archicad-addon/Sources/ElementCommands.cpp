@@ -3679,7 +3679,7 @@ GS::ObjectState SetElementInfoStringsCommand::Execute (const GS::ObjectState& pa
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("SetElementInfoStrings", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("SetElementInfoStrings", [&]() -> GSErrCode {
         for (const GS::ObjectState& element : elements) {
             const GS::ObjectState* elementId = element.Get ("elementId");
             if (elementId == nullptr) {

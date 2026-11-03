@@ -13191,7 +13191,7 @@ GS::ObjectState PlaceOpeningsCommand::Execute (const GS::ObjectState& parameters
         // outside ACAPI_CallUndoableCommand crashes Archicad 30 with an ODB assertion (#1665), so it
         // is run inside one, like the other creation commands.
         std::optional<ACAPI::Result<ACAPI::UniqueID>> placed;
-        const GSErrCode scopeErr = ACAPI_CallUndoableCommand ("Place Opening", [&] () -> GSErrCode {
+        const GSErrCode scopeErr = TAPIR_CallUndoableCommand ("Place Opening", [&] () -> GSErrCode {
             placed.emplace (openingDefault->Place (parentElemId, placePoint));
             return NoError;
         });

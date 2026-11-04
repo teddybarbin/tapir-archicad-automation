@@ -1473,7 +1473,7 @@ GS::ObjectState RenameProjectInfoFieldsCommand::Execute (const GS::ObjectState& 
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("RenameProjectInfoFields", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("RenameProjectInfoFields", [&]() -> GSErrCode {
         for (const GS::ObjectState& projectInfoField : projectInfoFields) {
             const API_Guid fieldGuid = GetGuidFromArrayItem ("projectInfoFieldId", projectInfoField);
             if (fieldGuid == APINULLGuid) {
@@ -1582,7 +1582,7 @@ GS::ObjectState MoveProjectInfoFieldsCommand::Execute (const GS::ObjectState& pa
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("MoveProjectInfoFields", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("MoveProjectInfoFields", [&]() -> GSErrCode {
         for (const GS::ObjectState& projectInfoField : projectInfoFields) {
             const API_Guid fieldGuid = GetGuidFromArrayItem ("projectInfoFieldId", projectInfoField);
             if (fieldGuid == APINULLGuid) {

@@ -175,7 +175,7 @@ GS::ObjectState CreateGraphicalOverrideRuleCommand::Execute (const GS::ObjectSta
     // command, as Override_Test runs these functions and as GraphicOverrideCommands does.
     const GS::Optional<API_Guid> existingGuid = FindOverrideRuleByName (name);
     bool ruleGroupFailed = false;
-    const GSErrCode err = ACAPI_CallUndoableCommand ("Create Graphical Override Rule", [&] () -> GSErrCode {
+    const GSErrCode err = TAPIR_CallUndoableCommand ("Create Graphical Override Rule", [&] () -> GSErrCode {
         if (existingGuid.HasValue ()) {
             rule.guid = existingGuid.Get ();
             return ACAPI_GraphicalOverride_ChangeOverrideRule (rule);
@@ -357,7 +357,7 @@ GS::ObjectState CreateGraphicalOverrideCombinationCommand::Execute (const GS::Ob
     // An existing combination with this name gets the new rule list; otherwise it is created.
     // The change runs in an undoable command, as in Override_Test and GraphicOverrideCommands.
     const GS::Optional<API_Guid> existingGuid = FindOverrideCombinationByName (name);
-    const GSErrCode err = ACAPI_CallUndoableCommand ("Create Graphical Override Combination", [&] () -> GSErrCode {
+    const GSErrCode err = TAPIR_CallUndoableCommand ("Create Graphical Override Combination", [&] () -> GSErrCode {
         if (existingGuid.HasValue ()) {
             combination.guid = existingGuid.Get ();
             return ACAPI_GraphicalOverride_ChangeOverrideCombination (combination, &ruleGuids);

@@ -438,7 +438,7 @@ static GS::ObjectState SetAxonometry (const GS::ObjectState& axonometry)
         return CreateFailedExecutionResult (APIERR_BADPARS, "Invalid parameter: give at least one of projectionType, azimuth and transformationMatrix in axonometry.");
     }
 
-    const GSErrCode err = ACAPI_CallUndoableCommand ("Set3DProjectionSettingsCommand", [&]() -> GSErrCode {
+    const GSErrCode err = TAPIR_CallUndoableCommand ("Set3DProjectionSettingsCommand", [&]() -> GSErrCode {
         API_3DProjectionInfo projectionInfo {};
         GSErrCode err = ACAPI_View_Get3DProjectionSets (&projectionInfo);
         if (err != NoError) {
@@ -744,7 +744,7 @@ GS::ObjectState SetCurrent3DStyleCommand::Execute (const GS::ObjectState& parame
         return CreateFailedExecutionResult (APIERR_BADNAME, "There is no 3D style with the name '" + styleName + "'.");
     }
 
-    err = ACAPI_CallUndoableCommand ("SetCurrent3DStyleCommand", [&]() -> GSErrCode {
+    err = TAPIR_CallUndoableCommand ("SetCurrent3DStyleCommand", [&]() -> GSErrCode {
         return ACAPI_View_SetCurrent3DStyle (&styleName);
     });
 

@@ -2186,7 +2186,7 @@ GS::ObjectState SetPropertyValueOfAttributesCommand::Execute (const GS::ObjectSt
         return CreateFailedExecutionResult (err, "the value cannot be converted to the type of the property");
     }
 
-    err = ACAPI_CallUndoableCommand ("SetPropertyValueOfAttributesCommand", [&]() -> GSErrCode {
+    err = TAPIR_CallUndoableCommand ("SetPropertyValueOfAttributesCommand", [&]() -> GSErrCode {
 #ifdef ServerMainVers_2700
         return ACAPI_Attribute_ModifyPropertyValue (property, attrHeads);
 #else

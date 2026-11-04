@@ -3916,7 +3916,7 @@ static GSErrCode RenameDrawingOfNavigatorItem (const API_NavigatorItem& navItem,
     if (err != NoError) {
         return err;
     }
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("RenameNavigatorItemCommand", [&]() -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("RenameNavigatorItemCommand", [&]() -> GSErrCode {
         API_Element drawing = {};
         found = FindDrawingOfNavigatorItemInCurrentDatabase (navItem, drawing, ambiguous);
         err = found ? SetCustomNameOfDrawing (drawing, drawingName.Get ()) : NoError;
@@ -4460,7 +4460,7 @@ GS::ObjectState ReorderNavigatorItemsCommand::Execute (const GS::ObjectState& pa
     const API_Guid* previousGuidPtr = nullptr;
     API_Guid previousGuidStorage = APINULLGuid;
 
-    ACAPI_CallUndoableCommand ("Reorder Navigator Items", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Reorder Navigator Items", [&]() -> GSErrCode {
         for (const API_Guid& itemGuid : orderedGuids) {
             GS::Array<API_NavigatorItem> siblings;
             const bool gotSiblings = GetNavigatorChildren (parentGuid, siblings);

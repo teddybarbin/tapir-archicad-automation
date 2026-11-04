@@ -4974,7 +4974,7 @@ GS::ObjectState SolveStairBaselineCommand::Execute (const GS::ObjectState& param
         // one it answers. The command is cancelled, so nothing is changed or put on the undo stack.
         API_StairSolutionID solution = APISS_NotSolved;
         err = APIERR_GENERAL;
-        ACAPI_CallUndoableCommand ("SolveStairBaselineCommand", [&] () -> GSErrCode {
+        TAPIR_CallUndoableCommand ("SolveStairBaselineCommand", [&] () -> GSErrCode {
             err = ACAPI_HierarchicalEditing_SolveStair (&element.stair, &memo, &solution);
             return APIERR_CANCEL;
         });
@@ -5353,7 +5353,7 @@ GS::ObjectState ModifyStairsCommand::Execute (const GS::ObjectState& parameters,
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("ModifyStairs", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("ModifyStairs", [&] () -> GSErrCode {
         for (const GS::ObjectState& item : stairsWithDetails) {
             const GS::ObjectState* elementId = item.Get ("elementId");
             if (elementId == nullptr) {

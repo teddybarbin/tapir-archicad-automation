@@ -2308,7 +2308,7 @@ GS::ObjectState SetMarkerLibraryPartOfElementsCommand::Execute (const GS::Object
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Set Marker Library Part of Elements", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Set Marker Library Part of Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementWithMarkerLibraryPart : elementsWithMarkerLibraryPart) {
             const GS::ObjectState* elementId = elementWithMarkerLibraryPart.Get ("elementId");
             if (elementId == nullptr) {

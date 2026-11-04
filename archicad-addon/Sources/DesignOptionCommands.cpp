@@ -3076,7 +3076,7 @@ GS::ObjectState SetHotlinkDesignOptionTablesCommand::Execute (const GS::ObjectSt
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Set Hotlink Design Option Tables", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Set Hotlink Design Option Tables", [&]() -> GSErrCode {
         for (const GS::ObjectState& instanceData : hotlinkInstances) {
             const GS::ObjectState* elementId = instanceData.Get ("elementId");
             if (elementId == nullptr) {

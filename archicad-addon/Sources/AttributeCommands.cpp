@@ -2342,7 +2342,7 @@ GS::ObjectState SetPensCommand::Execute (const GS::ObjectState& parameters, GS::
     }
 
     GS::Array<GS::ObjectState> results;
-    err = ACAPI_CallUndoableCommand ("Set Pens", [&] () -> GSErrCode {
+    err = TAPIR_CallUndoableCommand ("Set Pens", [&] () -> GSErrCode {
         for (const GS::ObjectState& penData : pens) {
             Int32 index = 0;
             if (!penData.Get ("index", index) || index < 1 || (UInt32) index > penCount) {
@@ -8788,7 +8788,7 @@ GS::ObjectState ReindexLayersCommand::Execute (const GS::ObjectState& parameters
     if (dryRun) {
         reindexAll ();
     } else {
-        ACAPI_CallUndoableCommand ("Reindex Layers", reindexAll);
+        TAPIR_CallUndoableCommand ("Reindex Layers", reindexAll);
     }
     ACAPI_Database_ChangeCurrentDatabase (&startingDatabase);
     return response;
@@ -10371,7 +10371,7 @@ GS::ObjectState ReindexAttributesCommand::Execute (const GS::ObjectState& parame
     if (dryRun) {
         reindexAll ();
     } else {
-        ACAPI_CallUndoableCommand ("Reindex Attributes", reindexAll);
+        TAPIR_CallUndoableCommand ("Reindex Attributes", reindexAll);
     }
     ACAPI_Database_ChangeCurrentDatabase (&startingDatabase);
     return response;

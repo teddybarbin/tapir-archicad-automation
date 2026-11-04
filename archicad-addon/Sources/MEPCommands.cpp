@@ -8604,7 +8604,7 @@ GS::ObjectState CreateMEPFlexibleSegmentsCommand::Execute (const GS::ObjectState
     GS::ObjectState response;
     const auto& elements = response.AddList<GS::ObjectState> ("elements");
 
-    ACAPI_CallUndoableCommand ("Create MEP Flexible Segments", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Create MEP Flexible Segments", [&]() -> GSErrCode {
         for (const GS::ObjectState& flexibleSegmentData : flexibleSegmentsData) {
             GS::UniString domainStr;
             flexibleSegmentData.Get ("domain", domainStr);
@@ -8878,7 +8878,7 @@ GS::ObjectState CreateMEPTakeOffsCommand::Execute (const GS::ObjectState& parame
     GS::ObjectState response;
     const auto& elements = response.AddList<GS::ObjectState> ("elements");
 
-    ACAPI_CallUndoableCommand ("Create MEP Take-Offs", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Create MEP Take-Offs", [&]() -> GSErrCode {
         for (const GS::ObjectState& takeOffData : takeOffsData) {
             elements (CreateMEPTakeOff (takeOffData));
         }
@@ -9200,7 +9200,7 @@ GS::ObjectState ModifyMEPElementsCommand::Execute (const GS::ObjectState& parame
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Modify MEP Elements", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Modify MEP Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementData : elements) {
             executionResults (ModifyMEPElement (elementData));
         }

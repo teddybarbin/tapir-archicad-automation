@@ -3941,7 +3941,7 @@ GS::ObjectState SetLibraryPartParametersCommand::Execute (const GS::ObjectState&
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Set Library Part Parameters", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Set Library Part Parameters", [&]() -> GSErrCode {
         for (const GS::ObjectState& libraryPart : libraryParts) {
             GS::UniString name;
             GS::Array<GS::ObjectState> parameterChanges;

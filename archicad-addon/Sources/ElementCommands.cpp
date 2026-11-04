@@ -5923,7 +5923,7 @@ GS::ObjectState UpdateZonesCommand::Execute (const GS::ObjectState& parameters, 
 
     GSErrCode err = NoError;
 
-    ACAPI_CallUndoableCommand ("UpdateZonesCommand", [&]() {
+    TAPIR_CallUndoableCommand ("UpdateZonesCommand", [&]() {
         err = ACAPI_Internal (APIInternal_UpdateRoomsID, &roomUpdateParams);
 
         return err;
@@ -6619,7 +6619,7 @@ GS::ObjectState CopyElementsToDatabaseCommand::Execute (const GS::ObjectState& p
         return CreateErrorResponse (err, "Failed to get the current database.");
     }
 
-    err = ACAPI_CallUndoableCommand ("Copy Elements To Database", [&]() -> GSErrCode {
+    err = TAPIR_CallUndoableCommand ("Copy Elements To Database", [&]() -> GSErrCode {
         if (sourceDatabaseIdOs != nullptr) {
             const GSErrCode sourceErr = ChangeCurrentDatabaseTo (GetGuidFromObjectState (*sourceDatabaseIdOs));
             if (sourceErr != NoError) {
@@ -10347,7 +10347,7 @@ GS::ObjectState DeleteUserDataOfElementsCommand::Execute (const GS::ObjectState&
 
     // Archicad keeps the user data of an element per add-on, so this deletes only what this
     // add-on stored on the element.
-    ACAPI_CallUndoableCommand ("DeleteUserDataOfElements", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("DeleteUserDataOfElements", [&] () -> GSErrCode {
         for (const GS::ObjectState& element : elements) {
             const GS::ObjectState* elementId = element.Get ("elementId");
             if (elementId == nullptr) {

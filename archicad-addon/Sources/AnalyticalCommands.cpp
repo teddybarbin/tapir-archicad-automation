@@ -5951,7 +5951,7 @@ GS::ObjectState CreateElementsFromAnalyticalMembersCommand::Execute (const GS::O
     GS::ObjectState response;
     const auto& elements = response.AddList<GS::ObjectState> ("elements");
 
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("Create Elements From Analytical Members", [&] () -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("Create Elements From Analytical Members", [&] () -> GSErrCode {
         for (const GS::ObjectState& member : members) {
             elements (CreateElementFromAnalyticalMember (member));
         }

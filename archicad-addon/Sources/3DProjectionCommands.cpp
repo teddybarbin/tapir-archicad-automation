@@ -9,7 +9,7 @@
 // The projMod values of API_AxonoPars (API_Projection_* in APIdefs_Elements.h), by the
 // names the commands use. API_Projection_Perspective is left out: it is never the type
 // of an axonometry.
-static const std::pair<short, const char*> AxonometryProjectionTypes[] = {
+static const std::pair<int, const char*> AxonometryProjectionTypes[] = {
     { API_Projection_YZ,          "YZ" },
     { API_Projection_XZ,          "XZ" },
     { API_Projection_XY,          "XY" },
@@ -40,7 +40,7 @@ static bool GetAxonometryProjectionType (const GS::UniString& name, short& projM
 {
     for (const auto& type : AxonometryProjectionTypes) {
         if (name == type.second) {
-            projMod = type.first;
+            projMod = static_cast<short> (type.first);
             return true;
         }
     }

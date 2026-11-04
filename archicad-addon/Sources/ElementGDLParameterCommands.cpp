@@ -669,7 +669,7 @@ GS::ObjectState	GetGDLParametersOfElementsCommand::Execute (const GS::ObjectStat
 
             GS::ObjectState gdlParameterDetails;
             gdlParameterDetails.Add ("name", actParam.name);
-            gdlParameterDetails.Add ("displayName", ii < nLibPartParams ? GS::UniString ((*addPars)[ii].uDescname) : GS::UniString ());
+            gdlParameterDetails.Add ("displayName", GS::UniString (actLibPartParam.uDescname));
             gdlParameterDetails.Add ("index", actParam.index);
             gdlParameterDetails.Add ("type", ConvertAddParIDToString (actParam.typeID));
             AddValueAndDescriptions (gdlParameterDetails, actParam);

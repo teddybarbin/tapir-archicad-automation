@@ -489,3 +489,15 @@ public:
     virtual GS::Optional<GS::UniString> GetRawResponseSchema () const override;
     virtual GS::ObjectState Execute (const GS::ObjectState& parameters, GS::ProcessControl& processControl) const override;
 };
+
+// Upstream's ModifyRailings (#1793), kept under this class name and not registered: the fork registers its own
+// ModifyRailings (RailingCommands.hpp), whose schema the fork's scripts call.
+class ModifyRailingsUpstreamCommand : public CommandBase
+{
+public:
+    ModifyRailingsUpstreamCommand ();
+    virtual GS::String GetName () const override;
+    virtual GS::Optional<GS::UniString> GetInputParametersSchema () const override;
+    virtual GS::Optional<GS::UniString> GetRawResponseSchema () const override;
+    virtual GS::ObjectState Execute (const GS::ObjectState& parameters, GS::ProcessControl& processControl) const override;
+};

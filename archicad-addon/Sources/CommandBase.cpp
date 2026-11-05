@@ -1553,7 +1553,7 @@ GS::ObjectState ExecuteForEachIdInList (
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand (undoName, [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand (undoName, [&] () -> GSErrCode {
         for (const GS::ObjectState& item : items) {
             const GS::ObjectState* id = item.Get (idFieldName);
             if (id == nullptr) {

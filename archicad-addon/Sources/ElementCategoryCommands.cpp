@@ -598,7 +598,7 @@ GS::ObjectState SetCategoryValuesOfElementsCommand::Execute (const GS::ObjectSta
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    TAPIR_CallUndoableCommand ("SetCategoryValuesOfElements", [&] () -> GSErrCode {
+    ACAPI_CallUndoableCommand ("SetCategoryValuesOfElements", [&] () -> GSErrCode {
         for (const GS::ObjectState& item : elementCategoryValues) {
             const GS::ObjectState* elementId = item.Get ("elementId");
             if (elementId == nullptr) {

@@ -1053,7 +1053,7 @@ GS::ObjectState SetIFCAttributesOfElementsCommand::Execute (const GS::ObjectStat
         results.PushNew ();
     }
 
-    TAPIR_CallUndoableCommand ("SetIFCAttributesOfElementsCommand", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("SetIFCAttributesOfElementsCommand", [&]() -> GSErrCode {
         for (const SettableIFCAttribute& attributeToSet : attributesToSet) {
             const GSErrCode err = ACAPI_Element_SetIFCAttribute (attributeToSet.elemGuid, attributeToSet.attribute);
             results[attributeToSet.resultIndex] = err == NoError
@@ -1283,7 +1283,7 @@ GS::ObjectState SetIFCPropertiesOfElementsCommand::Execute (const GS::ObjectStat
         results.PushNew ();
     }
 
-    TAPIR_CallUndoableCommand ("SetIFCPropertiesOfElementsCommand", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("SetIFCPropertiesOfElementsCommand", [&]() -> GSErrCode {
         for (const SettableIFCProperty& propertyToSet : propertiesToSet) {
             const GSErrCode err = ACAPI_Element_SetIFCProperty (propertyToSet.elemGuid, propertyToSet.property);
             results[propertyToSet.resultIndex] = err == NoError
@@ -1438,7 +1438,7 @@ GS::ObjectState RemoveIFCPropertiesOfElementsCommand::Execute (const GS::ObjectS
         results.PushNew ();
     }
 
-    TAPIR_CallUndoableCommand ("RemoveIFCPropertiesOfElementsCommand", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("RemoveIFCPropertiesOfElementsCommand", [&]() -> GSErrCode {
         for (const RemovableIFCProperty& propertyToRemove : propertiesToRemove) {
             const GSErrCode err = ACAPI_Element_RemoveIFCProperty (propertyToRemove.elemGuid, propertyToRemove.property);
             results[propertyToRemove.resultIndex] = err == NoError
@@ -1860,7 +1860,7 @@ GS::ObjectState SetIFCClassificationReferencesOfElementsCommand::Execute (const 
         results.PushNew ();
     }
 
-    TAPIR_CallUndoableCommand ("SetIFCClassificationReferencesOfElementsCommand", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("SetIFCClassificationReferencesOfElementsCommand", [&]() -> GSErrCode {
         for (const SettableIFCClassificationReference& referenceToSet : referencesToSet) {
             const GSErrCode err = ACAPI_Element_SetIFCClassificationReference (referenceToSet.elemGuid, referenceToSet.classificationReference);
             results[referenceToSet.resultIndex] = err == NoError
@@ -2022,7 +2022,7 @@ GS::ObjectState RemoveIFCClassificationReferencesOfElementsCommand::Execute (con
         results.PushNew ();
     }
 
-    TAPIR_CallUndoableCommand ("RemoveIFCClassificationReferencesOfElementsCommand", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("RemoveIFCClassificationReferencesOfElementsCommand", [&]() -> GSErrCode {
         for (const RemovableIFCClassificationReferences& referenceToRemove : referencesToRemove) {
             GSErrCode err = NoError;
             for (const API_IFCClassificationReference& classificationReference : referenceToRemove.classificationReferences) {

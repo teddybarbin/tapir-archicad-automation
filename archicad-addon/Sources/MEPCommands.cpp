@@ -2541,7 +2541,7 @@ GS::ObjectState CreateMEPRoutingElementsCommand::Execute (const GS::ObjectState&
     GS::ObjectState response;
     const auto& elements = response.AddList<GS::ObjectState> ("elements");
 
-    TAPIR_CallUndoableCommand ("Create MEP Routing Elements", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("Create MEP Routing Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& routingElementData : routingElementsData) {
             GS::UniString domainStr;
             routingElementData.Get ("domain", domainStr);
@@ -2877,7 +2877,7 @@ GS::ObjectState CreateMEPElementsCommand::Execute (const GS::ObjectState& parame
     GS::ObjectState response;
     const auto& elements = response.AddList<GS::ObjectState> ("elements");
 
-    TAPIR_CallUndoableCommand ("Create MEP Elements", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("Create MEP Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementData : elementsData) {
             GS::UniString typeStr;
             elementData.Get ("type", typeStr);
@@ -5940,7 +5940,7 @@ GS::ObjectState CreateElectricalPanelsCommand::Execute (const GS::ObjectState& p
     GS::ObjectState response;
     const auto& elements = response.AddList<GS::ObjectState> ("elements");
 
-    TAPIR_CallUndoableCommand ("Create Electrical Panels", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("Create Electrical Panels", [&]() -> GSErrCode {
         for (const GS::ObjectState& panelData : electricalPanelsData) {
             const GS::ObjectState* position = panelData.Get ("position");
             if (position == nullptr) {
@@ -6118,7 +6118,7 @@ GS::ObjectState CreateElectricalDevicesCommand::Execute (const GS::ObjectState& 
     GS::ObjectState response;
     const auto& elements = response.AddList<GS::ObjectState> ("elements");
 
-    TAPIR_CallUndoableCommand ("Create Electrical Devices", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("Create Electrical Devices", [&]() -> GSErrCode {
         for (const GS::ObjectState& deviceData : electricalDevicesData) {
             const GS::ObjectState* position = deviceData.Get ("position");
             if (position == nullptr) {
@@ -8783,7 +8783,7 @@ GS::ObjectState CreateMEPFlexibleSegmentsCommand::Execute (const GS::ObjectState
     GS::ObjectState response;
     const auto& elements = response.AddList<GS::ObjectState> ("elements");
 
-    TAPIR_CallUndoableCommand ("Create MEP Flexible Segments", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("Create MEP Flexible Segments", [&]() -> GSErrCode {
         for (const GS::ObjectState& flexibleSegmentData : flexibleSegmentsData) {
             GS::UniString domainStr;
             flexibleSegmentData.Get ("domain", domainStr);
@@ -9057,7 +9057,7 @@ GS::ObjectState CreateMEPTakeOffsCommand::Execute (const GS::ObjectState& parame
     GS::ObjectState response;
     const auto& elements = response.AddList<GS::ObjectState> ("elements");
 
-    TAPIR_CallUndoableCommand ("Create MEP Take-Offs", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("Create MEP Take-Offs", [&]() -> GSErrCode {
         for (const GS::ObjectState& takeOffData : takeOffsData) {
             elements (CreateMEPTakeOff (takeOffData));
         }
@@ -9379,7 +9379,7 @@ GS::ObjectState ModifyMEPElementsCommand::Execute (const GS::ObjectState& parame
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    TAPIR_CallUndoableCommand ("Modify MEP Elements", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("Modify MEP Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementData : elements) {
             executionResults (ModifyMEPElement (elementData));
         }

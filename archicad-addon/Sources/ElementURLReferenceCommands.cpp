@@ -223,7 +223,7 @@ GS::ObjectState SetURLReferencesOfElementsCommand::Execute (const GS::ObjectStat
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    TAPIR_CallUndoableCommand ("SetURLReferencesOfElements", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("SetURLReferencesOfElements", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementWithURLReference : elementsWithURLReferences) {
             const GS::ObjectState* elementId = elementWithURLReference.Get ("elementId");
             if (elementId == nullptr) {

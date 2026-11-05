@@ -263,7 +263,7 @@ GS::ObjectState SetElementUserDataCommand::Execute (const GS::ObjectState& param
     // One undo step for the whole call. The lambda reports success when any element was changed,
     // so a failed element does not roll back the others; each element carries its own result.
     bool executed = false;
-    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("SetElementUserData", [&] () -> GSErrCode {
+    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("SetElementUserData", [&] () -> GSErrCode {
         executed = true;
         GSErrCode firstErr = NoError;
         bool anyStored = false;

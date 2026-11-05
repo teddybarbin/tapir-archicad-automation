@@ -2525,7 +2525,7 @@ GS::ObjectState SetGhostStorySettingsCommand::Execute (const GS::ObjectState& pa
         }
     }
 
-    err = TAPIR_CallUndoableCommand ("SetGhostStorySettingsCommand", [&]() -> GSErrCode {
+    err = ACAPI_CallUndoableCommand ("SetGhostStorySettingsCommand", [&]() -> GSErrCode {
         return hasRecord
             ? ACAPI_View_ChangeGhostRecord (&ghostRecord)
             : ACAPI_View_CreateGhostRecord (&ghostRecord);
@@ -3842,7 +3842,7 @@ GS::ObjectState MoveNavigatorItemCommand::Execute (const GS::ObjectState& parame
 
     GSErrCode     err = NoError;
     GS::UniString errorMessage;
-    TAPIR_CallUndoableCommand ("MoveNavigatorItemCommand", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("MoveNavigatorItemCommand", [&]() -> GSErrCode {
         err = ACAPI_Navigator_SetNavigatorItemPosition (&sourceGuid, &parentGuid, prevGuidPtr);
         if (err != NoError) {
             errorMessage = "Failed to move navigator item.";
@@ -4224,7 +4224,7 @@ static GSErrCode RenameDrawingOfNavigatorItem (const API_NavigatorItem& navItem,
     if (err != NoError) {
         return err;
     }
-    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("RenameNavigatorItemCommand", [&]() -> GSErrCode {
+    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("RenameNavigatorItemCommand", [&]() -> GSErrCode {
         API_Element drawing = {};
         found = FindDrawingOfNavigatorItemInCurrentDatabase (navItem, drawing, ambiguous);
         err = found ? SetCustomNameOfDrawing (drawing, drawingName.Get ()) : NoError;
@@ -4306,7 +4306,7 @@ GS::ObjectState RenameNavigatorItemCommand::Execute (const GS::ObjectState& para
         // as a failed rename. The item is not passed to ChangeNavigatorItem on this
         // path, so the read-back shows what the item really carries.
         GS::UniString failureMessage;
-        const GSErrCode undoErr = TAPIR_CallUndoableCommand ("RenameNavigatorItemCommand", [&]() -> GSErrCode {
+        const GSErrCode undoErr = ACAPI_CallUndoableCommand ("RenameNavigatorItemCommand", [&]() -> GSErrCode {
             err = RenameViewpointElement (dbInfo,
                                           hasNewName ? &newName : nullptr,
                                           hasNewId ? &newId : nullptr,
@@ -4768,7 +4768,7 @@ GS::ObjectState ReorderNavigatorItemsCommand::Execute (const GS::ObjectState& pa
     const API_Guid* previousGuidPtr = nullptr;
     API_Guid previousGuidStorage = APINULLGuid;
 
-    TAPIR_CallUndoableCommand ("Reorder Navigator Items", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("Reorder Navigator Items", [&]() -> GSErrCode {
         for (const API_Guid& itemGuid : orderedGuids) {
             GS::Array<API_NavigatorItem> siblings;
             const bool gotSiblings = GetNavigatorChildren (parentGuid, siblings);

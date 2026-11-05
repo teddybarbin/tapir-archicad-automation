@@ -1082,7 +1082,7 @@ GS::ObjectState CreateProjectInfoFieldsCommand::Execute (const GS::ObjectState& 
     GS::ObjectState response;
     const auto& fieldsAdder = response.AddList<GS::ObjectState> ("fields");
 
-    TAPIR_CallUndoableCommand ("CreateProjectInfoFields", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("CreateProjectInfoFields", [&]() -> GSErrCode {
 #ifndef ServerMainVers_3000
         GS::HashSet<GS::UniString> knownIds;
         const GSErrCode knownIdsErr = GetAutoTextIds (knownIds);
@@ -1299,7 +1299,7 @@ GS::ObjectState DeleteProjectInfoFieldsCommand::Execute (const GS::ObjectState& 
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    TAPIR_CallUndoableCommand ("DeleteProjectInfoFields", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("DeleteProjectInfoFields", [&]() -> GSErrCode {
 #ifdef ServerMainVers_3000
         // The autotext keys are matched to the fields of the Project Info API by name (see
         // FindProjectInfoAutoTextKey); the list is fetched once, before the first deletion.
@@ -1473,7 +1473,7 @@ GS::ObjectState RenameProjectInfoFieldsCommand::Execute (const GS::ObjectState& 
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    TAPIR_CallUndoableCommand ("RenameProjectInfoFields", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("RenameProjectInfoFields", [&]() -> GSErrCode {
         for (const GS::ObjectState& projectInfoField : projectInfoFields) {
             const API_Guid fieldGuid = GetGuidFromArrayItem ("projectInfoFieldId", projectInfoField);
             if (fieldGuid == APINULLGuid) {
@@ -1582,7 +1582,7 @@ GS::ObjectState MoveProjectInfoFieldsCommand::Execute (const GS::ObjectState& pa
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    TAPIR_CallUndoableCommand ("MoveProjectInfoFields", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("MoveProjectInfoFields", [&]() -> GSErrCode {
         for (const GS::ObjectState& projectInfoField : projectInfoFields) {
             const API_Guid fieldGuid = GetGuidFromArrayItem ("projectInfoFieldId", projectInfoField);
             if (fieldGuid == APINULLGuid) {
@@ -1787,7 +1787,7 @@ GS::ObjectState CreateProjectInfoGroupsCommand::Execute (const GS::ObjectState& 
     GS::ObjectState response;
     const auto& projectInfoGroupIdsOrErrors = response.AddList<GS::ObjectState> ("projectInfoGroupIdsOrErrors");
 
-    TAPIR_CallUndoableCommand ("CreateProjectInfoGroups", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("CreateProjectInfoGroups", [&]() -> GSErrCode {
         for (const GS::ObjectState& projectInfoGroup : projectInfoGroups) {
             GS::UniString name;
             if (!projectInfoGroup.Get ("name", name) || name.IsEmpty ()) {
@@ -1887,7 +1887,7 @@ GS::ObjectState RenameProjectInfoGroupsCommand::Execute (const GS::ObjectState& 
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    TAPIR_CallUndoableCommand ("RenameProjectInfoGroups", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("RenameProjectInfoGroups", [&]() -> GSErrCode {
         for (const GS::ObjectState& projectInfoGroup : projectInfoGroups) {
             const API_Guid groupGuid = GetGuidFromArrayItem ("projectInfoGroupId", projectInfoGroup);
             if (groupGuid == APINULLGuid) {
@@ -1977,7 +1977,7 @@ GS::ObjectState DeleteProjectInfoGroupsCommand::Execute (const GS::ObjectState& 
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    TAPIR_CallUndoableCommand ("DeleteProjectInfoGroups", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("DeleteProjectInfoGroups", [&]() -> GSErrCode {
         for (const GS::ObjectState& projectInfoGroup : projectInfoGroups) {
             const API_Guid groupGuid = GetGuidFromArrayItem ("projectInfoGroupId", projectInfoGroup);
             if (groupGuid == APINULLGuid) {
@@ -2075,7 +2075,7 @@ GS::ObjectState MoveProjectInfoGroupsCommand::Execute (const GS::ObjectState& pa
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    TAPIR_CallUndoableCommand ("MoveProjectInfoGroups", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("MoveProjectInfoGroups", [&]() -> GSErrCode {
         for (const GS::ObjectState& projectInfoGroup : projectInfoGroups) {
             const API_Guid groupGuid = GetGuidFromArrayItem ("projectInfoGroupId", projectInfoGroup);
             if (groupGuid == APINULLGuid) {
@@ -3692,7 +3692,7 @@ GS::ObjectState SetGeoLocationCommand::Execute (const GS::ObjectState& parameter
     }
 
     GS::UniString errorMessage;
-    GSErrCode err = TAPIR_CallUndoableCommand ("Change GeoLocation", [&] () -> GSErrCode {
+    GSErrCode err = ACAPI_CallUndoableCommand ("Change GeoLocation", [&] () -> GSErrCode {
         GSErrCode stepErr = NoError;
 #ifdef ServerMainVers_2600
         // Unlock before the position changes and lock after them, so one call can both
@@ -4017,7 +4017,7 @@ GS::ObjectState SetProjectNotesCommand::Execute (const GS::ObjectState& paramete
     const GS::Optional<GS::UniString> newDraftsmen = getNewFullName ("draftsmen", notesBefore.draftsmen, projectNotes.draftsmen);
     // The name parts are set inside the same undoable command, so one Undo takes back the whole change.
     bool namePartsFailed = false;
-    err = TAPIR_CallUndoableCommand ("Change Project Notes", [&] () -> GSErrCode {
+    err = ACAPI_CallUndoableCommand ("Change Project Notes", [&] () -> GSErrCode {
         GSErrCode changeErr = ACAPI_ProjectSetting_ChangeProjectNotes (&projectNotes);
         if (changeErr != NoError) {
             return changeErr;
@@ -4898,7 +4898,7 @@ GS::ObjectState SetLast3DDefaultLevelsCommand::Execute (const GS::ObjectState& p
         return CreateFailedExecutionResult (APIERR_BADPARS, "levels must contain one level for each of elementTypes.");
     }
 
-    const GSErrCode err = TAPIR_CallUndoableCommand ("Set Last 3D Default Levels", [&] () -> GSErrCode {
+    const GSErrCode err = ACAPI_CallUndoableCommand ("Set Last 3D Default Levels", [&] () -> GSErrCode {
         return TAPIR_ProjectSetting_SetLast3DDefLevels (typeIDs, levels);
     });
     if (err != NoError) {
@@ -5402,7 +5402,7 @@ static GS::ObjectState SetProjectPreferencesPage (const char* pageName, API_Pref
         return CreateFailedExecutionResult (APIERR_BADPARS, GS::UniString ("No field of the ") + pageName + " preferences given.");
     }
 
-    err = TAPIR_CallUndoableCommand ("Set Project Preferences", [&] () -> GSErrCode {
+    err = ACAPI_CallUndoableCommand ("Set Project Preferences", [&] () -> GSErrCode {
         return ACAPI_ProjectSetting_SetPreferences (&prefs, prefsType);
     });
     if (err != NoError) {
@@ -6201,7 +6201,7 @@ GS::ObjectState SetReferenceLevelsCommand::Execute (const GS::ObjectState& param
     const double wantedLevel2 = refLevels.prefs.level2val;
 
     GS::UniString errorMessage;
-    err = TAPIR_CallUndoableCommand ("Set Reference Levels", [&] () -> GSErrCode {
+    err = ACAPI_CallUndoableCommand ("Set Reference Levels", [&] () -> GSErrCode {
         if (refLevelsChanged) {
             const GSErrCode stepErr = ACAPI_ProjectSetting_SetPreferences (&refLevels.prefs, APIPrefs_ReferenceLevelsID);
             if (stepErr != NoError) {
@@ -6896,7 +6896,7 @@ GS::ObjectState CreateHotlinkNodesCommand::Execute (const GS::ObjectState& param
     const auto& results = response.AddList<GS::ObjectState> ("hotlinkNodes");
 
     // One undo step for the whole call, as the repo's other creating commands do.
-    TAPIR_CallUndoableCommand ("Create Hotlink Nodes", [&] () -> GSErrCode {
+    ACAPI_CallUndoableCommand ("Create Hotlink Nodes", [&] () -> GSErrCode {
         for (const GS::ObjectState& nodeData : hotlinkNodes) {
             GS::UniString sourcePath;
             if (!nodeData.Get ("sourceLocation", sourcePath) || sourcePath.IsEmpty ()) {
@@ -7044,7 +7044,7 @@ GS::ObjectState CreateHotlinkInstancesCommand::Execute (const GS::ObjectState& p
         BMKillHandle ((GSHandle*) &storyInfo.data);
     }
 
-    TAPIR_CallUndoableCommand ("Create Hotlink Instances", [&] () -> GSErrCode {
+    ACAPI_CallUndoableCommand ("Create Hotlink Instances", [&] () -> GSErrCode {
         for (const GS::ObjectState& instanceData : hotlinkInstances) {
             const GS::ObjectState* hotlinkNodeId = instanceData.Get ("hotlinkNodeId");
             const GS::ObjectState* origin = instanceData.Get ("origin");
@@ -7180,7 +7180,7 @@ GS::ObjectState ChangeHotlinkInstancesCommand::Execute (const GS::ObjectState& p
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    TAPIR_CallUndoableCommand ("Change Hotlink Instances", [&] () -> GSErrCode {
+    ACAPI_CallUndoableCommand ("Change Hotlink Instances", [&] () -> GSErrCode {
         for (const GS::ObjectState& instanceData : hotlinkInstances) {
             const GS::ObjectState* elementId = instanceData.Get ("elementId");
             if (elementId == nullptr) {
@@ -7537,7 +7537,7 @@ static GS::ObjectState RemoveHotlinkNodes (const GS::ObjectState& parameters, Ho
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
     const bool isDelete = removal == HotlinkNodeRemoval::Delete;
-    TAPIR_CallUndoableCommand (isDelete ? "Delete Hotlink Nodes" : "Break Hotlink Nodes", [&] () -> GSErrCode {
+    ACAPI_CallUndoableCommand (isDelete ? "Delete Hotlink Nodes" : "Break Hotlink Nodes", [&] () -> GSErrCode {
         for (const GS::ObjectState& nodeData : hotlinkNodes) {
             const GS::ObjectState* hotlinkNodeId = nodeData.Get ("hotlinkNodeId");
             if (hotlinkNodeId == nullptr) {

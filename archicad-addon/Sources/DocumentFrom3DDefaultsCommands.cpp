@@ -383,7 +383,7 @@ GS::ObjectState SetDocumentFrom3DDefaultsCommand::Execute (const GS::ObjectState
         }
     }
 
-    err = TAPIR_CallUndoableCommand ("SetDocumentFrom3DDefaultsCommand", [&]() -> GSErrCode {
+    err = ACAPI_CallUndoableCommand ("SetDocumentFrom3DDefaultsCommand", [&]() -> GSErrCode {
         return ACAPI_View_ChangeDocumentFrom3DDefaults (&defaults);
     });
 

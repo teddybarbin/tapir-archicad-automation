@@ -698,7 +698,7 @@ GS::ObjectState ApplyFavoritesToElementDefaultsCommand::Execute (const GS::Objec
     favorite.classifications.New ();
     favorite.elemCategoryValues.New ();
 
-    TAPIR_CallUndoableCommand ("ApplyFavoritesToElementDefaults", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("ApplyFavoritesToElementDefaults", [&]() -> GSErrCode {
         for (const GS::UniString& favoriteName : favorites) {
             favorite.name = favoriteName;
 
@@ -963,7 +963,7 @@ GS::ObjectState CreateFavoritesFromElementsCommand::Execute (const GS::ObjectSta
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    TAPIR_CallUndoableCommand ("CreateFavoritesFromElements", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("CreateFavoritesFromElements", [&]() -> GSErrCode {
         for (const GS::ObjectState& favoriteFromElement : favoritesFromElements) {
             // One API_Favorite per element: the marker of a window or door must not carry over
             // to the next element, which may have none (see CaptureOpeningMarker).
@@ -1840,7 +1840,7 @@ GS::ObjectState ApplyFavoritesToElementsCommand::Execute (const GS::ObjectState&
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    TAPIR_CallUndoableCommand ("ApplyFavoritesToElements", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("ApplyFavoritesToElements", [&]() -> GSErrCode {
         for (const GS::ObjectState& item : favoritesToApply) {
             const GS::ObjectState* elementId = item.Get ("elementId");
             if (elementId == nullptr) {
@@ -2030,7 +2030,7 @@ GS::ObjectState UpdateFavoritesFromElementsCommand::Execute (const GS::ObjectSta
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    TAPIR_CallUndoableCommand ("UpdateFavoritesFromElements", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("UpdateFavoritesFromElements", [&]() -> GSErrCode {
         for (const GS::ObjectState& favoriteFromElement : favoritesFromElements) {
             // One API_Favorite per element, as in CreateFavoritesFromElements.
             API_Favorite favorite;
@@ -2121,7 +2121,7 @@ GS::ObjectState RenameFavoritesCommand::Execute (const GS::ObjectState& paramete
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    TAPIR_CallUndoableCommand ("RenameFavorites", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("RenameFavorites", [&]() -> GSErrCode {
         for (const GS::ObjectState& rename : renames) {
             GS::UniString oldName;
             GS::UniString newName;
@@ -2186,7 +2186,7 @@ GS::ObjectState DeleteFavoritesCommand::Execute (const GS::ObjectState& paramete
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    TAPIR_CallUndoableCommand ("DeleteFavorites", [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand ("DeleteFavorites", [&]() -> GSErrCode {
         for (const GS::UniString& favoriteName : favorites) {
             const GSErrCode err = ACAPI_Favorite_Delete (favoriteName);
             executionResults (err == NoError ? CreateSuccessfulExecutionResult () : CreateFailedExecutionResult (err, "Failed to delete favorite"));
@@ -3145,7 +3145,7 @@ GS::ObjectState CreateFavoriteCommand::Execute (const GS::ObjectState& parameter
     std::optional<ACAPI::Favorite::Favorite> resultFavorite;
     GS::UniString errorMessage;
 
-    const GSErrCode err = TAPIR_CallUndoableCommand ("CreateFavorite", [&] () -> GSErrCode {
+    const GSErrCode err = ACAPI_CallUndoableCommand ("CreateFavorite", [&] () -> GSErrCode {
         const ACAPI::Favorite::FavoriteManager manager = ACAPI::Favorite::GetFavoriteManager ();
 
         const auto existing = manager.GetFavoriteByName (name);
@@ -3289,7 +3289,7 @@ GS::ObjectState ChangeFavoriteCommand::Execute (const GS::ObjectState& parameter
     }
 
     GS::UniString errorMessage;
-    const GSErrCode err = TAPIR_CallUndoableCommand ("ChangeFavorite", [&] () -> GSErrCode {
+    const GSErrCode err = ACAPI_CallUndoableCommand ("ChangeFavorite", [&] () -> GSErrCode {
         const ACAPI::Favorite::FavoriteManager manager = ACAPI::Favorite::GetFavoriteManager ();
         const auto favorite = manager.GetFavoriteByName (favoriteName);
         if (favorite.IsErr ()) {
@@ -3464,7 +3464,7 @@ GS::ObjectState MoveFavoriteFolderCommand::Execute (const GS::ObjectState& param
 
     std::optional<ACAPI::Favorite::FavoriteFolder> folder;
     GS::UniString errorMessage;
-    const GSErrCode err = TAPIR_CallUndoableCommand ("MoveFavoriteFolder", [&] () -> GSErrCode {
+    const GSErrCode err = ACAPI_CallUndoableCommand ("MoveFavoriteFolder", [&] () -> GSErrCode {
         const ACAPI::Favorite::FavoriteManager manager = ACAPI::Favorite::GetFavoriteManager ();
 
         GSErrCode findErr = FindFavoriteFolderOfPath (manager, folderPath, folder, errorMessage);
@@ -3570,7 +3570,7 @@ GS::ObjectState MoveFavoritesCommand::Execute (const GS::ObjectState& parameters
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
     GS::UniString errorMessage = "Failed to move the Favorites.";
-    const GSErrCode err = TAPIR_CallUndoableCommand ("MoveFavorites", [&]() -> GSErrCode {
+    const GSErrCode err = ACAPI_CallUndoableCommand ("MoveFavorites", [&]() -> GSErrCode {
         const ACAPI::Favorite::FavoriteManager manager = ACAPI::Favorite::GetFavoriteManager ();
         std::optional<ACAPI::Favorite::FavoriteFolder> targetFolder;
         const GSErrCode findErr = FindFavoriteFolderOfPath (manager, targetPath, targetFolder, errorMessage);

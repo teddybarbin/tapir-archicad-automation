@@ -1209,7 +1209,7 @@ GS::ObjectState ExecuteCreateWithElements (const GS::String& commandName, Func&&
     notification.notifID = APINotifyElement_BeginEvents;
     AddElementNotificationClientCommand::ElementEventHandlerProc (&notification);
 
-    TAPIR_CallUndoableCommand (commandName, [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand (commandName, [&]() -> GSErrCode {
         createFunc (results);
         return NoError;
     });
@@ -1226,7 +1226,7 @@ GS::ObjectState ExecuteModifyWithResults (const GS::String& commandName, Func&& 
 {
     GS::Array<GS::ObjectState> results;
 
-    TAPIR_CallUndoableCommand (commandName, [&]() -> GSErrCode {
+    ACAPI_CallUndoableCommand (commandName, [&]() -> GSErrCode {
         modifyFunc (results);
         return NoError;
     });
@@ -4974,7 +4974,7 @@ GS::ObjectState SolveStairBaselineCommand::Execute (const GS::ObjectState& param
         // one it answers. The command is cancelled, so nothing is changed or put on the undo stack.
         API_StairSolutionID solution = APISS_NotSolved;
         err = APIERR_GENERAL;
-        TAPIR_CallUndoableCommand ("SolveStairBaselineCommand", [&] () -> GSErrCode {
+        ACAPI_CallUndoableCommand ("SolveStairBaselineCommand", [&] () -> GSErrCode {
             err = ACAPI_HierarchicalEditing_SolveStair (&element.stair, &memo, &solution);
             return APIERR_CANCEL;
         });
@@ -5353,7 +5353,7 @@ GS::ObjectState ModifyStairsCommand::Execute (const GS::ObjectState& parameters,
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    TAPIR_CallUndoableCommand ("ModifyStairs", [&] () -> GSErrCode {
+    ACAPI_CallUndoableCommand ("ModifyStairs", [&] () -> GSErrCode {
         for (const GS::ObjectState& item : stairsWithDetails) {
             const GS::ObjectState* elementId = item.Get ("elementId");
             if (elementId == nullptr) {
@@ -11262,7 +11262,7 @@ GS::ObjectState SetSectionsAndElevationsDetailsCommand::Execute (const GS::Objec
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    TAPIR_CallUndoableCommand ("Set Sections/Elevations Details", [&]() {
+    ACAPI_CallUndoableCommand ("Set Sections/Elevations Details", [&]() {
         for (const GS::ObjectState& item : elementsWithDetails) {
             const GS::ObjectState* elementId = item.Get ("elementId");
             const GS::ObjectState* details = item.Get ("details");
@@ -11708,7 +11708,7 @@ GS::ObjectState ModifyMeshesCommand::Execute (const GS::ObjectState& parameters,
     // The return code of ACAPI_CallUndoableCommand was ignored: when ArchiCAD refused the undo step or the body was
     // interrupted, the caller got an EMPTY executionResults and no error (18/10/2026, Imaginns fork bench). Every mesh
     // left without a result now gets a failed one carrying the real error code.
-    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("ModifyMeshes", [&] () -> GSErrCode {
+    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("ModifyMeshes", [&] () -> GSErrCode {
         for (const GS::ObjectState& meshEntry : meshesData) {
             const GS::ObjectState* elementId = meshEntry.Get ("elementId");
             if (elementId == nullptr) {
@@ -13191,7 +13191,7 @@ GS::ObjectState PlaceOpeningsCommand::Execute (const GS::ObjectState& parameters
         // outside ACAPI_CallUndoableCommand crashes Archicad 30 with an ODB assertion (#1665), so it
         // is run inside one, like the other creation commands.
         std::optional<ACAPI::Result<ACAPI::UniqueID>> placed;
-        const GSErrCode scopeErr = TAPIR_CallUndoableCommand ("Place Opening", [&] () -> GSErrCode {
+        const GSErrCode scopeErr = ACAPI_CallUndoableCommand ("Place Opening", [&] () -> GSErrCode {
             placed.emplace (openingDefault->Place (parentElemId, placePoint));
             return NoError;
         });

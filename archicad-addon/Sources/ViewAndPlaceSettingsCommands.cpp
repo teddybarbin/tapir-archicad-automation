@@ -534,7 +534,7 @@ GS::ObjectState SetGridSettingsCommand::Execute (const GS::ObjectState& paramete
         return CreateErrorResponse (APIERR_BADPARS, input.GetError ());
     }
 
-    err = TAPIR_CallUndoableCommand ("SetGridSettingsCommand", [&] () -> GSErrCode {
+    err = ACAPI_CallUndoableCommand ("SetGridSettingsCommand", [&] () -> GSErrCode {
         return ACAPI_Window_ChangeGridSettings (&grid);
     });
     if (err != NoError) {
@@ -690,7 +690,7 @@ GS::ObjectState Set3DFilterAndCutSettingsCommand::Execute (const GS::ObjectState
         return CreateErrorResponse (APIERR_BADPARS, input.GetError ());
     }
 
-    err = TAPIR_CallUndoableCommand ("Set3DFilterAndCutSettingsCommand", [&] () -> GSErrCode {
+    err = ACAPI_CallUndoableCommand ("Set3DFilterAndCutSettingsCommand", [&] () -> GSErrCode {
         return ACAPI_View_Change3DImageSets (&filter, &mustConvert);
     });
     if (err != NoError) {
@@ -928,7 +928,7 @@ GS::ObjectState SetPlaceSettingsCommand::Execute (const GS::ObjectState& paramet
             return CreateErrorResponse (err, "The place settings cannot be changed now (in a Teamwork project, reserve them first).");
         }
 
-        err = TAPIR_CallUndoableCommand ("SetPlaceSettingsCommand", [&] () -> GSErrCode {
+        err = ACAPI_CallUndoableCommand ("SetPlaceSettingsCommand", [&] () -> GSErrCode {
             return ACAPI_GeoLocation_ChangePlaceSets (&placeInfo);
         });
         if (err != NoError) {

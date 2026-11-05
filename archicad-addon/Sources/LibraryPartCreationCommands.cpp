@@ -553,7 +553,7 @@ GS::ObjectState CreateLibraryPartFromElementsCommand::Execute (const GS::ObjectS
     });
     GSErrCode drawErr = NoError;
     GS::UniString drawFailure;
-    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("Create Library Part From Elements", [&] () -> GSErrCode {
+    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("Create Library Part From Elements", [&] () -> GSErrCode {
         drawErr = SetUpSymbolDrawing ();
         if (drawErr != NoError) {
             drawFailure = "Failed to open the 2D symbol of the library part.";

@@ -127,7 +127,7 @@ GS::ObjectState Set3DCutPlanesCommand::Execute (const GS::ObjectState& parameter
         return CreateFailedExecutionResult (APIERR_BADPARS, "Invalid parameter: cutPlanes.");
     }
 
-    GSErrCode err = TAPIR_CallUndoableCommand ("Set3DCutPlanesCommand", [&]() -> GSErrCode {
+    GSErrCode err = ACAPI_CallUndoableCommand ("Set3DCutPlanesCommand", [&]() -> GSErrCode {
         return _Set3DCutPlanes (cutPlanes);
     });
 

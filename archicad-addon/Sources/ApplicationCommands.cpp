@@ -214,7 +214,7 @@ GS::ObjectState GetArchicadReleaseInfoCommand::Execute (const GS::ObjectState& /
 }
 
 GetPrinterInfoCommand::GetPrinterInfoCommand () :
-    CommandBase (CommonSchema::NotUsed)
+    CommandBase (CommonSchema::Used)
 {
 }
 
@@ -229,9 +229,7 @@ GS::Optional<GS::UniString> GetPrinterInfoCommand::GetRawResponseSchema () const
         "type": "object",
         "properties": {
             "printArea": {
-                "type": "string",
-                "description": "The area Archicad prints, as set in the print settings. 'unknown' for a value this add-on does not name.",
-                "enum": ["currentView", "entireDrawing", "marquee", "unknown"]
+                "$ref": "#/PrinterPrintArea"
             },
             "grid": {
                 "type": "boolean",
@@ -669,7 +667,7 @@ GS::ObjectState SetCurrentWindowDrawingScaleCommand::Execute (const GS::ObjectSt
         return CreateFailedExecutionResult (APIERR_BADDATABASE, "The current window is a layout: a layout is always 1:1 and its scale cannot be changed. Activate a floor plan, section, elevation, detail or worksheet window first (see ChangeWindow).");
     }
 
-    err = ACAPI_CallUndoableCommand ("SetCurrentWindowDrawingScaleCommand", [&] () -> GSErrCode {
+    err = TAPIR_CallUndoableCommand ("SetCurrentWindowDrawingScaleCommand", [&] () -> GSErrCode {
         return ACAPI_Drawing_ChangeDrawingScale (&scale, rebuild);
     });
     if (err != NoError) {
@@ -932,25 +930,7 @@ GS::Optional<GS::UniString> GetContainingDatabasesCommand::GetRawResponseSchema 
                     "type": "object",
                     "oneOf": [
                         {
-                            "type": "object",
-                            "properties": {
-                                "databaseId": {
-                                    "$ref": "#/DatabaseId"
-                                },
-                                "windowType": {
-                                    "$ref": "#/WindowType"
-                                },
-                                "name": {
-                                    "type": "string",
-                                    "description": "The name of the database (for example the name of the layout). Empty for databases without a name, like the floor plan."
-                                }
-                            },
-                            "additionalProperties": false,
-                            "required": [
-                                "databaseId",
-                                "windowType",
-                                "name"
-                            ]
+                            "$ref": "#/ContainingDatabase"
                         },
                         {
                             "$ref": "#/ErrorItem"

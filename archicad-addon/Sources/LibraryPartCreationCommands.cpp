@@ -35,6 +35,9 @@ GSErrCode CloseSymbolDrawing (GSHandle* drawHdl)
 #endif
 }
 
+}
+
+// The shared section wrappers declared in LibraryPartCreationCommands.hpp, used by LibraryCommands.cpp too.
 GSErrCode NewLibPartSection (const API_LibPartSection* section)
 {
 #ifdef ServerMainVers_2700
@@ -70,6 +73,8 @@ GSErrCode SetLibPartDetails (const API_LibPart* libPart, GSHandle paramHdl, cons
     return ACAPI_LibPart_SetDetails_ParamDef (libPart, paramHdl, details);
 #endif
 }
+
+namespace {
 
 GSErrCode SetLibPartOverwriteMode (bool overwriteOn)
 {
@@ -553,7 +558,7 @@ GS::ObjectState CreateLibraryPartFromElementsCommand::Execute (const GS::ObjectS
     });
     GSErrCode drawErr = NoError;
     GS::UniString drawFailure;
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("Create Library Part From Elements", [&] () -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("Create Library Part From Elements", [&] () -> GSErrCode {
         drawErr = SetUpSymbolDrawing ();
         if (drawErr != NoError) {
             drawFailure = "Failed to open the 2D symbol of the library part.";

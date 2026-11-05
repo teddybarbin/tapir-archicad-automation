@@ -4,6 +4,8 @@
 #include "ACAPI/Result.hpp"
 #include "ACAPI/KeynoteManager.hpp"
 
+#include <functional>
+#include <initializer_list>
 #include <optional>
 #include <utility>
 
@@ -99,6 +101,76 @@ static std::optional<KeynoteFolder> ResolveParentFolder (const KeynoteFolder& ro
         return rootFolder;
     }
     return FindKeynoteFolderById (rootFolder, GetGuidFromObjectState (*parentFolderId));
+}
+
+// Creates one folder or item in the given parent folder from the entry's data and
+// returns its id or an error.
+using CreateKeynoteEntryFunc = std::function<GS::ObjectState (KeynoteFolder& parentFolder, const GS::UniString& key, const GS::ObjectState& entryData)>;
+
+// The steps CreateKeynoteFolders and CreateKeynoteItems share: gets the root folder,
+// reads the dataListName list and, in one undo step, checks each entry's required
+// string fields, its key and its parent folder before createEntry makes it.
+static GS::ObjectState CreateKeynoteEntries (
+    const GS::ObjectState& parameters,
+    const char* dataListName,
+    const char* resultListName,
+    const GS::UniString& undoStepName,
+    std::initializer_list<const char*> requiredFields,
+    const GS::UniString& missingFieldsError,
+    const CreateKeynoteEntryFunc& createEntry)
+{
+    ACAPI::Result<KeynoteManager> manager = CreateKeynoteManager ();
+    if (manager.IsErr ()) {
+        return CreateErrorResponse (manager.UnwrapErr ().kind, "Failed to get Keynote Manager.");
+    }
+
+    ACAPI::Result<KeynoteFolder> rootFolder = manager->GetRootFolder ();
+    if (rootFolder.IsErr ()) {
+        return CreateErrorResponse (rootFolder.UnwrapErr ().kind, "Failed to get keynote root folder.");
+    }
+
+    GS::Array<GS::ObjectState> entriesData;
+    if (!parameters.Get (dataListName, entriesData)) {
+        return CreateErrorResponse (APIERR_BADPARS, GS::UniString ("Invalid or missing '") + dataListName + "' parameter.");
+    }
+
+    GS::ObjectState response;
+    const auto& idsOrErrors = response.AddList<GS::ObjectState> (resultListName);
+
+    TAPIR_CallUndoableCommand (undoStepName, [&]() -> GSErrCode {
+        for (const GS::ObjectState& entryData : entriesData) {
+            bool hasRequiredFields = true;
+            for (const char* field : requiredFields) {
+                GS::UniString value;
+                if (!entryData.Get (field, value)) {
+                    hasRequiredFields = false;
+                    break;
+                }
+            }
+            if (!hasRequiredFields) {
+                idsOrErrors (CreateErrorResponse (APIERR_BADPARS, missingFieldsError));
+                continue;
+            }
+
+            GS::UniString key;
+            entryData.Get ("key", key);
+            if (key.IsEmpty ()) {
+                idsOrErrors (CreateErrorResponse (APIERR_BADPARS, "The 'key' parameter must not be empty."));
+                continue;
+            }
+
+            std::optional<KeynoteFolder> parentFolder = ResolveParentFolder (rootFolder.Unwrap (), entryData);
+            if (!parentFolder.has_value ()) {
+                idsOrErrors (CreateErrorResponse (APIERR_BADPARS, "Failed to find the parent folder."));
+                continue;
+            }
+
+            idsOrErrors (createEntry (*parentFolder, key, entryData));
+        }
+        return NoError;
+    });
+
+    return response;
 }
 
 static std::optional<KeynoteManager::AutoTextTokenSelector> ParseAutoTextTokenSelector (const GS::UniString& name)
@@ -355,56 +427,19 @@ GS::Optional<GS::UniString> CreateKeynoteFoldersCommand::GetRawResponseSchema ()
 GS::ObjectState CreateKeynoteFoldersCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const
 {
 #ifdef ServerMainVers_2800
-    ACAPI::Result<KeynoteManager> manager = CreateKeynoteManager ();
-    if (manager.IsErr ()) {
-        return CreateErrorResponse (manager.UnwrapErr ().kind, "Failed to get Keynote Manager.");
-    }
-
-    ACAPI::Result<KeynoteFolder> rootFolder = manager->GetRootFolder ();
-    if (rootFolder.IsErr ()) {
-        return CreateErrorResponse (rootFolder.UnwrapErr ().kind, "Failed to get keynote root folder.");
-    }
-
-    GS::Array<GS::ObjectState> foldersData;
-    if (!parameters.Get ("foldersData", foldersData)) {
-        return CreateErrorResponse (APIERR_BADPARS, "Invalid or missing 'foldersData' parameter.");
-    }
-
-    GS::ObjectState response;
-    const auto& keynoteFolderIdsOrErrors = response.AddList<GS::ObjectState> ("keynoteFolderIdsOrErrors");
-
-    ACAPI_CallUndoableCommand ("Create Keynote Folders", [&]() -> GSErrCode {
-        for (const GS::ObjectState& folderData : foldersData) {
-            GS::UniString key;
+    return CreateKeynoteEntries (parameters, "foldersData", "keynoteFolderIdsOrErrors", "Create Keynote Folders",
+        { "key", "title" }, "Missing 'key' or 'title' parameter.",
+        [] (KeynoteFolder& parentFolder, const GS::UniString& key, const GS::ObjectState& folderData) -> GS::ObjectState {
             GS::UniString title;
-            if (!folderData.Get ("key", key) || !folderData.Get ("title", title)) {
-                keynoteFolderIdsOrErrors (CreateErrorResponse (APIERR_BADPARS, "Missing 'key' or 'title' parameter."));
-                continue;
-            }
+            folderData.Get ("title", title);
 
-            if (key.IsEmpty ()) {
-                keynoteFolderIdsOrErrors (CreateErrorResponse (APIERR_BADPARS, "The 'key' parameter must not be empty."));
-                continue;
-            }
-
-            std::optional<KeynoteFolder> parentFolder = ResolveParentFolder (rootFolder.Unwrap (), folderData);
-            if (!parentFolder.has_value ()) {
-                keynoteFolderIdsOrErrors (CreateErrorResponse (APIERR_BADPARS, "Failed to find the parent folder."));
-                continue;
-            }
-
-            auto newFolder = parentFolder->AddSubFolder (key, title);
+            auto newFolder = parentFolder.AddSubFolder (key, title);
             if (newFolder.IsErr ()) {
-                keynoteFolderIdsOrErrors (CreateErrorResponse (newFolder.UnwrapErr ().kind, "Failed to create the keynote folder."));
-                continue;
+                return CreateErrorResponse (newFolder.UnwrapErr ().kind, "Failed to create the keynote folder.");
             }
 
-            keynoteFolderIdsOrErrors (CreateIdObjectState ("keynoteFolderId", newFolder->GetId ()));
-        }
-        return NoError;
-    });
-
-    return response;
+            return CreateIdObjectState ("keynoteFolderId", newFolder->GetId ());
+        });
 #else
     UNUSED_PARAMETER (parameters);
     return CreateErrorResponse (APIERR_NOTSUPPORTED, "This command requires Archicad 28 or newer.");
@@ -483,47 +518,12 @@ GS::Optional<GS::UniString> CreateKeynoteItemsCommand::GetRawResponseSchema () c
 GS::ObjectState CreateKeynoteItemsCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const
 {
 #ifdef ServerMainVers_2800
-    ACAPI::Result<KeynoteManager> manager = CreateKeynoteManager ();
-    if (manager.IsErr ()) {
-        return CreateErrorResponse (manager.UnwrapErr ().kind, "Failed to get Keynote Manager.");
-    }
-
-    ACAPI::Result<KeynoteFolder> rootFolder = manager->GetRootFolder ();
-    if (rootFolder.IsErr ()) {
-        return CreateErrorResponse (rootFolder.UnwrapErr ().kind, "Failed to get keynote root folder.");
-    }
-
-    GS::Array<GS::ObjectState> itemsData;
-    if (!parameters.Get ("itemsData", itemsData)) {
-        return CreateErrorResponse (APIERR_BADPARS, "Invalid or missing 'itemsData' parameter.");
-    }
-
-    GS::ObjectState response;
-    const auto& keynoteItemIdsOrErrors = response.AddList<GS::ObjectState> ("keynoteItemIdsOrErrors");
-
-    ACAPI_CallUndoableCommand ("Create Keynote Items", [&]() -> GSErrCode {
-        for (const GS::ObjectState& itemData : itemsData) {
-            GS::UniString key;
-            if (!itemData.Get ("key", key)) {
-                keynoteItemIdsOrErrors (CreateErrorResponse (APIERR_BADPARS, "Missing 'key' parameter."));
-                continue;
-            }
-
-            if (key.IsEmpty ()) {
-                keynoteItemIdsOrErrors (CreateErrorResponse (APIERR_BADPARS, "The 'key' parameter must not be empty."));
-                continue;
-            }
-
-            std::optional<KeynoteFolder> parentFolder = ResolveParentFolder (rootFolder.Unwrap (), itemData);
-            if (!parentFolder.has_value ()) {
-                keynoteItemIdsOrErrors (CreateErrorResponse (APIERR_BADPARS, "Failed to find the parent folder."));
-                continue;
-            }
-
-            auto newItem = parentFolder->AddItem (key);
+    return CreateKeynoteEntries (parameters, "itemsData", "keynoteItemIdsOrErrors", "Create Keynote Items",
+        { "key" }, "Missing 'key' parameter.",
+        [] (KeynoteFolder& parentFolder, const GS::UniString& key, const GS::ObjectState& itemData) -> GS::ObjectState {
+            auto newItem = parentFolder.AddItem (key);
             if (newItem.IsErr ()) {
-                keynoteItemIdsOrErrors (CreateErrorResponse (newItem.UnwrapErr ().kind, "Failed to create the keynote item."));
-                continue;
+                return CreateErrorResponse (newItem.UnwrapErr ().kind, "Failed to create the keynote item.");
             }
 
             GS::UniString title;
@@ -539,12 +539,8 @@ GS::ObjectState CreateKeynoteItemsCommand::Execute (const GS::ObjectState& param
                 newItem->SetReference (reference);
             }
 
-            keynoteItemIdsOrErrors (CreateIdObjectState ("keynoteItemId", newItem->GetId ()));
-        }
-        return NoError;
-    });
-
-    return response;
+            return CreateIdObjectState ("keynoteItemId", newItem->GetId ());
+        });
 #else
     UNUSED_PARAMETER (parameters);
     return CreateErrorResponse (APIERR_NOTSUPPORTED, "This command requires Archicad 28 or newer.");
@@ -637,7 +633,7 @@ GS::ObjectState ModifyKeynoteFoldersCommand::Execute (const GS::ObjectState& par
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Modify Keynote Folders", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Modify Keynote Folders", [&]() -> GSErrCode {
         for (const GS::ObjectState& folderData : foldersData) {
             const GS::ObjectState* folderId = folderData.Get ("keynoteFolderId");
             if (folderId == nullptr) {
@@ -761,7 +757,7 @@ GS::ObjectState ModifyKeynoteItemsCommand::Execute (const GS::ObjectState& param
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Modify Keynote Items", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Modify Keynote Items", [&]() -> GSErrCode {
         for (const GS::ObjectState& itemData : itemsData) {
             const GS::ObjectState* itemId = itemData.Get ("keynoteItemId");
             if (itemId == nullptr) {
@@ -868,7 +864,7 @@ GS::ObjectState DeleteKeynoteFoldersCommand::Execute (const GS::ObjectState& par
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Delete Keynote Folders", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Delete Keynote Folders", [&]() -> GSErrCode {
         for (const GS::ObjectState& keynoteFolderId : keynoteFolderIds) {
             const API_Guid folderId = GetGuidFromArrayItem ("keynoteFolderId", keynoteFolderId);
 
@@ -960,7 +956,7 @@ GS::ObjectState DeleteKeynoteItemsCommand::Execute (const GS::ObjectState& param
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Delete Keynote Items", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Delete Keynote Items", [&]() -> GSErrCode {
         for (const GS::ObjectState& keynoteItemId : keynoteItemIds) {
             std::optional<std::pair<KeynoteFolder, KeynoteItem>> found = FindKeynoteItemById (rootFolder.Unwrap (), GetGuidFromArrayItem ("keynoteItemId", keynoteItemId));
             if (!found.has_value ()) {
@@ -1068,7 +1064,7 @@ GS::ObjectState CreateKeynoteLabelsCommand::Execute (const GS::ObjectState& para
     GS::ObjectState response;
     const auto& elements = response.AddList<GS::ObjectState> ("elements");
 
-    ACAPI_CallUndoableCommand ("Create Keynote Labels", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Create Keynote Labels", [&]() -> GSErrCode {
         for (const GS::ObjectState& labelData : labelsData) {
             const GS::ObjectState* keynoteItemId = labelData.Get ("keynoteItemId");
             const GS::ObjectState* position = labelData.Get ("position");

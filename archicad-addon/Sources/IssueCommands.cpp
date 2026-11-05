@@ -136,7 +136,7 @@ GS::ObjectState CreateIssueCommand::Execute (const GS::ObjectState& parameters, 
     if (parameters.Get ("parentIssueId", parentIssueId))
         issue.parentGuid = GetGuidFromObjectState (parentIssueId);
 
-    GSErrCode err = ACAPI_CallUndoableCommand ("Create issue", [&]() -> GSErrCode {
+    GSErrCode err = TAPIR_CallUndoableCommand ("Create issue", [&]() -> GSErrCode {
         return ACAPI_Markup_Create (issue);
     });
 
@@ -195,7 +195,7 @@ GS::ObjectState DeleteIssueCommand::Execute (const GS::ObjectState& parameters, 
 
     parameters.Get ("acceptAllElements", acceptAllElements);
     API_Guid guid = GetGuidFromObjectState (issueId);
-    GSErrCode err = ACAPI_CallUndoableCommand ("Delete issue", [&]() -> GSErrCode {
+    GSErrCode err = TAPIR_CallUndoableCommand ("Delete issue", [&]() -> GSErrCode {
         return ACAPI_Markup_Delete (guid, acceptAllElements);
     });
 
@@ -382,7 +382,7 @@ GS::ObjectState AddCommentToIssueCommand::Execute (const GS::ObjectState& parame
     }
 
     API_Guid guid = GetGuidFromObjectState (issueId);
-    GSErrCode err = ACAPI_CallUndoableCommand ("Add comment", [&]() -> GSErrCode {
+    GSErrCode err = TAPIR_CallUndoableCommand ("Add comment", [&]() -> GSErrCode {
         API_MarkUpCommentType comment (author, text, ConvertStringToMarkUpCommentStatusID (status));
         return ACAPI_Markup_AddComment (guid, comment);
     });
@@ -566,7 +566,7 @@ GS::ObjectState AttachElementsToIssueCommand::Execute (const GS::ObjectState& pa
 
     const GS::Array<API_Guid> elemIds = elements.Transform<API_Guid> (GetGuidFromElementsArrayItem);
 
-    GSErrCode err = ACAPI_CallUndoableCommand ("Attach elements", [&]() -> GSErrCode {
+    GSErrCode err = TAPIR_CallUndoableCommand ("Attach elements", [&]() -> GSErrCode {
         return TAPIR_MarkUp_AttachElements (GetGuidFromObjectState (issueId), elemIds, ConvertStringToMarkUpComponentTypeID (type));
     });
 
@@ -625,7 +625,7 @@ GS::ObjectState DetachElementsFromIssueCommand::Execute (const GS::ObjectState& 
 
     const GS::Array<API_Guid> elemIds = elements.Transform<API_Guid> (GetGuidFromElementsArrayItem);
 
-    GSErrCode err = ACAPI_CallUndoableCommand ("Detach elements", [&]() -> GSErrCode {
+    GSErrCode err = TAPIR_CallUndoableCommand ("Detach elements", [&]() -> GSErrCode {
         return ACAPI_Markup_DetachElements (GetGuidFromObjectState (issueId), elemIds);
     });
 
@@ -729,7 +729,11 @@ GS::Optional<GS::UniString> ExportIssuesToBCFCommand::GetInputParametersSchema (
             },
             "exportPath": {
                 "type": "string",
-                "description": "The os path to the bcf file, including it's name."
+                "description": "The os path to the bcf file, including it's name. An existing file is overwritten, unless overwrite is false."
+            },
+            "overwrite": {
+                "type": "boolean",
+                "description": "Optional, true by default. false refuses to export when a file already exists at exportPath, and writes nothing."
             },
             "useExternalId": {
                 "type": "boolean",
@@ -782,6 +786,10 @@ GS::ObjectState ExportIssuesToBCFCommand::Execute (const GS::ObjectState& parame
     }
 
     IO::Location bcfFilePath (exportPath);
+    const GS::UniString overwriteRefusal = GetOverwriteRefusal (parameters, bcfFilePath);
+    if (!overwriteRefusal.IsEmpty ()) {
+        return CreateFailedExecutionResult (APIERR_BADPARS, overwriteRefusal);
+    }
     GSErrCode err = ACAPI_Markup_ExportToBCF (bcfFilePath, issueIds, useExternalId, alignBySurveyPoint);
 
     if (err != NoError) {
@@ -840,7 +848,7 @@ GS::ObjectState ImportIssuesFromBCFCommand::Execute (const GS::ObjectState& para
     }
 
     IO::Location bcfFilePath (importPath);
-    GSErrCode err = ACAPI_CallUndoableCommand ("Import BCF Issues", [&]() -> GSErrCode {
+    GSErrCode err = TAPIR_CallUndoableCommand ("Import BCF Issues", [&]() -> GSErrCode {
         API_IFCRelationshipData ifcRelationshipData = GetCurrentProjectIFCRelationshipData ();
         return ACAPI_Markup_ImportFromBCF (bcfFilePath, true, &GetIFCRelationshipData, &ifcRelationshipData, false, alignBySurveyPoint);
     });
@@ -951,7 +959,7 @@ GS::ObjectState ImportMarkupsFromPDFCommand::Execute (const GS::ObjectState& par
         return CreateImportMarkupsFromPDFResponse (CreateFailedExecutionResult (err, "Failed to retrieve the issues."), GS::Array<API_Guid> ());
     }
 
-    err = ACAPI_CallUndoableCommand ("Import PDF markups", [&]() -> GSErrCode {
+    err = TAPIR_CallUndoableCommand ("Import PDF markups", [&]() -> GSErrCode {
         // silentMode: no dialog may block the JSON interface; the Issue Manager palette stays as it is.
         return ACAPI_Markup_ImportFromPDF (pdfFileLocation, true, false);
     });

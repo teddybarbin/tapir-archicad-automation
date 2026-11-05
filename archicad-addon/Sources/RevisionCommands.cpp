@@ -236,7 +236,7 @@ GS::ObjectState ModifyRevisionIssuesCommand::Execute (const GS::ObjectState& par
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Modify Revision Issues", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Modify Revision Issues", [&]() -> GSErrCode {
         for (const GS::ObjectState& issueData : revisionIssues) {
             const GS::ObjectState* revisionIssueId = issueData.Get ("revisionIssueId");
             if (revisionIssueId == nullptr) {
@@ -413,19 +413,7 @@ GS::Optional<GS::UniString> GetRevisionChangeCustomSchemeCommand::GetRawResponse
             "customScheme": {
                 "type": "array",
                 "items": {
-                    "type": "object",
-                    "properties": {
-                        "customSchemeKey": {
-                            "type": "string",
-                            "description": "The identifier of the custom field. The same key is used in the customSchemeData of the revision changes."
-                        },
-                        "customSchemeName": {
-                            "type": "string",
-                            "description": "The name of the custom field."
-                        }
-                    },
-                    "required": ["customSchemeKey", "customSchemeName"],
-                    "additionalProperties": false
+                    "$ref": "#/RevisionChangeCustomSchemeItem"
                 }
             }
         },

@@ -11,7 +11,7 @@ GS::String Set3DCutPlanesCommand::GetName () const
 // there is no 3DCutPlane scheme definition.
 // I am not sure if it is needed, because it will not occur in other commands
 Set3DCutPlanesCommand::Set3DCutPlanesCommand () :
-    CommandBase (CommonSchema::NotUsed)
+    CommandBase (CommonSchema::Used)
 {}
 
 
@@ -127,7 +127,7 @@ GS::ObjectState Set3DCutPlanesCommand::Execute (const GS::ObjectState& parameter
         return CreateFailedExecutionResult (APIERR_BADPARS, "Invalid parameter: cutPlanes.");
     }
 
-    GSErrCode err = ACAPI_CallUndoableCommand ("Set3DCutPlanesCommand", [&]() -> GSErrCode {
+    GSErrCode err = TAPIR_CallUndoableCommand ("Set3DCutPlanesCommand", [&]() -> GSErrCode {
         return _Set3DCutPlanes (cutPlanes);
     });
 
@@ -144,7 +144,7 @@ GS::String Get3DCutPlanesCommand::GetName () const
 
 
 Get3DCutPlanesCommand::Get3DCutPlanesCommand () :
-    CommandBase (CommonSchema::NotUsed)
+    CommandBase (CommonSchema::Used)
 {}
 
 

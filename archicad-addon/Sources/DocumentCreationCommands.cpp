@@ -356,7 +356,7 @@ GSErrCode PlaceNewLayout (const API_Guid& layoutDatabaseId, const API_Guid& pare
     }
 
     GSErrCode err = NoError;
-    ACAPI_CallUndoableCommand ("CreateLayoutCommand", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("CreateLayoutCommand", [&]() -> GSErrCode {
         err = ACAPI_Navigator_SetNavigatorItemPosition (&sourceGuid, &parentGSGuid, prevGuidPtr);
         return err;
     });
@@ -568,9 +568,8 @@ GS::Optional<GS::UniString> CreateLayoutCommand::GetInputParametersSchema () con
                             "description": "The sibling after which the new layout is placed, as in MoveNavigatorItem. It must be a child of parentNavigatorItemId (or of the Layout Book root when that is omitted). Cannot be combined with position."
                         },
                         "position": {
-                            "type": "string",
-                            "enum": ["first", "last"],
-                            "description": "Where to place the new layout under its parent. Archicad inserts new layouts at the first place, which renumbers the sheets after them; \"last\" appends it after the existing children instead. Cannot be combined with previousNavigatorItemId."
+                            "$ref": "#/LayoutInsertionPosition",
+                            "description": "Archicad inserts new layouts at the first place, which renumbers the sheets after them; \"last\" appends it after the existing children instead. Cannot be combined with previousNavigatorItemId."
                         },
                         "paperWidth":            { "type": "number", "description": "Optional paper width in mm, used together with paperHeight. Sets the size of the new layout, and of the master layout when this command creates it from masterLayoutName: a new master starts with the template's default size, which layoutParameters cannot change. An existing master keeps its size. Wins over layoutParameters.horizontalSize." },
                         "paperHeight":           { "type": "number", "description": "Optional paper height in mm, used together with paperWidth. See paperWidth. Wins over layoutParameters.verticalSize." },
@@ -995,21 +994,7 @@ GS::Optional<GS::UniString> GetLayoutSubsetSettingsCommand::GetRawResponseSchema
                 "items": {
                     "oneOf": [
                         {
-                            "type": "object",
-                            "properties": {
-                                "name":                { "type": "string" },
-                                "ownPrefix":           { "type": "string" },
-                                "customNumber":        { "type": "string" },
-                                "numberingStyle":      { "type": "string", "enum": ["Undefined", "abc", "ABC", "1", "01", "001", "0001", "noID"] },
-                                "startAt":             { "type": "integer" },
-                                "continueNumbering":   { "type": "boolean" },
-                                "useUpperPrefix":      { "type": "boolean" },
-                                "includeToIDSequence": { "type": "boolean" },
-                                "customNumbering":     { "type": "boolean" },
-                                "addOwnPrefix":        { "type": "boolean" }
-                            },
-                            "additionalProperties": false,
-                            "required": ["name", "ownPrefix", "customNumber", "numberingStyle", "startAt", "continueNumbering", "useUpperPrefix", "includeToIDSequence", "customNumbering", "addOwnPrefix"]
+                            "$ref": "#/LayoutSubsetSettings"
                         },
                         { "$ref": "#/ErrorItem" }
                     ]
@@ -1389,7 +1374,7 @@ GS::ObjectState CreateDrawingsCommand::Execute (const GS::ObjectState& parameter
     const GSErrCode startingDatabaseErr = ACAPI_Database_GetCurrentDatabase (&startingDatabase);
 
     GS::Array<GS::ObjectState> elementResults;
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("CreateDrawingsCommand", [&]() -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("CreateDrawingsCommand", [&]() -> GSErrCode {
         for (const auto& item : items) {
             if (startingDatabaseErr == NoError) {
                 const GS::ObjectState* layoutDatabaseId = item.Get ("layoutDatabaseId");
@@ -1513,7 +1498,7 @@ GS::ObjectState ChangeDrawingLinkCommand::Execute (const GS::ObjectState& parame
     bool windowSwitched = false;
 
     GS::Array<GS::ObjectState> results;
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("ChangeDrawingLinkCommand", [&]() -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("ChangeDrawingLinkCommand", [&]() -> GSErrCode {
         for (const auto& item : items) {
             const GS::ObjectState* elementIdState        = item.Get ("elementId");
             const GS::ObjectState* navigatorItemIdState  = item.Get ("navigatorItemId");

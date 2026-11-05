@@ -1,5 +1,6 @@
 #include "ElementGDLParameterCommands.hpp"
 #include "MigrationHelper.hpp"
+#include "NotificationCommands.hpp"
 #include "GSUnID.hpp"
 
 #ifdef ServerMainVers_2800
@@ -951,7 +952,15 @@ GS::ObjectState	SetGDLParametersOfElementsCommand::Execute (const GS::ObjectStat
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Set GDL Parameters of Elements", [&]() -> GSErrCode {
+    ElementChangeReporter changeReporter;
+    for (const GS::ObjectState& elementWithGDLParameters : elementsWithGDLParameters) {
+        const GS::ObjectState* elementId = elementWithGDLParameters.Get ("elementId");
+        if (elementId != nullptr) {
+            changeReporter.Add (GetGuidFromObjectState (*elementId));
+        }
+    }
+
+    TAPIR_CallUndoableCommand ("Set GDL Parameters of Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementWithGDLParameters : elementsWithGDLParameters) {
             GSErrCode err = NoError;
             GS::UniString errMessage;
@@ -1140,12 +1149,15 @@ GS::ObjectState	SetGDLParametersOfElementsCommand::Execute (const GS::ObjectStat
                     executionResults (CreateFailedExecutionResult (err, errMessage));
                 }
             } else {
+                changeReporter.MarkChanged (elemGuid);
                 executionResults (CreateSuccessfulExecutionResult ());
             }
         }
 
         return NoError;
     });
+
+    changeReporter.Report ();
 
     return response;
 }
@@ -1919,7 +1931,15 @@ GS::ObjectState SetMarkerParametersOfElementsCommand::Execute (const GS::ObjectS
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Set Marker Parameters of Elements", [&]() -> GSErrCode {
+    ElementChangeReporter changeReporter;
+    for (const GS::ObjectState& elementWithMarkerParameters : elementsWithMarkerParameters) {
+        const GS::ObjectState* elementId = elementWithMarkerParameters.Get ("elementId");
+        if (elementId != nullptr) {
+            changeReporter.Add (GetGuidFromObjectState (*elementId));
+        }
+    }
+
+    TAPIR_CallUndoableCommand ("Set Marker Parameters of Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementWithMarkerParameters : elementsWithMarkerParameters) {
             const GS::ObjectState* elementId = elementWithMarkerParameters.Get ("elementId");
             if (elementId == nullptr) {
@@ -1966,12 +1986,15 @@ GS::ObjectState SetMarkerParametersOfElementsCommand::Execute (const GS::ObjectS
             if (err != NoError) {
                 executionResults (CreateFailedExecutionResult (err, errMessage));
             } else {
+                changeReporter.MarkChanged (elemGuid);
                 executionResults (CreateSuccessfulExecutionResult ());
             }
         }
 
         return NoError;
     });
+
+    changeReporter.Report ();
 
     return response;
 }
@@ -2308,7 +2331,15 @@ GS::ObjectState SetMarkerLibraryPartOfElementsCommand::Execute (const GS::Object
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Set Marker Library Part of Elements", [&]() -> GSErrCode {
+    ElementChangeReporter changeReporter;
+    for (const GS::ObjectState& elementWithMarkerLibraryPart : elementsWithMarkerLibraryPart) {
+        const GS::ObjectState* elementId = elementWithMarkerLibraryPart.Get ("elementId");
+        if (elementId != nullptr) {
+            changeReporter.Add (GetGuidFromObjectState (*elementId));
+        }
+    }
+
+    TAPIR_CallUndoableCommand ("Set Marker Library Part of Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementWithMarkerLibraryPart : elementsWithMarkerLibraryPart) {
             const GS::ObjectState* elementId = elementWithMarkerLibraryPart.Get ("elementId");
             if (elementId == nullptr) {
@@ -2390,11 +2421,14 @@ GS::ObjectState SetMarkerLibraryPartOfElementsCommand::Execute (const GS::Object
                 continue;
             }
 
+            changeReporter.MarkChanged (elemGuid);
             executionResults (CreateSuccessfulExecutionResult ());
         }
 
         return NoError;
     });
+
+    changeReporter.Report ();
 
     return response;
 }
@@ -3027,7 +3061,15 @@ GS::ObjectState ChangeLibraryPartOfElementsCommand::Execute (const GS::ObjectSta
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Change Library Part of Elements", [&]() -> GSErrCode {
+    ElementChangeReporter changeReporter;
+    for (const GS::ObjectState& elementWithLibraryPart : elementsWithLibraryPart) {
+        const GS::ObjectState* elementId = elementWithLibraryPart.Get ("elementId");
+        if (elementId != nullptr) {
+            changeReporter.Add (GetGuidFromObjectState (*elementId));
+        }
+    }
+
+    TAPIR_CallUndoableCommand ("Change Library Part of Elements", [&]() -> GSErrCode {
         LibraryPartGuidTable guidTable;
         for (const GS::ObjectState& elementWithLibraryPart : elementsWithLibraryPart) {
             GS::UniString errMessage;
@@ -3035,12 +3077,15 @@ GS::ObjectState ChangeLibraryPartOfElementsCommand::Execute (const GS::ObjectSta
             if (err != NoError) {
                 executionResults (CreateFailedExecutionResult (err, errMessage));
             } else {
+                changeReporter.MarkChanged (GetGuidFromObjectState (*elementWithLibraryPart.Get ("elementId")));
                 executionResults (CreateSuccessfulExecutionResult ());
             }
         }
 
         return NoError;
     });
+
+    changeReporter.Report ();
 
     return response;
 }
@@ -3434,7 +3479,17 @@ GS::ObjectState RunParameterScriptOfElementsCommand::Execute (const GS::ObjectSt
 
     // Running the parameter script can change the element's parameters, so it runs in an
     // undoable command like SetGDLParametersOfElements. The mask is left at its default (0).
-    ACAPI_CallUndoableCommand ("Run Parameter Script of Elements", [&]() -> GSErrCode {
+    // The script may also leave the element as it was, so only an element whose modification
+    // stamp changed is reported to the notification clients.
+    ElementChangeReporter changeReporter;
+    for (const GS::ObjectState& element : elements) {
+        const GS::ObjectState* elementId = element.Get ("elementId");
+        if (elementId != nullptr) {
+            changeReporter.Add (GetGuidFromObjectState (*elementId));
+        }
+    }
+
+    TAPIR_CallUndoableCommand ("Run Parameter Script of Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& element : elements) {
             const GS::ObjectState* elementId = element.Get ("elementId");
             if (elementId == nullptr) {
@@ -3462,6 +3517,8 @@ GS::ObjectState RunParameterScriptOfElementsCommand::Execute (const GS::ObjectSt
 
         return NoError;
     });
+
+    changeReporter.Report ();
 
     return response;
 }

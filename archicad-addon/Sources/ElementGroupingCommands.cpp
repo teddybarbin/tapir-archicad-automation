@@ -81,7 +81,7 @@ GS::ObjectState CreateGroupsCommand::Execute(const GS::ObjectState& parameters, 
 
 #ifdef ServerMainVers_2600
 
-    ACAPI_CallUndoableCommand ("Create Element Groups", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Create Element Groups", [&]() -> GSErrCode {
         for (const GS::ObjectState& groupParam : elementGroups) {
 
             GS::Array<GS::ObjectState> elements;
@@ -188,7 +188,7 @@ GS::ObjectState UngroupElementsCommand::Execute(const GS::ObjectState& parameter
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState>("executionResults");
 
-    ACAPI_CallUndoableCommand ("Ungroup Elements", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Ungroup Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& group : groups) {
             const GS::ObjectState* groupId = group.Get("groupId");
             if (groupId == nullptr) {
@@ -1038,7 +1038,7 @@ GS::ObjectState SetUserDataOfGroupsCommand::Execute(const GS::ObjectState& param
     // whole call; the lambda reports success when any group was changed, so a failed group does not
     // roll back the others, and each group carries its own result.
     bool executed = false;
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("SetUserDataOfGroups", [&]() -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("SetUserDataOfGroups", [&]() -> GSErrCode {
         executed = true;
         GSErrCode firstErr = NoError;
         bool anyStored = false;
@@ -1317,7 +1317,7 @@ GS::ObjectState CreateElementSetsCommand::Execute(const GS::ObjectState& paramet
     GS::ObjectState response;
     const auto& elementSetIds = response.AddList<GS::ObjectState>("elementSets");
 
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("Create Element Sets", [&]() -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("Create Element Sets", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementSet : elementSets) {
             GS::Array<GS::ObjectState> elements;
             if (!elementSet.Get("elements", elements) || elements.IsEmpty()) {
@@ -1332,7 +1332,10 @@ GS::ObjectState CreateElementSetsCommand::Execute(const GS::ObjectState& paramet
 
             // No user data is stored with the set; an empty handle is passed
             // rather than a null one, as the API copies the handle's content.
+            // The platform sign must be valid even then, otherwise the API
+            // refuses the set with APIERR_BADPLATFORMSIGN (#1862).
             API_UserData userData = {};
+            userData.platformSign = GS::Act_Platform_Sign;
             userData.dataHdl = BMAllocateHandle(0, ALLOCATE_CLEAR, 0);
 
             API_Guid setGuid = APINULLGuid;
@@ -1431,7 +1434,7 @@ GS::ObjectState DeleteElementSetsCommand::Execute(const GS::ObjectState& paramet
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState>("executionResults");
 
-    const GSErrCode undoErr = ACAPI_CallUndoableCommand ("Delete Element Sets", [&]() -> GSErrCode {
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("Delete Element Sets", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementSet : elementSets) {
             const GS::ObjectState* elementSetId = elementSet.Get("elementSetId");
             if (elementSetId == nullptr) {
@@ -1512,39 +1515,7 @@ GS::Optional<GS::UniString> GetElementSetsOfElementsCommand::GetRawResponseSchem
                     "type": "object",
                     "oneOf": [
                         {
-                            "type": "object",
-                            "properties": {
-                                "elementSets": {
-                                    "type": "array",
-                                    "description": "The element sets that contain the element. Empty if the element is not part of any element set.",
-                                    "items": {
-                                        "type": "object",
-                                        "properties": {
-                                            "elementSetId": {
-                                                "type": "object",
-                                                "description": "The identifier of an element set.",
-                                                "properties": {
-                                                    "guid": {
-                                                        "$ref": "#/Guid"
-                                                    }
-                                                },
-                                                "additionalProperties": false,
-                                                "required": [
-                                                    "guid"
-                                                ]
-                                            }
-                                        },
-                                        "additionalProperties": false,
-                                        "required": [
-                                            "elementSetId"
-                                        ]
-                                    }
-                                }
-                            },
-                            "additionalProperties": false,
-                            "required": [
-                                "elementSets"
-                            ]
+                            "$ref": "#/ElementSetsOfElement"
                         },
                         {
                             "$ref": "#/ErrorItem"

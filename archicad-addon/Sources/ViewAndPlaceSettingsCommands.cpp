@@ -2,6 +2,8 @@
 #include "ApplicationCommands.hpp"
 #include "MigrationHelper.hpp"
 
+#include <cmath>
+
 // The grid settings of the current database (API_GridType), the 'Filter and Cut Elements in 3D'
 // settings of the 3D window (API_3DFilterAndCutSettings), the search of a dimension standard by
 // name and the place settings (API_PlaceInfo: location, date, time and time zone). Every settings
@@ -278,7 +280,10 @@ public:
             if (!colorOs.Get (component, value) || value < 0.0 || value > 1.0) {
                 return false;
             }
-            target = value;
+            // Archicad stores these colours in 8 bits per component and truncates, so a value
+            // read back by GetGridSettings (printed with a few decimals, a hair below its 8-bit
+            // step) would lose one step. Snapping to the nearest step keeps the roundtrip exact.
+            target = std::round (value * 255.0) / 255.0;
             return true;
         };
         const bool valid = readComponent ("red", newColor.f_red) &&
@@ -374,7 +379,7 @@ static GS::ObjectState CreateRequiresArchicad27Response ()
 
 static const char* ColorSchema = R"({
                 "type": "object",
-                "description": "A color with transparency, each component from 0 to 1.",
+                "description": "A color with transparency, each component from 0 to 1. Archicad keeps 8 bits per component, so a value that is set is rounded to the nearest 1/255.",
                 "properties": {
                     "red": { "type": "number", "minimum": 0, "maximum": 1 },
                     "green": { "type": "number", "minimum": 0, "maximum": 1 },
@@ -534,7 +539,7 @@ GS::ObjectState SetGridSettingsCommand::Execute (const GS::ObjectState& paramete
         return CreateErrorResponse (APIERR_BADPARS, input.GetError ());
     }
 
-    err = ACAPI_CallUndoableCommand ("SetGridSettingsCommand", [&] () -> GSErrCode {
+    err = TAPIR_CallUndoableCommand ("SetGridSettingsCommand", [&] () -> GSErrCode {
         return ACAPI_Window_ChangeGridSettings (&grid);
     });
     if (err != NoError) {
@@ -690,7 +695,7 @@ GS::ObjectState Set3DFilterAndCutSettingsCommand::Execute (const GS::ObjectState
         return CreateErrorResponse (APIERR_BADPARS, input.GetError ());
     }
 
-    err = ACAPI_CallUndoableCommand ("Set3DFilterAndCutSettingsCommand", [&] () -> GSErrCode {
+    err = TAPIR_CallUndoableCommand ("Set3DFilterAndCutSettingsCommand", [&] () -> GSErrCode {
         return ACAPI_View_Change3DImageSets (&filter, &mustConvert);
     });
     if (err != NoError) {
@@ -928,7 +933,7 @@ GS::ObjectState SetPlaceSettingsCommand::Execute (const GS::ObjectState& paramet
             return CreateErrorResponse (err, "The place settings cannot be changed now (in a Teamwork project, reserve them first).");
         }
 
-        err = ACAPI_CallUndoableCommand ("SetPlaceSettingsCommand", [&] () -> GSErrCode {
+        err = TAPIR_CallUndoableCommand ("SetPlaceSettingsCommand", [&] () -> GSErrCode {
             return ACAPI_GeoLocation_ChangePlaceSets (&placeInfo);
         });
         if (err != NoError) {

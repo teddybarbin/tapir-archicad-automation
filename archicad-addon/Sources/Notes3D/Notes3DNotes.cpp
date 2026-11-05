@@ -459,7 +459,7 @@ static GSErrCode AppliquerCamera (const Value& cam)
 			for (int i = 0; i < 12; ++i)
 				ax.invtranmat.tmx[i] = x["inverseMatrix"][i].GetDouble ();
 	}
-	err = ACAPI_CallUndoableCommand ("Notes 3D : remettre la vue", [&] () -> GSErrCode {
+	err = TAPIR_CallUndoableCommand ("Notes 3D : remettre la vue", [&] () -> GSErrCode {
 		return ACAPI_View_Change3DProjectionSets (&pi, nullptr);
 	});
 	if (err != NoError)

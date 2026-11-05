@@ -406,21 +406,7 @@ GS::Optional<GS::UniString> GetGraphicOverrideRulesByNameCommand::GetInputParame
                 "type": "array",
                 "description": "The graphic override rules to get, by name.",
                 "items": {
-                    "type": "object",
-                    "properties": {
-                        "name": {
-                            "type": "string",
-                            "description": "The name of the rule. Rule names are unique within the project."
-                        },
-                        "ruleGroupName": {
-                            "type": "string",
-                            "description": "The name of the rule group to search the rule in. Left out: every rule group is searched."
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "name"
-                    ]
+                    "$ref": "#/GraphicOverrideRuleReference"
                 }
             }
         },
@@ -606,7 +592,7 @@ GS::ObjectState CreateGraphicOverrideRulesCommand::Execute (const GS::ObjectStat
 
     GS::ObjectState response;
     const auto& graphicOverrideRuleIdsList = response.AddList<GS::ObjectState> ("graphicOverrideRuleIds");
-    ACAPI_CallUndoableCommand ("Create Graphic Override Rules", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Create Graphic Override Rules", [&] () -> GSErrCode {
         for (const GS::ObjectState& item : graphicOverrideRules) {
             API_OverrideRule rule = {};
             GS::UniString ruleGroupName;
@@ -734,7 +720,7 @@ GS::ObjectState ModifyGraphicOverrideRulesCommand::Execute (const GS::ObjectStat
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("Modify Graphic Override Rules", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Modify Graphic Override Rules", [&] () -> GSErrCode {
         for (const GS::ObjectState& item : graphicOverrideRules) {
             const GS::ObjectState* graphicOverrideRuleId = item.Get ("graphicOverrideRuleId");
             if (graphicOverrideRuleId == nullptr) {
@@ -842,7 +828,7 @@ GS::ObjectState DeleteGraphicOverrideRulesCommand::Execute (const GS::ObjectStat
 
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
-    ACAPI_CallUndoableCommand ("Delete Graphic Override Rules", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Delete Graphic Override Rules", [&] () -> GSErrCode {
         for (const API_Guid& ruleGuid : GetRuleGuidsFromArray (graphicOverrideRuleIds)) {
             if (!IsGraphicOverrideRule (ruleGuid)) {
                 executionResults (CreateFailedExecutionResult (APIERR_BADID, "The graphic override rule does not exist."));
@@ -1028,7 +1014,7 @@ GS::ObjectState CreateGraphicOverrideCombinationsCommand::Execute (const GS::Obj
 
     GS::ObjectState response;
     const auto& graphicOverrideCombinationIdsList = response.AddList<GS::ObjectState> ("graphicOverrideCombinationIds");
-    ACAPI_CallUndoableCommand ("Create Graphic Override Combinations", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Create Graphic Override Combinations", [&] () -> GSErrCode {
         for (const GS::ObjectState& item : graphicOverrideCombinations) {
             API_OverrideCombination combination = {};
             GS::Array<GS::ObjectState> ruleIds;
@@ -1129,7 +1115,7 @@ GS::ObjectState ModifyGraphicOverrideCombinationsCommand::Execute (const GS::Obj
 
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
-    ACAPI_CallUndoableCommand ("Modify Graphic Override Combinations", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Modify Graphic Override Combinations", [&] () -> GSErrCode {
         for (const GS::ObjectState& item : graphicOverrideCombinations) {
             // Read the combination first: ChangeOverrideCombination always applies the given name, so an
             // omitted name must be filled with the current one instead of being sent empty (APIERR_BADNAME).
@@ -1222,7 +1208,7 @@ GS::ObjectState CreateGraphicOverrideRuleGroupsCommand::Execute (const GS::Objec
 
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
-    ACAPI_CallUndoableCommand ("Create Graphic Override Rule Groups", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Create Graphic Override Rule Groups", [&] () -> GSErrCode {
         for (const GS::UniString& ruleGroupName : ruleGroupNames) {
             API_OverrideRuleGroup ruleGroup = {};
             ruleGroup.name = ruleGroupName;
@@ -1396,7 +1382,7 @@ GS::ObjectState SetGraphicOverrideRuleOrderCommand::Execute (const GS::ObjectSta
 
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
-    ACAPI_CallUndoableCommand ("Set Graphic Override Rule Order", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Set Graphic Override Rule Order", [&] () -> GSErrCode {
         for (const GS::ObjectState& item : graphicOverrideRuleGroups) {
             GS::UniString ruleGroupName;
             if (!item.Get ("name", ruleGroupName)) {
@@ -1477,22 +1463,7 @@ GS::Optional<GS::UniString> RenameGraphicOverrideRuleGroupsCommand::GetInputPara
                 "type": "array",
                 "description": "The rule groups to rename. Their rules and the combinations that contain them are kept.",
                 "items": {
-                    "type": "object",
-                    "properties": {
-                        "name": {
-                            "type": "string",
-                            "description": "The current name of the rule group."
-                        },
-                        "newName": {
-                            "type": "string",
-                            "description": "The new name of the rule group. It must not be empty or used by another rule group."
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "name",
-                        "newName"
-                    ]
+                    "$ref": "#/GraphicOverrideRuleGroupRename"
                 }
             }
         },
@@ -1546,7 +1517,7 @@ GS::ObjectState RenameGraphicOverrideRuleGroupsCommand::Execute (const GS::Objec
 
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
-    ACAPI_CallUndoableCommand ("Rename Graphic Override Rule Groups", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Rename Graphic Override Rule Groups", [&] () -> GSErrCode {
         for (const GS::ObjectState& item : ruleGroups) {
             GS::UniString name;
             GS::UniString newName;
@@ -1667,7 +1638,7 @@ GS::ObjectState DeleteGraphicOverrideRuleGroupsCommand::Execute (const GS::Objec
 
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
-    ACAPI_CallUndoableCommand ("Delete Graphic Override Rule Groups", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Delete Graphic Override Rule Groups", [&] () -> GSErrCode {
         for (const GS::UniString& ruleGroupName : ruleGroupNames) {
             API_Guid ruleGroupGuid = APINULLGuid;
             GS::Array<API_Guid> ruleIds;
@@ -1811,7 +1782,7 @@ GS::ObjectState SetGraphicOverrideRuleGroupOrderCommand::Execute (const GS::Obje
         }
     }
 
-    err = ACAPI_CallUndoableCommand ("Set Graphic Override Rule Group Order", [&] () -> GSErrCode {
+    err = TAPIR_CallUndoableCommand ("Set Graphic Override Rule Group Order", [&] () -> GSErrCode {
         return ACAPI_GraphicalOverride_SetOverrideRuleGroupOrder (orderedRuleGroupIds);
     });
     if (err != NoError) {
@@ -1881,7 +1852,7 @@ GS::ObjectState DeleteGraphicOverrideCombinationsCommand::Execute (const GS::Obj
 
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
-    ACAPI_CallUndoableCommand ("Delete Graphic Override Combinations", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Delete Graphic Override Combinations", [&] () -> GSErrCode {
         for (const GS::ObjectState& combinationId : graphicOverrideCombinationIds) {
             const API_Guid combinationGuid = GetGuidFromArrayItem ("graphicOverrideCombinationId", combinationId);
             const GSErrCode err = ACAPI_GraphicalOverride_DeleteOverrideCombination (combinationGuid);
@@ -1920,25 +1891,7 @@ GS::Optional<GS::UniString> MoveGraphicOverrideRulesCommand::GetInputParametersS
                 "type": "array",
                 "description": "The rules to move, processed in this order.",
                 "items": {
-                    "type": "object",
-                    "properties": {
-                        "graphicOverrideRuleId": {
-                            "$ref": "#/GraphicOverrideRuleId"
-                        },
-                        "ruleGroupName": {
-                            "type": "string",
-                            "description": "The rule group the rule is moved to; it can be the rule's own group to change its place there. Created when no rule group has this name."
-                        },
-                        "beforeGraphicOverrideRuleId": {
-                            "$ref": "#/GraphicOverrideRuleId",
-                            "description": "The rule of the target group the moved rule is put in front of. Left out: the rule becomes the last of the group."
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "graphicOverrideRuleId",
-                        "ruleGroupName"
-                    ]
+                    "$ref": "#/GraphicOverrideRuleMove"
                 }
             }
         },
@@ -1975,7 +1928,7 @@ GS::ObjectState MoveGraphicOverrideRulesCommand::Execute (const GS::ObjectState&
 
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
-    ACAPI_CallUndoableCommand ("Move Graphic Override Rules", [&] () -> GSErrCode {
+    TAPIR_CallUndoableCommand ("Move Graphic Override Rules", [&] () -> GSErrCode {
         for (const GS::ObjectState& item : graphicOverrideRules) {
             const GS::ObjectState* ruleId = item.Get ("graphicOverrideRuleId");
             GS::UniString ruleGroupName;

@@ -1,5 +1,6 @@
 #include "ElementURLReferenceCommands.hpp"
 #include "MigrationHelper.hpp"
+#include "NotificationCommands.hpp"
 
 #include <cstring>
 
@@ -223,7 +224,15 @@ GS::ObjectState SetURLReferencesOfElementsCommand::Execute (const GS::ObjectStat
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    ACAPI_CallUndoableCommand ("SetURLReferencesOfElements", [&]() -> GSErrCode {
+    ElementChangeReporter changeReporter;
+    for (const GS::ObjectState& elementWithURLReference : elementsWithURLReferences) {
+        const GS::ObjectState* elementId = elementWithURLReference.Get ("elementId");
+        if (elementId != nullptr) {
+            changeReporter.Add (GetGuidFromObjectState (*elementId));
+        }
+    }
+
+    TAPIR_CallUndoableCommand ("SetURLReferencesOfElements", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementWithURLReference : elementsWithURLReferences) {
             const GS::ObjectState* elementId = elementWithURLReference.Get ("elementId");
             if (elementId == nullptr) {
@@ -269,11 +278,14 @@ GS::ObjectState SetURLReferencesOfElementsCommand::Execute (const GS::ObjectStat
                 continue;
             }
 
+            changeReporter.MarkChanged (elemHead.guid);
             executionResults (CreateSuccessfulExecutionResult ());
         }
 
         return NoError;
     });
+
+    changeReporter.Report ();
 
     return response;
 }

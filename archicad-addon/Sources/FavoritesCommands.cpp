@@ -2683,7 +2683,7 @@ GS::ObjectState DeleteFavoritesWithManagerCommand::Execute (const GS::ObjectStat
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
     // One undoable command for the whole call, as DeleteFavorites does.
-    ACAPI_CallUndoableCommand ("DeleteFavoritesWithManager", [&]() -> GSErrCode {
+    TAPIR_CallUndoableCommand ("DeleteFavoritesWithManager", [&]() -> GSErrCode {
         const ACAPI::Favorite::FavoriteManager manager = ACAPI::Favorite::GetFavoriteManager ();
         for (const GS::ObjectState& item : favorites) {
             GS::UniString name;

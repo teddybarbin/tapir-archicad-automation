@@ -48,8 +48,8 @@ r = run('CreateSections', {'sectionsData': [{
     'endCoordinate': {'x': 10.0, 'y': 5.0},
     'depth': 1.5,
     'name': 'ZZTest_Section',
+    'id': 'ZZ-01',
     'details': {
-        'referenceId': 'ZZ-01',
         'linePenIndex': 3,
         'textPenIndex': 5,
         'showMarkerAtBeginning': True,
@@ -81,7 +81,7 @@ if sectionGuid:
     detail = d['detailsOfElements'][0]
     print('  full detail object:', detail)
     check('name round-trips', 'ZZTest_Section', detail.get('name'))
-    check('referenceId round-trips', 'ZZ-01', detail.get('referenceId'))
+    check('id round-trips', 'ZZ-01', detail.get('id'))
     check('linePenIndex round-trips', 3, detail.get('linePenIndex'))
     check('textPenIndex round-trips', 5, detail.get('textPenIndex'))
     check('showMarkerAtBeginning round-trips', True, detail.get('showMarkerAtBeginning'))
@@ -119,6 +119,21 @@ if sectionGuid:
     check('continuous updated', True, detail2.get('continuous'))
     check('boundaryDisplayMode updated', 'OverrideContours', detail2.get('boundaryDisplayMode'))
     check('name unaffected by unrelated update', 'ZZTest_Section', detail2.get('name'))
+    print()
+
+    print('TEST -- ModifySections changes the name and the id that GetSectionsAndElevationsDetails reads')
+    modResp = run('ModifySections', {'sectionsWithDetails': [{
+        'elementId': {'guid': sectionGuid},
+        'name': 'ZZTest_Section_Renamed',
+        'id': 'ZZ-02',
+    }]})
+    print('  raw response:', modResp)
+    check('ModifySections succeeds', True, modResp['executionResults'][0].get('success'))
+    d3 = run('GetSectionsAndElevationsDetails', {'elements': [{'elementId': {'guid': sectionGuid}}]})
+    detail3 = d3['detailsOfElements'][0]
+    check('name changed by ModifySections', 'ZZTest_Section_Renamed', detail3.get('name'))
+    check('id changed by ModifySections', 'ZZ-02', detail3.get('id'))
+    check('linePenIndex kept by ModifySections', 7, detail3.get('linePenIndex'))
     print()
 
 print('TEST -- ChangeWindow can activate the newly created Elevation via GetDatabaseIdFromNavigatorItemId + databaseId (issue #466 code path)')

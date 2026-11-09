@@ -3,6 +3,11 @@
 # dependencies = []
 # ///
 
+# /// tapir
+# category = "quantities-scheduling"
+# changes = "files"
+# ///
+
 """
 Material Take-Off
 

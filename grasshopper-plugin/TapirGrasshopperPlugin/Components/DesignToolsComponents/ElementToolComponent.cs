@@ -96,9 +96,25 @@ namespace TapirGrasshopperPlugin.Components.DesignToolsComponents
         protected abstract ISet<string> CreateKeys { get; }
         protected abstract ISet<string> ModifyKeys { get; }
 
-        // The keys the Modify command does not take but SetDetailsOfElements
-        // does, in its typeSpecificDetails; Execute writes them there.
+        // The keys the Modify command does not take (or a tool without a
+        // Modify command, e.g. hotspots) but SetDetailsOfElements does, in
+        // its typeSpecificDetails; Execute writes them there.
         protected virtual ISet<string> TypeSpecificDetailsKeys { get; } = new HashSet<string>();
+
+        // Lets a tool drop typeSpecificDetails (Add-On keys) of an existing
+        // element that SetDetailsOfElements cannot take as given. Each note
+        // is shown once as a remark.
+        protected virtual void PrepareTypeSpecificDetails(
+            JObject typeSpecificDetails,
+            ISet<string> notes)
+        {
+        }
+
+        // A key of TypeSpecificDetailsKeys only this tool's settings have. The
+        // typeSpecificDetails of SetDetailsOfElements is a oneOf, and e.g.
+        // a pen alone fits the settings of several element types, so the
+        // element's current value of this key is sent along.
+        protected virtual string DetailsTypeKey => null;
 
         // The inputs that define the geometry, drawn in Archicad (e.g. a
         // wall's start and end point). Only Create uses them.
@@ -118,6 +134,21 @@ namespace TapirGrasshopperPlugin.Components.DesignToolsComponents
             int firstOutputIndex,
             List<JObject> details);
 
+        // Lets a tool write some of its geometry inputs on Execute too (e.g.
+        // the position of a door along its wall): one JObject of Add-On keys
+        // per element in ElementGuid (null where nothing is written), or a
+        // null list for none. They win over the JSON, as on Create. False
+        // (with an error added) when the inputs are invalid.
+        protected virtual bool TryGetExecuteGeometry(
+            IGH_DataAccess da,
+            int firstInputIndex,
+            int count,
+            out List<JObject> geometry)
+        {
+            geometry = null;
+            return true;
+        }
+
         // The dialog panels that get a JSON input and output, in the dialog's
         // order. Saved definitions find parameters by position, so this list
         // is append-only: never reorder or remove a panel, and add new ones at
@@ -134,10 +165,25 @@ namespace TapirGrasshopperPlugin.Components.DesignToolsComponents
         {
         }
 
-        // Lets a tool drop settings (Add-On keys) of a new element that its
-        // geometry inputs define, e.g. a beam's offset to its home story,
-        // which the Z of its reference line sets. Called after PrepareSettings,
-        // only for the elements Create makes (not for the ones it updates).
+        // The Add-On key a field of the JSON inputs is written to; null for
+        // a read-only field. A tool overrides it where a command takes a
+        // value under another field's name (e.g. a roof's absolute level).
+        protected virtual string SetKeyOf(
+            ToolSettingsField field)
+        {
+            return field.Set;
+        }
+
+        // Settings (Add-On keys) that the geometry inputs define on Create,
+        // e.g. a column's base elevation: they are left out of the settings of
+        // the elements Create makes or updates, so a JSON read from another
+        // element never moves them.
+        protected virtual IEnumerable<string> GeometrySettingKeys => Enumerable.Empty<string>();
+
+        // Lets a tool drop settings (Add-On keys) that its geometry inputs
+        // define, e.g. a beam's offset to its home story, which the Z of its
+        // reference line sets. Called after PrepareSettings, for the elements
+        // Create makes or updates (not on Execute).
         protected virtual void PrepareCreateSettings(
             JObject settings,
             ISet<string> notes)
@@ -596,6 +642,11 @@ namespace TapirGrasshopperPlugin.Components.DesignToolsComponents
                 return;
             }
 
+            if (!TryGetExecuteGeometry(da, FirstGeometryIndex, count, out var executeGeometry))
+            {
+                return;
+            }
+
             var errors = guids.Select(g => g == null ? "Invalid element GUID." : "").ToList();
 
             // The Modify commands write the tool's fields into whatever element
@@ -613,9 +664,11 @@ namespace TapirGrasshopperPlugin.Components.DesignToolsComponents
                     continue;
                 }
                 PrepareSettings(settings, notes);
-                AddWriteItems(inputs, i, guids[i], settings, null, createOnly, modifyItems, detailItems);
+                AddWriteItems(
+                    inputs, i, guids[i], settings, executeGeometry?[i], createOnly, notes, modifyItems, detailItems);
             }
 
+            AddDetailsTypeKey(targets, detailItems, errors);
             SendModify(modifyItems, errors);
             SendDetails(targets, detailItems, errors);
             SetElementIds(targets, inputs.ElementIds, errors);
@@ -648,17 +701,20 @@ namespace TapirGrasshopperPlugin.Components.DesignToolsComponents
             JObject settings,
             JObject geometry,
             ISet<string> createOnly,
+            ISet<string> notes,
             List<KeyValuePair<int, JObject>> modifyItems,
             List<KeyValuePair<int, JObject>> detailItems)
         {
             var modify = new JObject();
             var details = new JObject();
+            var typeSpecific = new JObject();
             foreach (var setting in settings)
             {
                 // The home story goes with the Modify command when it takes
                 // it (it pins the story a Z there is measured from), else to
-                // SetDetailsOfElements.
-                if (setting.Key == "floorIndex" && !ModifyKeys.Contains(setting.Key))
+                // SetDetailsOfElements. The Create commands of 2D elements
+                // name the story floorInd.
+                if ((setting.Key == "floorIndex" || setting.Key == "floorInd") && !ModifyKeys.Contains(setting.Key))
                 {
                     details["floorIndex"] = setting.Value;
                 }
@@ -668,11 +724,6 @@ namespace TapirGrasshopperPlugin.Components.DesignToolsComponents
                 }
                 else if (TypeSpecificDetailsKeys.Contains(setting.Key))
                 {
-                    if (!(details["typeSpecificDetails"] is JObject typeSpecific))
-                    {
-                        typeSpecific = new JObject();
-                        details["typeSpecificDetails"] = typeSpecific;
-                    }
                     typeSpecific[setting.Key] = setting.Value;
                 }
                 else
@@ -691,11 +742,23 @@ namespace TapirGrasshopperPlugin.Components.DesignToolsComponents
                     {
                         modify[property.Name] = property.Value;
                     }
+                    else if (TypeSpecificDetailsKeys.Contains(property.Name))
+                    {
+                        typeSpecific[property.Name] = property.Value;
+                    }
                     else
                     {
                         createOnly.Add(KeyOf(property.Name));
                     }
                 }
+            }
+            if (typeSpecific.Count > 0)
+            {
+                PrepareTypeSpecificDetails(typeSpecific, notes);
+            }
+            if (typeSpecific.Count > 0)
+            {
+                details["typeSpecificDetails"] = typeSpecific;
             }
             AddPlainDetails(inputs, i, details);
 
@@ -770,12 +833,19 @@ namespace TapirGrasshopperPlugin.Components.DesignToolsComponents
                 {
                     continue;
                 }
+                // The geometry inputs place both the new and the updated
+                // elements, so a setting they define never moves them.
+                foreach (var key in GeometrySettingKeys)
+                {
+                    settings.Remove(key);
+                }
                 PrepareSettings(settings, notes);
+                PrepareCreateSettings(settings, notes);
 
                 if (existing[i] != null)
                 {
                     guids[i] = existing[i];
-                    AddWriteItems(inputs, i, guids[i], settings, geometry[i], createOnly, modifyItems, detailItems);
+                    AddWriteItems(inputs, i, guids[i], settings, geometry[i], createOnly, notes, modifyItems, detailItems);
                     if (!string.IsNullOrEmpty(ItemOf(inputs.FavoriteNames, i)))
                     {
                         createOnly.Add("FavoriteName");
@@ -783,7 +853,6 @@ namespace TapirGrasshopperPlugin.Components.DesignToolsComponents
                     updated++;
                     continue;
                 }
-                PrepareCreateSettings(settings, notes);
 
                 var item = new JObject();
                 var rest = new JObject();
@@ -863,6 +932,7 @@ namespace TapirGrasshopperPlugin.Components.DesignToolsComponents
                     detailItems.Add(new KeyValuePair<int, JObject>(i, details));
                 }
             }
+            AddDetailsTypeKey(guids, detailItems, errors);
             SendModify(modifyItems, errors);
             SendDetails(guids, detailItems, errors);
             SetElementIds(guids, inputs.ElementIds, errors);
@@ -1033,11 +1103,12 @@ namespace TapirGrasshopperPlugin.Components.DesignToolsComponents
                         AddMessage(errors, i, $"Unknown setting \"{property.Name}\" in {GroupParamName(Groups[g])}; it was ignored.");
                         continue;
                     }
-                    if (field.Set == null || property.Value.Type == JTokenType.Null)
+                    var setKey = SetKeyOf(field);
+                    if (setKey == null || property.Value.Type == JTokenType.Null)
                     {
                         continue;
                     }
-                    settings[field.Set] = property.Value.DeepClone();
+                    settings[setKey] = property.Value.DeepClone();
                 }
             }
             return true;
@@ -1076,6 +1147,52 @@ namespace TapirGrasshopperPlugin.Components.DesignToolsComponents
             {
                 AddExecutionResults(response, items.Select(p => p.Key).ToList(), errors);
             }
+        }
+
+        // Adds the element's current value of DetailsTypeKey to each
+        // typeSpecificDetails that lacks it, so it fits exactly one settings
+        // type; an element whose value cannot be read keeps its other details.
+        private void AddDetailsTypeKey(
+            List<string> guids,
+            List<KeyValuePair<int, JObject>> items,
+            List<string> errors)
+        {
+            if (DetailsTypeKey == null)
+            {
+                return;
+            }
+
+            var missing = items
+                .Where(p => p.Value["typeSpecificDetails"] is JObject t && t[DetailsTypeKey] == null)
+                .ToList();
+            if (missing.Count == 0)
+            {
+                return;
+            }
+
+            var current = guids.Select(_ => (string) null).ToList();
+            foreach (var p in missing)
+            {
+                current[p.Key] = guids[p.Key];
+            }
+            var readErrors = guids.Select(_ => "").ToList();
+            var entries = ReadDetails(current, readErrors);
+            foreach (var p in missing)
+            {
+                var value = (entries[p.Key]?["details"] as JObject)?[DetailsTypeKey];
+                if (value == null || value.Type == JTokenType.Null)
+                {
+                    p.Value.Remove("typeSpecificDetails");
+                    AddMessage(
+                        errors,
+                        p.Key,
+                        ("Its current settings could not be read, so the JSON settings were not written. " +
+                         readErrors[p.Key]).TrimEnd());
+                    continue;
+                }
+                ((JObject) p.Value["typeSpecificDetails"])[DetailsTypeKey] = value.DeepClone();
+            }
+            items.RemoveAll(p => p.Value.Count == 0);
         }
 
         // { elementId, settings... } as the Modify command takes it: as is,
@@ -1239,7 +1356,7 @@ namespace TapirGrasshopperPlugin.Components.DesignToolsComponents
         // Helpers
         // ---------------------------------------------------------------
 
-        private string KeyOf(
+        protected string KeyOf(
             string apiName)
         {
             return Table.Find(apiName)?.Key(UseLabels) ?? apiName;

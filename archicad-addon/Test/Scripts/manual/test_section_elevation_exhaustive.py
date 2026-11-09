@@ -4,8 +4,9 @@ Exhaustive round-trip test for every field of SectionElevationSettableDetails
 'details' block on CreateSections and CreateElevations).
 
 For each of the ~65 settable fields: set a non-default value, read it back, and check it
-matches exactly. Run once through CreateSections(details=...) and once through
-SetSectionsAndElevationsDetails on an existing element, so both write paths are covered.
+matches exactly. Run through CreateSections(details=...), through
+SetSectionsAndElevationsDetails (with ModifySections for the name and the id) on an existing
+element, and through CreateElevations(details=...), so every write path is covered.
 """
 import os
 import sys
@@ -38,8 +39,6 @@ fillIdB = fills[1]['attributeId']
 
 # field name -> (value to set, expected value on readback; defaults to same as set value)
 ALL_FIELDS = {
-    'name':                                          'ZZExhaustive',
-    'referenceId':                                   'EXH-42',
     'linePenIndex':                                  11,
     'textPenIndex':                                  12,
     'lineTypeId':                                    lineTypeIdA,
@@ -110,6 +109,10 @@ ALL_FIELDS = {
     'intendedPlanConnectivity':                       'Offline',
 }
 
+# The name and the reference ID are not in 'details': CreateSections and CreateElevations take
+# them as 'name' and 'id', and ModifySections changes them on an existing element.
+NAME_AND_ID = {'name': 'ZZExhaustive', 'id': 'EXH-42'}
+
 def expected_value(field, value):
     # Attribute reference fields round-trip as {"guid": ...}, everything else as-is.
     if field.endswith('Id') and isinstance(value, dict):
@@ -124,6 +127,8 @@ def run_full_check(guid, label):
         return
     for field, value in ALL_FIELDS.items():
         check(f'[{label}] {field}', expected_value(field, value), detail.get(field))
+    for field, value in NAME_AND_ID.items():
+        check(f'[{label}] {field}', value, detail.get(field))
     # read-only fields must simply be present
     for roField in ('currentPlanConnectivity', 'isWindowOpened', 'isActive', 'isSourceMarker',
                      'isInDrawingMode', 'beginMarkerElementId', 'middleMarkerElementId', 'endMarkerElementId'):
@@ -144,6 +149,7 @@ r = run('CreateSections', {'sectionsData': [{
     'startCoordinate': {'x': 0.0, 'y': 0.0},
     'endCoordinate': {'x': 8.0, 'y': 0.0},
     'depth': 2.0,
+    **NAME_AND_ID,
     'details': ALL_FIELDS,
 }]})
 print('  create response:', r)
@@ -173,6 +179,9 @@ if 'elements' in r2 and 'elementId' in r2['elements'][0]:
     }]})
     print('  set response:', setResp)
     check('SetSectionsAndElevationsDetails succeeds', True, setResp['executionResults'][0].get('success'))
+    modResp = run('ModifySections', {'sectionsWithDetails': [{'elementId': {'guid': guid2}, **NAME_AND_ID}]})
+    print('  ModifySections response:', modResp)
+    check('ModifySections succeeds', True, modResp['executionResults'][0].get('success'))
     run_full_check(guid2, 'Set')
 else:
     print('  plain CreateSections FAILED:', r2)
@@ -186,6 +195,7 @@ r3 = run('CreateElevations', {'elevationsData': [{
     'startCoordinate': {'x': 0.0, 'y': 40.0},
     'endCoordinate': {'x': 8.0, 'y': 40.0},
     'depth': 2.0,
+    **NAME_AND_ID,
     'details': ALL_FIELDS,
 }]})
 print('  create response:', r3)
@@ -202,7 +212,7 @@ if createdGuids:
     run('DeleteElements', {'elements': [{'elementId': {'guid': g}} for g in createdGuids]})
 
 print('=' * 70)
-print(f'BILAN :  {passes} PASS  |  {fails} FAIL   (out of {len(ALL_FIELDS)} fields x 3 paths + read-only checks)')
+print(f'BILAN :  {passes} PASS  |  {fails} FAIL   (out of {len(ALL_FIELDS) + len(NAME_AND_ID)} fields x 3 paths + read-only checks)')
 print('=' * 70)
 if fails:
     sys.exit(1)

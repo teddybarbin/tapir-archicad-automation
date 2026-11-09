@@ -2,6 +2,7 @@
 #include "MigrationHelper.hpp"
 #include "Base64Converter.hpp"
 #include "UserDataPairs.hpp"
+#include "NotificationCommands.hpp"
 
 #ifdef ServerMainVers_2600
 static GS::UniString GetGroupCreationErrorMessage(const GS::Array<API_Guid>& elemGuids, GSErrCode /*originalErr*/)
@@ -81,7 +82,10 @@ GS::ObjectState CreateGroupsCommand::Execute(const GS::ObjectState& parameters, 
 
 #ifdef ServerMainVers_2600
 
-    TAPIR_CallUndoableCommand ("Create Element Groups", [&]() -> GSErrCode {
+    // The grouped elements are reported to the notification clients as changed (#1825).
+    ElementChangeReporter changeReporter;
+
+    TAPIR_CallUndoableCommand("Create Element Groups", [&]() -> GSErrCode {
         for (const GS::ObjectState& groupParam : elementGroups) {
 
             GS::Array<GS::ObjectState> elements;
@@ -106,6 +110,10 @@ GS::ObjectState CreateGroupsCommand::Execute(const GS::ObjectState& parameters, 
                 parentGroupGuid = GetGuidFromObjectState(*parentGroupId);
             }
 
+            for (const API_Guid& elemGuid : elemGuids) {
+                changeReporter.Add(elemGuid);
+            }
+
             API_Guid newGroupGuid = APINULLGuid;
             GSErrCode err = ACAPI_Grouping_CreateGroup(
                 elemGuids,
@@ -118,6 +126,9 @@ GS::ObjectState CreateGroupsCommand::Execute(const GS::ObjectState& parameters, 
                 groupGuids(CreateErrorResponse(err, errorMsg));
             }
             else {
+                for (const API_Guid& elemGuid : elemGuids) {
+                    changeReporter.MarkChanged(elemGuid);
+                }
                 GS::ObjectState successResult;
                 successResult.Add("groupId", CreateGuidObjectState(newGroupGuid));
                 groupGuids(successResult);
@@ -125,6 +136,8 @@ GS::ObjectState CreateGroupsCommand::Execute(const GS::ObjectState& parameters, 
         }
         return NoError;
         });
+
+    changeReporter.Report();
 #else
     GS::UniString notSupportedMsg = "The Create Groups command is not supported in Archicad 25 or older.";
     groupGuids (CreateErrorResponse (APIERR_NOTSUPPORTED, notSupportedMsg));
@@ -188,7 +201,10 @@ GS::ObjectState UngroupElementsCommand::Execute(const GS::ObjectState& parameter
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState>("executionResults");
 
-    TAPIR_CallUndoableCommand ("Ungroup Elements", [&]() -> GSErrCode {
+    // The members of the dissolved groups are reported to the notification clients as changed (#1825).
+    ElementChangeReporter changeReporter;
+
+    TAPIR_CallUndoableCommand("Ungroup Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& group : groups) {
             const GS::ObjectState* groupId = group.Get("groupId");
             if (groupId == nullptr) {
@@ -226,6 +242,10 @@ GS::ObjectState UngroupElementsCommand::Execute(const GS::ObjectState& parameter
                 continue;
             }
 
+            for (const API_Guid& elemGuid : elemGuids) {
+                changeReporter.Add(elemGuid);
+            }
+
             err = ACAPI_Grouping_Tool(elemGuids, APITool_Ungroup, nullptr);
             if (err != NoError) {
                 executionResults(CreateFailedExecutionResult(err, "Failed to ungroup the elements of the group."));
@@ -241,10 +261,15 @@ GS::ObjectState UngroupElementsCommand::Execute(const GS::ObjectState& parameter
                 continue;
             }
 
+            for (const API_Guid& elemGuid : elemGuids) {
+                changeReporter.MarkChanged(elemGuid);
+            }
             executionResults(CreateSuccessfulExecutionResult());
         }
         return NoError;
     });
+
+    changeReporter.Report();
 
     return response;
 }
@@ -1401,6 +1426,9 @@ GS::Optional<GS::UniString> DeleteElementSetsCommand::GetInputParametersSchema()
                         "elementSetId"
                     ]
                 }
+            },
+            "dryRun": {
+                "$ref": "#/DryRun"
             }
         },
         "additionalProperties": false,
@@ -1415,8 +1443,12 @@ GS::Optional<GS::UniString> DeleteElementSetsCommand::GetRawResponseSchema() con
     return R"({
         "type": "object",
         "properties": {
+            "dryRun": {
+                "$ref": "#/DryRunFlag"
+            },
             "executionResults": {
-                "$ref": "#/ExecutionResults"
+                "$ref": "#/DeletionExecutionResults",
+                "description": "One result for each input element set, in the order of the input. On a dry run an element set that exists and was created by the Tapir Add-On gets wouldDelete."
             }
         },
         "additionalProperties": false,
@@ -1433,10 +1465,13 @@ GS::ObjectState DeleteElementSetsCommand::Execute(const GS::ObjectState& paramet
         return CreateErrorResponse(APIERR_BADPARS, "Invalid or missing 'elementSets' parameter.");
     }
 
+    const bool dryRun = IsDryRun(parameters);
+
     GS::ObjectState response;
+    AddDryRunField(response, dryRun);
     const auto& executionResults = response.AddList<GS::ObjectState>("executionResults");
 
-    const GSErrCode undoErr = TAPIR_CallUndoableCommand ("Delete Element Sets", [&]() -> GSErrCode {
+    const auto deleteElementSets = [&]() -> GSErrCode {
         for (const GS::ObjectState& elementSet : elementSets) {
             const GS::ObjectState* elementSetId = elementSet.Get("elementSetId");
             if (elementSetId == nullptr) {
@@ -1450,10 +1485,13 @@ GS::ObjectState DeleteElementSetsCommand::Execute(const GS::ObjectState& paramet
                 continue;
             }
 
-            const GSErrCode err = ACAPI_ElementSet_Delete(setGuid);
+            // A dry run reads the set instead of deleting it: ACAPI_ElementSet_GetData answers the
+            // same errors as ACAPI_ElementSet_Delete for a set that does not exist, is already
+            // deleted or was created by another add-on.
+            const GSErrCode err = dryRun ? ACAPI_ElementSet_GetData(setGuid, nullptr, nullptr) : ACAPI_ElementSet_Delete(setGuid);
             switch (err) {
                 case NoError:
-                    executionResults(CreateSuccessfulExecutionResult());
+                    executionResults(dryRun ? CreateDryRunExecutionResult("wouldDelete") : CreateSuccessfulExecutionResult());
                     break;
                 case APIERR_NOTMINE:
                     executionResults(CreateFailedExecutionResult(err, "The element set was not created by the Tapir Add-On, so it cannot be deleted."));
@@ -1470,8 +1508,14 @@ GS::ObjectState DeleteElementSetsCommand::Execute(const GS::ObjectState& paramet
             }
         }
         return NoError;
-    });
+    };
 
+    if (dryRun) {
+        deleteElementSets();
+        return response;
+    }
+
+    const GSErrCode undoErr = TAPIR_CallUndoableCommand("Delete Element Sets", deleteElementSets);
     if (undoErr != NoError) {
         return CreateErrorResponse(undoErr, "Failed to delete the element sets.");
     }

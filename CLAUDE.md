@@ -13,7 +13,7 @@ It consists of two main components:
 - **Tapir Archicad Add-On** — in [archicad-addon/](archicad-addon/). A C++ Archicad
   Add-On that registers many new JSON commands on top of the official commands
   provided by Graphisoft. Ready to use; see installation instructions below.
-  Full command list: <https://enzyme-apd.github.io/tapir-archicad-automation/archicad-addon>.
+  Full command list: <https://archicad-api.com/archicad-addon/>.
 - **Tapir Grasshopper Plugin** — in [grasshopper-plugin/](grasshopper-plugin/). A
   Grasshopper (Rhino) plugin that exposes the above commands as visual components so
   non-programmers can use them. Work in progress.
@@ -67,17 +67,29 @@ marketplace/             Shared scripts, one <slug>/ folder each (format in its 
 branding/                Logos, diagrams
 docs/                    Generated docs (archicad-addon command reference),
                          api-coverage/ page of the Archicad API coverage checklist,
-                         gh-coverage/ page of the Grasshopper coverage checklist
+                         gh-coverage/ page of the Grasshopper coverage checklist,
+                         limits/ page of what the Archicad API cannot do (hand-written),
+                         community/ and about/ pages (growth chart, momentum, origin story),
+                         the copies for AI assistants (llms.txt, llms-full.txt, commands.json,
+                         commands.md, <page>/index.md, sitemap.xml, robots.txt; generated,
+                         never hand-edited); .nojekyll, so Pages serves the files as they are
 tools/                   Version bump scripts (update_version.py), package_info.json,
                          Add-On docs generator (generate_addon_docs.py),
+                         expanded-schema dump and compare (expand_schemas.py),
                          command scaffolder (new_command.py),
+                         inline-schema checker (check_schemas.py, inline_schemas_baseline.json),
                          one-example-per-command checker (check_examples.py),
                          Grasshopper GUI label table checker (check_tool_settings.py),
                          API coverage generator (generate_api_coverage.py,
                          fetch_api_coverage_github_data.py, api_coverage_rules.json),
                          Grasshopper coverage generator (generate_gh_coverage.py,
                          gh_coverage_rules.json),
-                         Archicad version list reader and updater (devkits.py)
+                         Archicad version list reader and updater (devkits.py),
+                         Community page data (generate_community_data.py),
+                         marketplace folder checker (check_marketplace.py) and
+                         Scripts page catalogue (generate_catalogue.py),
+                         site copies for AI assistants (generate_llm_files.py),
+                         release notes summary (release_notes.py)
   discord-issue-bot/     Discord -> GitHub issue bot (run by .github/workflows/discord_issue_bot.yml)
 sandbox/                 Experiments / scratch
 .github/workflows/       CI: build checks + release pipelines for both components
@@ -101,9 +113,37 @@ sandbox/                 Experiments / scratch
   helpers, story/floor-index resolution (`GetStories`, `ResolveFloorIndexAndOffset`),
   attribute lookup, and `Create*Response`/`Create*ExecutionResult` builders. Reuse these
   helpers when adding commands; match the existing style.
-- **Schemas:** input/response JSON schemas are defined per command
-  (`GetInputParametersSchema` / `GetResponseSchema`) plus shared definitions in
-  [Sources/SchemaDefinitions.cpp](archicad-addon/Sources/SchemaDefinitions.cpp).
+- **Schemas:** every JSON schema lives in
+  [Sources/RFIX/Images/CommonSchemaDefinitions.json](archicad-addon/Sources/RFIX/Images/CommonSchemaDefinitions.json)
+  (loaded by [Sources/SchemaDefinitions.cpp](archicad-addon/Sources/SchemaDefinitions.cpp)) as a named
+  definition. **No schema is written inline in a command:**
+  - A command's `GetInputParametersSchema` returns only `{"$ref": "#/<Command>Parameters"}` (or nothing
+    when it takes no input) and its `GetResponseSchema`/`GetRawResponseSchema` only
+    `{"$ref": "#/<Command>Response"}` (or a shared definition such as `ExecutionResult`). The command's
+    own input and response objects are those two definitions, so every command has named client types.
+    Such a command is a `CommandBase (CommonSchema::Used)` one: a `CommonSchema::NotUsed` command gets no
+    definitions in Archicad, so its `$ref`s would not resolve, and moving the schemas of one switches it
+    to `Used`.
+  - Inside a definition, an object that more than one command or definition uses, or that describes an
+    element, attribute, view or other Archicad item (its details, settings, a geometry, a status), is a
+    definition of its own, referred to with `$ref`, never an inline copy, so copies can't drift apart.
+    Adding or changing a field of such a shape changes its definition, so every user gets the field.
+  - Name definitions in PascalCase after what they describe (`WallDetails`, `Hole2D`,
+    `GetZonesParameters`), and keep their descriptions as complete as the inline text was; a
+    description that only fits one command goes next to the `$ref` (`{"$ref": ..., "description": ...}`).
+  - `python tools/check_schemas.py` (run by the add-on build check after `generate_addon_docs.py`)
+    fails on an inline command schema and on a `$ref` to a missing definition. The schemas that are still
+    inline from before this rule are listed in `tools/inline_schemas_baseline.json`, which only shrinks:
+    a change that touches a listed command moves its schemas into definitions and removes its lines,
+    and the rest are moved in parts (#2379).
+  - Moving a schema into a definition must not change what the command accepts or returns. Check
+    it with `python tools/generate_addon_docs.py` and then `python tools/expand_schemas.py --out`
+    before and after the change, and `python tools/expand_schemas.py --compare before.json after.json`:
+    the expanded schemas must be the same (the generator writes the `$ref`s as they are; only
+    `expand_schemas.py` and the docs page in the browser expand them). A top-level input that is a bare
+    `$ref` is new to most commands (only ChangeWindow had one), and Archicad validates inputs with its
+    own JSON schema code (#1911), so a move is also run in Archicad by the community test runner before
+    it is merged.
 - **UI:** the Add-On adds a menu + palette ([TapirPalette](archicad-addon/Sources/TapirPalette.cpp)),
   an About dialog, and an auto-update/version check ([VersionChecker](archicad-addon/Sources/VersionChecker.cpp)).
 - **Auto-update:** the update is done by the Tapir Installer (see Installation). The
@@ -135,14 +175,18 @@ sandbox/                 Experiments / scratch
 
 ### Adding or changing a command
 
-[tools/new_command.py](tools/new_command.py) writes the repetitive part of steps 1–4 for new
-commands from a short spec (format in its docstring): the class, schemas, an `Execute` skeleton,
-the registration and a starter example. The Archicad API calls in `Execute` and any
-`Test/ExpectedOutputs/` are still written by hand.
+[tools/new_command.py](tools/new_command.py) writes the repetitive part of steps 1–5 for new
+commands from a short spec (format in its docstring): the class, the schemas (as `<Command>Parameters` and
+`<Command>Response` definitions), an `Execute` skeleton, the registration, a starter example and a
+starter check. The Archicad API calls in `Execute`,
+the check's real parameters and expectations, and any `Test/ExpectedOutputs/` are still written
+by hand.
 
 1. Add/modify the command class in the appropriate `Sources/*Commands.{cpp,hpp}`
    (or create a new group file and include it in `AddOnMain.cpp`).
-2. Implement input/response schemas; reuse `SchemaDefinitions` and `CommandBase` helpers.
+2. Implement input/response schemas as named definitions in `CommonSchemaDefinitions.json`
+   (`<Command>Parameters`, `<Command>Response`) that the command only refers to, reusing the
+   existing definitions with `$ref` (see *Schemas* above), and the `CommandBase` helpers.
 3. Register it in `AddOnMain.cpp` `Initialize()` with the version it is introduced in
    and a clear description.
 4. Add its example as `archicad-addon/Examples/<GroupFolder>/<CommandName>.py`: a module
@@ -153,11 +197,19 @@ the registration and a starter example. The Archicad API calls in `Execute` and 
    and `python tools/check_examples.py` checks them. A script that tests behaviour goes to
    `archicad-addon/Test/Scripts/` (with its golden under `Test/ExpectedOutputs/` if
    `test_examples.py` should compare it), a multi-command task to `archicad-addon/Workflows/`.
-5. Docs at <https://enzyme-apd.github.io/...> are generated from the registered
+5. Add or update a **check** for every command you add or whose behaviour you change:
+   `archicad-addon/Test/checks/<snake_case command>.json`, the commands the
+   [community test runner](tools/community-test-runner/) sends to an empty, untitled Archicad
+   project and the answers they must give (format: its README, "Writing checks"). It is how a
+   pull request gets run in real Archicad before it is merged: testers' runners test what is
+   labelled `needs-test`, which the bot PR steward sets on a bot pull request once its builds are
+   green and it has a check (see CI). Make the elements it needs in its own steps, and make the
+   expectations catch the bug or prove the feature, not only that the command answers.
+6. Docs at <https://archicad-api.com/...> are generated from the registered
    descriptions and schemas by `python tools/generate_addon_docs.py` (no Archicad
    needed; same output as the `GenerateDocumentation` developer command). The weekly
    release regenerates them automatically; run it yourself to update them earlier.
-6. Bump the version consistently (see Versioning below) when releasing.
+7. Bump the version consistently (see Versioning below) when releasing.
 
 ## Building the Add-On
 
@@ -212,7 +264,10 @@ python test_examples.py
   [tools/community-test-runner/](tools/community-test-runner/) (JSON checks in
   `archicad-addon/Test/checks/`). Use its `--brief` output (`prs`, `test … --brief --no-post`,
   `trial … --brief`, `check --brief`) rather than reading reports or its source; its skill is
-  `tools/community-test-runner/claude-skill/tapir-pr-test/SKILL.md`.
+  `tools/community-test-runner/claude-skill/tapir-pr-test/SKILL.md`. Runners test what is
+  labelled `needs-test`: a person sets it on a PR, and the bot PR steward sets it by itself on a
+  bot PR with a check once its builds are green, so testers' runners install those bot builds
+  without a person looking first (see `claude_bot_pr_steward.yml` under CI).
 
 ## Grasshopper plugin
 
@@ -298,6 +353,17 @@ Scripts shared by users live in [marketplace/](marketplace/), one `<slug>/` fold
 `changes` key, and the rules for adapting a shared script for public use. An issue labelled
 `script-share` becomes one pull request adding its folder, adapted by those rules, keeping what
 the script does, listing every change in plain words and asking the author to confirm it.
+A new script *requested* in an issue also goes to `marketplace/<slug>/` (listing `author` the
+person who opened the issue: `name` their GitHub profile name, else their login, and `github` their
+login; README "Requested by @<login> in #<n>, written with the Tapir issue bot."; an issue a bot
+opened keeps `author` `Tapir` and the README names the Discord user), always in one pull request with
+the whole script, never split into parts, because it is tested in Archicad as a whole; `builtin-scripts/` gets a new script only when a maintainer
+asks for it in the issue. A marketplace script may import `utilities`/`aclib` of `builtin-scripts/`,
+which are copied next to it when it is installed, so keep those helpers backward compatible.
+`python tools/check_marketplace.py` checks every folder against marketplace/README.md (the add-on
+build check runs it on every pull request); `tools/generate_catalogue.py` lists the folders on
+`main` that pass in `catalogue.json` (`site_data.yml`, `site-data` branch), which the website's
+Scripts page reads, so a merged script is listed within minutes and a wrong listing is left out.
 
 ## Versioning
 
@@ -327,7 +393,8 @@ GitHub Actions in [.github/workflows/](.github/workflows/):
   `installer_build_check.yml` — PR build checks for each component, also run
   on pushes to `main` and by `workflow_dispatch` (which the bot PR steward
   uses); a newer push to a pull request cancels its superseded runs. The add-on
-  check also runs `tools/check_examples.py` (one example per command). The installer
+  check also runs `tools/check_examples.py` (one example per command), and
+  `tools/check_marketplace.py` with `tools/generate_catalogue.py --self-test`. The installer
   check also runs `Installer/test_update_mode.py` and syntax-checks the legacy
   auto-update script.
   A pull request (or the steward's dispatch on a branch) whose changed files are
@@ -363,16 +430,37 @@ GitHub Actions in [.github/workflows/](.github/workflows/):
   "Code signing policy" section is required by the SignPath Foundation.
 - `weekly_release.yml` — tags and releases `main` every Monday when it changed
   (see Versioning for which version it ships); first regenerates
-  `docs/archicad-addon` with `tools/generate_addon_docs.py` and pushes it to `main`
-  when it changed (never hand-edit those docs).
+  `docs/archicad-addon` with `tools/generate_addon_docs.py`, then the site's copies
+  for AI assistants with `tools/generate_llm_files.py` (`llms.txt`, `llms-full.txt`,
+  `commands.json`/`.md` with every command's schemas, Grasshopper components and
+  example, each page as `index.md`, `sitemap.xml`, `robots.txt`; a failure there only
+  warns), and pushes them to `main` when they changed (never hand-edit those docs).
+  Run both scripts yourself to update them earlier; `--check` reports stale files.
+  The release notes are the installer links, a short summary written by
+  `tools/release_notes.py` (the new commands per group, the new Grasshopper components
+  and marketplace scripts, who made the pull requests, the new contributors and the
+  compare link) and the code signing line, not GitHub's list of every pull request,
+  which is used only when the summary cannot be written.
 - `claude_issue_triage.yml` — the issue bot. Every newly opened issue (`fix` job) and
   every new human comment on an issue (`reply` job), from anyone, runs Claude with
   write access: it answers, closes verified already-fixed issues, or opens a
   ready-for-review PR on a `claude/issue-<n>-…` branch with `Fixes #<n>`, and asks
-  the issue's author (tagged) to verify it in Archicad. An issue too large for
+  the issue's author (tagged) to verify it in Archicad. Its commits end with a
+  `Co-authored-by:` trailer for the person who opened the issue (their GitHub
+  no-reply address, worked out by a step without a model; none for issues a bot
+  opened) and its PR body says `Reported by @<login>`, so the reporter is
+  credited when the PR is merged. An issue too large for
   one PR gets a split plan (`<!-- claude-split-plan: parts=N -->`, at most six
-  parts) and one PR per part, opened one run at a time (`next-part` job) on
-  `claude/issue-<n>-part<k>-…` branches with `Part <k> of <N> of #<n>`. No label
+  parts; never for a `marketplace/` script, which is always one PR) and one PR per
+  part, opened one run at a time (`next-part` job) on
+  `claude/issue-<n>-part<k>-…` branches with `Part <k> of <N> of #<n>`; a run
+  that opened its part still starts the next one when it then fails, and one that
+  opened none ends the chain. Merging a part restarts a stopped chain:
+  `claude_split_next_part.yml` (`pull_request_target: closed`, and dispatched by
+  `claude_auto_merge.yml`, whose `GITHUB_TOKEN` merges start no run; no model, no
+  checkout; `CLAUDE_SPLIT_NEXT_PART=false` turns it off) dispatches the issue
+  when it is open, has fewer part PRs than planned and no run queued or in
+  progress (#2145). No label
   is needed; applying `claude-fix` re-runs `fix` on an existing issue, and a
   `workflow_dispatch` with an `issue_number` runs it on that issue. Its header
   documents the security bounds and the repository rulesets they rely on.
@@ -405,33 +493,40 @@ GitHub Actions in [.github/workflows/](.github/workflows/):
   maintainer (their `GITHUB_TOKEN` pushes start no runs): an hourly sweep, also
   started by the issue bot and the review, dispatches the build checks and the
   review on each new head, links the built add-on in a comment asking the
-  issue's author to test it in Archicad, and starts a `fix` run on a failed build,
+  issue's author to test it in Archicad, labels it `needs-test` when it has a check
+  file (for the community test runner, see below), and starts a `fix` run on a failed build,
   a blocking review or a conflict with `main`, at most
   `BOT_PR_MAX_FIX_ROUNDS` (default 6) times, on at most `BOT_PR_SWEEP_BATCH`
   (default 15) PRs per sweep. Then
   it labels the PR `needs-maintainer` and stops; removing the label hands the PR
   back with its fix round and review counts reset. `BOT_PR_STEWARD=false` turns it
   off; `needs-maintainer`, `do-not-merge` or draft takes a PR out of its hands.
-  `main` is merged in by a step without a model and pushed with a GitHub App
-  installation token (secrets `TAPIR_BOT_APP_ID`, `TAPIR_BOT_APP_PRIVATE_KEY`;
-  App permissions Contents and Workflows read and write, installed on this
-  repository), because `GITHUB_TOKEN` may not push main's workflow changes: on
-  conflicts the model only resolves them in the working tree; the `push-merge`
-  job, on a fresh runner that never ran the model, redoes the merge in a new
-  clone, takes only the conflicted files from the model (an artifact), refuses
-  leftover conflict markers, and commits and pushes with git hooks off.
-  Conflicts under `.github/`, `tools/`, `archicad-addon/Tools/` or
-  `archicad-addon/Installer/` never go to the model. The App token exists only
-  in that job, never on the model's runner. The App's push starts the build checks
-  itself, so the sweep counts runs queued on a head as started, and the review
-  skips a bot's push to a bot PR (the steward dispatches it). Without the
-  secrets, a merge that brings workflow changes is handed over at once
-  ("Update branch"). A fix run that pushes nothing ends its comment with
+  `main` is merged in by the model and pushed with `GITHUB_TOKEN`; there is no
+  GitHub App for it (#1623). A step without a model checks the merge first and
+  hands the PR over at once (`needs-maintainer`, asking a person to merge `main`
+  in with "Update branch" or by hand and then remove the label) when `main`
+  brings changes under `.github/`, which `GITHUB_TOKEN` may not push, or the
+  merge conflicts under `.github/`, `tools/`, `archicad-addon/Tools/` or
+  `archicad-addon/Installer/`, which never go to the model. A person's push
+  starts the build checks itself, so the sweep counts runs queued on a head as
+  started. A fix run that pushes nothing ends its comment with
   `<!-- steward-fix-outcome: <outcome> <nonce> -->`: `transient-ci` re-runs the
   failed build jobs and `review-disputed` starts a fresh review (each at most
   twice per PR), `waits-for:#N` parks the PR without a label (commit status
   `steward-fix` pending) until PR #N is merged; `merge-blocked`, `stuck` or no
   marker hands it over at once.
+  The `needs-test` label is set by the sweep, which runs no model, only on the
+  bot's own PRs (`claude/` branches of this repository, opened by the Actions bot),
+  only once every build check of the head is green, and only when the PR adds or
+  changes a file in `archicad-addon/Test/checks/`. It is never removed by the
+  steward. That label is what testers' community test runners poll, and they
+  install the PR's built add-on on their own machines: so a bot PR's native code,
+  written by a model from public issue text, reaches testers' Archicads with no
+  person looking at it first, also for every later head the bot pushes and the
+  build check builds. The maintainers chose this (#1138) so bot PRs get tested
+  before they are merged; a person takes a PR out of it by removing the label
+  (the next green head sets it again unless the PR is also labelled
+  `needs-maintainer` or `do-not-merge`, or is a draft).
 - Model tiers of these three Claude workflows, from repository variables
   (aliases, so each tier follows new models): `CLAUDE_LIGHT_MODEL` (default
   `sonnet`) for issue replies and PR re-reviews, `CLAUDE_MODEL` (default `opus`)
@@ -461,12 +556,13 @@ GitHub Actions in [.github/workflows/](.github/workflows/):
   request of this repository, however it was merged, when its tip is still the
   merged head and no open pull request uses it; run by hand (dry run by default)
   it sweeps the leftovers. `KEEP` in it lists the branches without a pull
-  request that must stay (`api-coverage`, image branches).
+  request that must stay (`api-coverage`, `site-data`, image branches).
 - `discord_issue_bot.yml` — files GitHub issues from bug reports and feature
   requests in the project's Discord channels, then dispatches
   `claude_issue_triage.yml` for each (issues created with `GITHUB_TOKEN` trigger
   no workflow on their own; see
-  [tools/discord-issue-bot/README.md](tools/discord-issue-bot/README.md)).
+  [tools/discord-issue-bot/README.md](tools/discord-issue-bot/README.md)). It is
+  scheduled at :13 and :43, off the full and half hour that GitHub drops most.
 - `api_coverage.yml` — keeps the Archicad API coverage checklist live: on a push
   to `main`, a release, issue events, hourly (which picks up pull request changes)
   and by hand, it runs
@@ -484,7 +580,11 @@ GitHub Actions in [.github/workflows/](.github/workflows/):
   events (its check would only keep pull requests from showing green), and it
   must never check out or run pull request code. Maintainers mark items skipped,
   with a reason, in the `skip` section of `tools/api_coverage_rules.json`; the
-  `notApplicable` section lists what cannot be a JSON command. The same run
+  `notApplicable` section lists what cannot be a JSON command. Its groups and
+  patterns are broad, so the `applicable` section names, each with its verdict,
+  the items they would rule out that a script or a Grasshopper definition could
+  use (the audit in #2237); an item Tapir already calls counts as used whatever
+  a rule says. Check an item there before calling it not applicable. The same run
   writes the Grasshopper coverage (`tools/generate_gh_coverage.py`): which Tapir
   commands a Grasshopper component calls (sent with `ToAddOn`; a same-named
   official command sent with `ToArchicad` does not count) and whether the
@@ -492,6 +592,25 @@ GitHub Actions in [.github/workflows/](.github/workflows/):
   rest through a JSON input, or miss some. It publishes `gh-coverage.*` to the
   same branch, read by `docs/gh-coverage/index.html`; commands that need no
   component go in `tools/gh_coverage_rules.json`.
+- `site_data.yml` — daily, by hand and on pushes to `main` that change
+  `marketplace/`, `tools/check_marketplace.py` or `tools/generate_catalogue.py`:
+  `tools/generate_community_data.py` counts,
+  per month, the commits of `main`, the issues opened and pull requests merged, and
+  the Discord messages and members of the project's server (only counts, never the
+  text of a message), plus the totals and top contributors (commit authors and
+  the people in `Co-authored-by` trailers, bots and AI assistants left out, each
+  person once whatever names and addresses they used), and publishes
+  `community.json` to the `site-data` branch (never to `main`), read by
+  `docs/community/community.js` (the Momentum figures and the growth chart). The
+  Discord bot token is `DISCORD_STATS_TOKEN`, else `DISCORD_BOT_TOKEN`; members per
+  month need the bot's Server Members Intent, and without a token only the public
+  invite's member count is read. Every run also writes `catalogue.json` (the
+  marketplace scripts, read by `docs/scripts/scripts.js` and the site's live
+  script count) to the same branch with `tools/generate_catalogue.py`, which needs
+  the full history for each version's commit, URL and SHA-256; a push run writes
+  only that and leaves `community.json` as it is. Its runs never cancel each
+  other. It never runs on pull request events and never checks out pull request
+  code; `SITE_DATA=false` turns it off.
 
 ## Installation (end users)
 
@@ -519,14 +638,23 @@ GitHub Actions in [.github/workflows/](.github/workflows/):
   checks as done elsewhere.
 - Cross-platform: code must compile on both Windows and macOS; resources are compiled
   via `Tools/CompileResources.py`.
+- When a bot or a person finds that the DevKit has no function for something people ask
+  for, add a row to [docs/limits/index.html](docs/limits/index.html) ("What the Archicad API
+  can't do") in the same pull request: what people want, the status, what to do instead, the
+  evidence (headers, function names and the Archicad versions checked in
+  `archicad-addon/Build/DevKits/`) and the issue. Only rows checked in the headers. Never
+  hand-edit `index.md`, `llms.txt`, `llms-full.txt` or `sitemap.xml`; run
+  `python tools/generate_llm_files.py` to update them.
 
 ## Documentation & links
 
-- Add-On JSON command reference: <https://enzyme-apd.github.io/tapir-archicad-automation/archicad-addon>
-- Archicad API coverage checklist: <https://enzyme-apd.github.io/tapir-archicad-automation/api-coverage/>
+- Add-On JSON command reference: <https://archicad-api.com/archicad-addon/>
+- Archicad API coverage checklist: <https://archicad-api.com/api-coverage/>
   (data on the `api-coverage` branch, generated by `.github/workflows/api_coverage.yml`)
-- Grasshopper coverage of the Tapir commands: <https://enzyme-apd.github.io/tapir-archicad-automation/gh-coverage/>
+- Grasshopper coverage of the Tapir commands: <https://archicad-api.com/gh-coverage/>
   (same branch and workflow)
+- For AI assistants: <https://archicad-api.com/llms.txt> (the index), `llms-full.txt`
+  (everything in one file) and `commands.json` (every command, machine-readable)
 - Developer docs (wiki): <https://github.com/ENZYME-APD/tapir-archicad-automation/wiki>
 - Add-On development guide: <https://github.com/ENZYME-APD/tapir-archicad-automation/wiki/Archicad-Add-On-Development>
 - Roadmap: <https://github.com/orgs/ENZYME-APD/projects/4/views/1>

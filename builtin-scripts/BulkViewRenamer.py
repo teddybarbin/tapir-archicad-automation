@@ -3,6 +3,11 @@
 # dependencies = []
 # ///
 
+# /// tapir
+# category = "navigator-views"
+# changes = "model"
+# ///
+
 """
 Bulk View Renamer
 

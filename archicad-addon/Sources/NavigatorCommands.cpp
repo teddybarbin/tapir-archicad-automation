@@ -683,17 +683,7 @@ GS::Optional<GS::UniString> FindModelViewOptionCommand::GetInputParametersSchema
         "description": "The model view option combination to find, given by id or by name.",
         "properties": {
             "modelViewOptionId": {
-                "type": "object",
-                "description": "The identifier of the model view option combination.",
-                "properties": {
-                    "guid": {
-                        "$ref": "#/Guid"
-                    }
-                },
-                "additionalProperties": false,
-                "required": [
-                    "guid"
-                ]
+                "$ref": "#/ModelViewOptionId"
             },
             "name": {
                 "type": "string",
@@ -727,17 +717,7 @@ GS::Optional<GS::UniString> FindModelViewOptionCommand::GetRawResponseSchema () 
                 "description": "The index of the model view option combination."
             },
             "modelViewOptionId": {
-                "type": "object",
-                "description": "The identifier of the model view option combination.",
-                "properties": {
-                    "guid": {
-                        "$ref": "#/Guid"
-                    }
-                },
-                "additionalProperties": false,
-                "required": [
-                    "guid"
-                ]
+                "$ref": "#/ModelViewOptionId"
             },
             "name": {
                 "type": "string",
@@ -1100,17 +1080,7 @@ GS::Optional<GS::UniString> GetModelViewOptionDetailsCommand::GetRawResponseSche
                                 "description": "The index of the model view option combination, the one SetViewOptions takes as modelViewOptionIndex."
                             },
                             "modelViewOptionId": {
-                                "type": "object",
-                                "description": "The identifier of the model view option combination.",
-                                "properties": {
-                                    "guid": {
-                                        "$ref": "#/Guid"
-                                    }
-                                },
-                                "additionalProperties": false,
-                                "required": [
-                                    "guid"
-                                ]
+                                "$ref": "#/ModelViewOptionId"
                             },
                             "name": {
                                 "type": "string",
@@ -1349,25 +1319,7 @@ GS::Optional<GS::UniString> GetViewOptionsCommand::GetRawResponseSchema () const
             "description": "The name of that combination, empty when there is none. Archicad may renumber the combinations when the view options of a window change, so look the index up by this name (FindModelViewOption) before switching back to it with SetViewOptions."
         },
         "viewOptions": {
-            "type": "object",
-            "description": "The model view options and the on-screen view options, every field by its API_ViewOptions name. Values are the numeric API constants; attribute indices are plain integers.",
-            "properties": {
-                "modelViewOptions": {
-                    "type": "object",
-                    "description": "Fields of API_ModelViewOptions, with the curtainWall, stair and railing parts as nested objects.",
-                    "additionalProperties": true
-                },
-                "onScreenViewOptions": {
-                    "type": "object",
-                    "description": "Fields of API_OnScreenViewOptions.",
-                    "additionalProperties": true
-                }
-            },
-            "additionalProperties": false,
-            "required": [
-                "modelViewOptions",
-                "onScreenViewOptions"
-            ]
+            "$ref": "#/ViewOptions"
         }
     },
     "additionalProperties": false,
@@ -1454,19 +1406,7 @@ GS::Optional<GS::UniString> SetViewOptionsCommand::GetInputParametersSchema () c
             "minimum": 1
         },
         "viewOptions": {
-            "type": "object",
-            "description": "The fields to change, named as in the response of GetViewOptions. Fields not given keep their current value. Without an index, the window then uses Custom model view options (index 0), also when only on-screen view options are given. To keep the combination, give its index as well.",
-            "properties": {
-                "modelViewOptions": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "onScreenViewOptions": {
-                    "type": "object",
-                    "additionalProperties": true
-                }
-            },
-            "additionalProperties": false
+            "$ref": "#/ViewOptionsUpdate"
         }
     },
     "additionalProperties": false
@@ -1789,6 +1729,21 @@ GS::ObjectState SetViewSettingsCommand::Execute (const GS::ObjectState& paramete
             navigatorView.tr.tmx[11] = 0.0;
         }
 
+        // Optional: the translation part of the view transformation (tmx[3], tmx[7]), which
+        // "rotation" above leaves as it is. A view oriented by hand (or created from a story
+        // oriented by hand) carries a translation, and the Drawings placed from it are shifted
+        // by it; writing it lets a caller give a view exactly the transformation of another one
+        // (read through transformationMatrix), or clear it with {x: 0, y: 0}.
+        const GS::ObjectState* translationOS = viewSettingsOS->Get ("translation");
+        if (translationOS != nullptr) {
+            double tx = 0.0;
+            double ty = 0.0;
+            if (translationOS->Get ("x", tx) && translationOS->Get ("y", ty)) {
+                navigatorView.tr.tmx[3] = tx;
+                navigatorView.tr.tmx[7] = ty;
+            }
+        }
+
         GS::UniString structureDisplayStr;
         if (viewSettingsOS->Get ("structureDisplay", structureDisplayStr)) {
             if      (structureDisplayStr == "CoreOnly")         navigatorView.structureDisplay = API_CoreOnly;
@@ -2071,22 +2026,7 @@ GS::Optional<GS::UniString> GetRenovationFiltersCommand::GetRawResponseSchema ()
             "type": "array",
             "description": "Every renovation filter of the project.",
             "items": {
-                "type": "object",
-                "properties": {
-                    "renovationFilterId": {
-                        "$ref": "#/GuidId",
-                        "description": "Identifier of the renovation filter. The same identifier is the renovationFilterGuid of GetViewSettings and SetViewSettings."
-                    },
-                    "name": {
-                        "type": "string",
-                        "description": "Name of the renovation filter."
-                    }
-                },
-                "additionalProperties": false,
-                "required": [
-                    "renovationFilterId",
-                    "name"
-                ]
+                "$ref": "#/RenovationFilterDetails"
             }
         },
         "activeRenovationFilterId": {
@@ -5049,6 +4989,118 @@ GS::ObjectState GetNavigatorItemTreeCommand::Execute (const GS::ObjectState& par
     return response;
 }
 
+// ─── GetSchedules ─────────────────────────────────────────────────────────────
+
+// Collects the Interactive Schedules (API_ScheduleNavItem) below the given
+// Project Map item, depth first in navigator order. folderPath holds the names
+// of the items between the Project Map root and the schedule. The API does not
+// tell an element, component or surface schedule apart, so the folder path is
+// the only hint of the kind.
+static void CollectSchedules (API_NavigatorItem item, const GS::Array<GS::UniString>& folderPath, GS::Array<GS::ObjectState>& schedules)
+{
+    item.mapId = API_ProjectMap;
+
+    GS::Array<API_NavigatorItem> children;
+    if (ACAPI_Navigator_GetNavigatorChildrenItems (&item, &children) != NoError) {
+        return;
+    }
+
+    for (const API_NavigatorItem& child : children) {
+        if (child.itemType == API_ScheduleNavItem) {
+            GS::ObjectState scheduleOS;
+            scheduleOS.Add ("navigatorItemId", CreateGuidObjectState (child.guid));
+            scheduleOS.Add ("name", GS::UniString (child.uName));
+            scheduleOS.Add ("uiId", GS::UniString (child.uiId));
+            const auto& folderPathList = scheduleOS.AddList<GS::UniString> ("folderPath");
+            for (const GS::UniString& folderName : folderPath) {
+                folderPathList (folderName);
+            }
+            schedules.Push (scheduleOS);
+            continue;
+        }
+
+        GS::Array<GS::UniString> childFolderPath = folderPath;
+        childFolderPath.Push (GS::UniString (child.uName));
+        CollectSchedules (child, childFolderPath, schedules);
+    }
+}
+
+GetSchedulesCommand::GetSchedulesCommand () :
+    CommandBase (CommonSchema::Used)
+{}
+
+GS::String GetSchedulesCommand::GetName () const
+{
+    return "GetSchedules";
+}
+
+GS::Optional<GS::UniString> GetSchedulesCommand::GetRawResponseSchema () const
+{
+    return R"({
+        "type": "object",
+        "properties": {
+            "schedules": {
+                "type": "array",
+                "description": "The Interactive Schedules of the Project Map, in navigator order.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "navigatorItemId": {
+                            "$ref": "#/NavigatorItemId"
+                        },
+                        "name": {
+                            "type": "string",
+                            "description": "The name of the schedule."
+                        },
+                        "uiId": {
+                            "type": "string",
+                            "description": "The ID of the schedule, shown before its name in the navigator."
+                        },
+                        "folderPath": {
+                            "type": "array",
+                            "description": "The names of the Project Map items the schedule is in, from the top down, without the project itself (e.g. Schedules, Element). Archicad's API does not say whether a schedule lists elements, components or surfaces; the default Project Map shows it by these folders.",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": ["navigatorItemId", "name", "uiId", "folderPath"]
+                }
+            }
+        },
+        "additionalProperties": false,
+        "required": ["schedules"]
+    })";
+}
+
+GS::ObjectState GetSchedulesCommand::Execute (const GS::ObjectState& /*parameters*/, GS::ProcessControl& /*processControl*/) const
+{
+    API_NavigatorSet navSet = {};
+    navSet.mapId = API_ProjectMap;
+    Int32 idx = 0;
+    GSErrCode err = ACAPI_Navigator_GetNavigatorSet (&navSet, &idx);
+    if (err != NoError) {
+        return CreateErrorResponse (err, "Failed to get the Project Map.");
+    }
+
+    API_NavigatorItem rootItem = {};
+    err = ACAPI_Navigator_GetNavigatorItem (&navSet.rootGuid, &rootItem);
+    if (err != NoError) {
+        return CreateErrorResponse (err, "Failed to get the root of the Project Map.");
+    }
+
+    GS::Array<GS::ObjectState> schedules;
+    CollectSchedules (rootItem, GS::Array<GS::UniString> (), schedules);
+
+    GS::ObjectState response;
+    const auto& scheduleList = response.AddList<GS::ObjectState> ("schedules");
+    for (const GS::ObjectState& scheduleOS : schedules) {
+        scheduleList (scheduleOS);
+    }
+    return response;
+}
+
 // ─── GetNavigatorParentItems ──────────────────────────────────────────────────
 
 GetNavigatorParentItemsCommand::GetNavigatorParentItemsCommand () :
@@ -5395,50 +5447,7 @@ GS::Optional<GS::UniString> GetAddOnViewpointsCommand::GetRawResponseSchema () c
                     "type": "object",
                     "oneOf": [
                         {
-                            "type": "object",
-                            "properties": {
-                                "viewpointId": {
-                                    "type": "object",
-                                    "description": "The identifier of the add-on viewpoint item.",
-                                    "properties": {
-                                        "guid": { "$ref": "#/Guid" }
-                                    },
-                                    "additionalProperties": false,
-                                    "required": ["guid"]
-                                },
-                                "parentViewpointId": {
-                                    "type": "object",
-                                    "description": "The identifier of the root or group the item is in. Missing when Archicad reports no parent, as for a root.",
-                                    "properties": {
-                                        "guid": { "$ref": "#/Guid" }
-                                    },
-                                    "additionalProperties": false,
-                                    "required": ["guid"]
-                                },
-                                "itemType": {
-                                    "type": "string",
-                                    "description": "Whether the item is a root, a group or a leaf node.",
-                                    "enum": ["Root", "Group", "Leaf", "Undefined"]
-                                },
-                                "displayId": {
-                                    "type": "string",
-                                    "description": "The ID shown for the item in the Project Map."
-                                },
-                                "displayName": {
-                                    "type": "string",
-                                    "description": "The name shown for the item in the Project Map."
-                                },
-                                "viewSettingsFlags": {
-                                    "type": "integer",
-                                    "description": "The view settings flags of the item, as Archicad stores them (a bit field)."
-                                },
-                                "data": {
-                                    "type": "string",
-                                    "description": "The data the add-on attached to the item, base64 encoded. Empty when there is none."
-                                }
-                            },
-                            "additionalProperties": false,
-                            "required": ["viewpointId", "itemType", "displayId", "displayName", "viewSettingsFlags", "data"]
+                            "$ref": "#/AddOnViewpointDetails"
                         },
                         {
                             "$ref": "#/ErrorItem"
@@ -5646,9 +5655,7 @@ GS::Optional<GS::UniString> CreateAddOnViewpointsCommand::GetInputParametersSche
                     "type": "object",
                     "properties": {
                         "itemType": {
-                            "type": "string",
-                            "description": "Whether to create a root, a group or a leaf node. Roots and groups can't be created in a Teamwork project.",
-                            "enum": ["Root", "Group", "Leaf"]
+                            "$ref": "#/AddOnViewpointType"
                         },
                         "parentViewpointId": {
                             "type": "object",
@@ -5800,38 +5807,7 @@ GS::Optional<GS::UniString> ChangeAddOnViewpointsCommand::GetInputParametersSche
                 "type": "array",
                 "description": "The add-on viewpoint items to change. Only the given fields are changed.",
                 "items": {
-                    "type": "object",
-                    "properties": {
-                        "viewpointId": {
-                            "type": "object",
-                            "description": "The identifier of the add-on viewpoint item to change.",
-                            "properties": {
-                                "guid": { "$ref": "#/Guid" }
-                            },
-                            "additionalProperties": false,
-                            "required": ["guid"]
-                        },
-                        "displayId": {
-                            "type": "string",
-                            "description": "The ID shown for the item in the Project Map."
-                        },
-                        "displayName": {
-                            "type": "string",
-                            "description": "The name shown for the item in the Project Map."
-                        },
-                        "viewSettingsFlags": {
-                            "type": "integer",
-                            "description": "The view settings flags of the item, as Archicad stores them (a bit field).",
-                            "minimum": 0,
-                            "maximum": 4294967295
-                        },
-                        "data": {
-                            "type": "string",
-                            "description": "Data to attach to the item, base64 encoded. It replaces the attached data; an empty string removes it."
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": ["viewpointId"]
+                    "$ref": "#/AddOnViewpointModificationData"
                 }
             }
         },

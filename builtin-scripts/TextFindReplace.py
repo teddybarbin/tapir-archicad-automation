@@ -3,6 +3,11 @@
 # dependencies = []
 # ///
 
+# /// tapir
+# category = "documentation-layouts"
+# changes = "model"
+# ///
+
 """
 Find and Replace in Texts
 

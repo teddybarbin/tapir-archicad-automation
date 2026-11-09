@@ -43,7 +43,7 @@ GS::Optional<GS::UniString> GetProjectInfoCommand::GetRawResponseSchema () const
             },
             "projectLocation": {
                 "type": "string",
-                "description": "The location of the project in the filesystem or a BIMcloud project reference.",
+                "description": "The location of the project in the filesystem or a BIMcloud project reference. A BIMcloud project reference is returned without the user name and login token.",
                 "minLength": 1
             },
             "projectPath": {
@@ -65,6 +65,34 @@ GS::Optional<GS::UniString> GetProjectInfoCommand::GetRawResponseSchema () const
     })";
 }
 
+// A Teamwork location reads as teamwork://<user>:<token>@<server>/<project>. The user name and
+// the BIMcloud login token must not leave the add-on, so the user info is removed: everything up to
+// the last '@' before the first '/' after an '@'. So a user name with '@' (an e-mail address) and a
+// token with an unencoded '/' are removed as a whole; a location without '@' is returned as it is.
+static GS::UniString RemoveUserInfoFromUrl (const GS::UniString& url)
+{
+    const UIndex schemeEnd = url.FindFirst (GS::UniString ("://"));
+    if (schemeEnd == MaxUIndex) {
+        return url;
+    }
+
+    const UIndex authorityStart = schemeEnd + 3;
+    const UIndex firstAt = url.FindFirst (GS::UniChar ('@'), authorityStart);
+    if (firstAt == MaxUIndex) {
+        return url;
+    }
+
+    UIndex pathStart = url.FindFirst (GS::UniChar ('/'), firstAt);
+    if (pathStart == MaxUIndex) {
+        pathStart = url.GetLength ();
+    }
+
+    // Holds firstAt, so it has an '@'.
+    const GS::UniString userInfoAndHost (url.GetSubstring (authorityStart, pathStart - authorityStart));
+    const UIndex hostStart = authorityStart + userInfoAndHost.FindLast (GS::UniChar ('@')) + 1;
+    return GS::UniString (url.GetSubstring (0, authorityStart)) + GS::UniString (url.GetSubstring (hostStart, url.GetLength () - hostStart));
+}
+
 GS::ObjectState GetProjectInfoCommand::Execute (const GS::ObjectState& /*parameters*/, GS::ProcessControl& /*processControl*/) const
 {
     API_ProjectInfo projectInfo = {};
@@ -77,14 +105,11 @@ GS::ObjectState GetProjectInfoCommand::Execute (const GS::ObjectState& /*paramet
     response.Add ("isUntitled", projectInfo.untitled);
     response.Add ("isTeamwork", projectInfo.teamwork);
     if (!projectInfo.untitled) {
-        // Same pattern as GetSpecialFoldersCommand's ProjectPreviews case: a Teamwork
-        // project's own location lives in location_team, not location, which stays null
-        // for it. Previously this always read 'location', so projectLocation came back
-        // empty for every open Teamwork project despite the schema's own description
-        // ("...or a BIMcloud project reference").
+        // A Teamwork project has its location in location_team (as in GetSpecialFolders).
         const IO::Location* projectLocation = projectInfo.teamwork ? projectInfo.location_team : projectInfo.location;
         if (projectLocation != nullptr) {
-            response.Add ("projectLocation", projectLocation->ToDisplayText ());
+            const GS::UniString locationText = projectLocation->ToDisplayText ();
+            response.Add ("projectLocation", projectInfo.teamwork ? RemoveUserInfoFromUrl (locationText) : locationText);
         }
         if (projectInfo.projectPath) {
             response.Add ("projectPath", *projectInfo.projectPath);
@@ -222,7 +247,25 @@ GS::ObjectState SetProjectInfoFieldCommand::Execute (const GS::ObjectState& para
     // parameter." Passing an empty UniString instead does not clear it.
     const bool clearTheField = projectInfoValue.IsEmpty ();
 
-    GSErrCode err = ACAPI_AutoText_SetAnAutoText (&projectInfoId,
+    // ACAPI_AutoText_SetAnAutoText reports success for an id that is not in the project,
+    // so look the id up in the autotext list first.
+    GS::Array<GS::ArrayFB<GS::UniString, 3>> autoTexts;
+    GSErrCode err = ACAPI_AutoText_GetAutoTexts (&autoTexts, APIAutoText_All);
+    if (err != NoError) {
+        return CreateErrorResponse (err, "Failed to retrieve project information fields.");
+    }
+    bool fieldFound = false;
+    for (const auto& autoText : autoTexts) {
+        if (autoText[1] == projectInfoId) {
+            fieldFound = true;
+            break;
+        }
+    }
+    if (!fieldFound) {
+        return CreateErrorResponse (APIERR_BADPARS, "The project information field does not exist.");
+    }
+
+    err = ACAPI_AutoText_SetAnAutoText (&projectInfoId,
                                                   clearTheField ? nullptr : &projectInfoValue);
     if (err != NoError) {
         return CreateErrorResponse (err, clearTheField
@@ -879,25 +922,7 @@ GS::Optional<GS::UniString> GetNoteAutotextsCommand::GetRawResponseSchema () con
                 "type": "array",
                 "description": "The autotexts available in the notes of the given owner type, in ascending order of autotextId.",
                 "items": {
-                    "type": "object",
-                    "properties": {
-                        "autotextId": {
-                            "type": "integer",
-                            "description": "The numeric value of the autotext's API_NoteAutotextID in the Archicad API."
-                        },
-                        "elementTypes": {
-                            "type": "array",
-                            "description": "The element types the autotext is available for.",
-                            "items": {
-                                "$ref": "#/ElementType"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "autotextId",
-                        "elementTypes"
-                    ]
+                    "$ref": "#/NoteAutotextDetails"
                 }
             }
         },
@@ -1860,22 +1885,7 @@ GS::Optional<GS::UniString> RenameProjectInfoGroupsCommand::GetInputParametersSc
                 "type": "array",
                 "description": "The Project Info groups to rename, each with its new name.",
                 "items": {
-                    "type": "object",
-                    "properties": {
-                        "projectInfoGroupId": {
-                            "$ref": "#/ProjectInfoGroupId"
-                        },
-                        "name": {
-                            "type": "string",
-                            "description": "The new name of the group. It must not be used by another group.",
-                            "minLength": 1
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "projectInfoGroupId",
-                        "name"
-                    ]
+                    "$ref": "#/ProjectInfoGroupRename"
                 },
                 "minItems": 1
             }
@@ -2011,20 +2021,7 @@ GS::Optional<GS::UniString> MoveProjectInfoGroupsCommand::GetInputParametersSche
                 "type": "array",
                 "description": "The Project Info groups to move, in the order the moves are made.",
                 "items": {
-                    "type": "object",
-                    "properties": {
-                        "projectInfoGroupId": {
-                            "$ref": "#/ProjectInfoGroupId"
-                        },
-                        "beforeProjectInfoGroupId": {
-                            "$ref": "#/ProjectInfoGroupId",
-                            "description": "The group to move the group before. When omitted, the group is moved to the end of the group list."
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "projectInfoGroupId"
-                    ]
+                    "$ref": "#/ProjectInfoGroupMove"
                 },
                 "minItems": 1
             }
@@ -2120,8 +2117,13 @@ static GS::Optional<GS::UniString> GetLocationOfHotlink (const API_Guid& hotlink
     return hotlinkNode.sourceLocation->ToDisplayText ();
 }
 
+// `path` holds the nodes from the root down to the current one. A module placed in itself (or in
+// one of its own modules) makes the node tree cyclic once its cache is updated: the node then
+// shows up again among its own descendants. Such a node is listed, but its children are not
+// walked again, otherwise the recursion never ends and Archicad crashes on a stack overflow.
 static GS::ObjectState DumpHotlinkWithChildren (const API_Guid& hotlinkGuid,
-    GS::HashTable<API_Guid, GS::Array<API_Guid>>& hotlinkTree)
+    GS::HashTable<API_Guid, GS::Array<API_Guid>>& hotlinkTree,
+    GS::HashSet<API_Guid>& path)
 {
     GS::ObjectState hotlinkNodeOS;
 
@@ -2152,12 +2154,18 @@ static GS::ObjectState DumpHotlinkWithChildren (const API_Guid& hotlinkGuid,
         }
     }
 
+    if (path.Contains (hotlinkGuid)) {
+        return hotlinkNodeOS;
+    }
+
     const auto& children = hotlinkTree.Retrieve (hotlinkGuid);
     if (!children.IsEmpty ()) {
+        path.Add (hotlinkGuid);
         const auto& listAdder = hotlinkNodeOS.AddList<GS::ObjectState> ("children");
-        for (const API_Guid& childNodeGuid : hotlinkTree.Retrieve (hotlinkGuid)) {
-            listAdder (DumpHotlinkWithChildren (childNodeGuid, hotlinkTree));
+        for (const API_Guid& childNodeGuid : children) {
+            listAdder (DumpHotlinkWithChildren (childNodeGuid, hotlinkTree, path));
         }
+        path.Delete (hotlinkGuid);
     }
 
     return hotlinkNodeOS;
@@ -2173,8 +2181,9 @@ GS::ObjectState GetHotlinksCommand::Execute (const GS::ObjectState& /*parameters
         if (ACAPI_Hotlink_GetHotlinkRootNodeGuid (&type, &hotlinkRootNodeGuid) == NoError) {
             GS::HashTable<API_Guid, GS::Array<API_Guid>> hotlinkTree;
             if (ACAPI_Hotlink_GetHotlinkNodeTree (&hotlinkRootNodeGuid, &hotlinkTree) == NoError) {
+                GS::HashSet<API_Guid> path;
                 for (const API_Guid& childNodeGuid : hotlinkTree.Retrieve (hotlinkRootNodeGuid)) {
-                    listAdder (DumpHotlinkWithChildren (childNodeGuid, hotlinkTree));
+                    listAdder (DumpHotlinkWithChildren (childNodeGuid, hotlinkTree, path));
                 }
             }
         }
@@ -8113,17 +8122,7 @@ GS::Optional<GS::UniString> GetHotlinkSourceStatusCommand::GetInputParametersSch
                 "type": "array",
                 "description": "The source files of hotlinks of the project, for example the location of each node GetHotlinks returns.",
                 "items": {
-                    "type": "object",
-                    "properties": {
-                        "location": {
-                            "type": "string",
-                            "description": "Absolute path of the hotlink's source file."
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "location"
-                    ]
+                    "$ref": "#/HotlinkSourceReference"
                 }
             }
         },
@@ -8146,25 +8145,7 @@ GS::Optional<GS::UniString> GetHotlinkSourceStatusCommand::GetRawResponseSchema 
                     "type": "object",
                     "oneOf": [
                         {
-                            "type": "object",
-                            "properties": {
-                                "status": {
-                                    "type": "string",
-                                    "enum": [
-                                        "AuthCanceld",
-                                        "SourceMissing",
-                                        "SourceAvailable",
-                                        "SourceNotAccessible",
-                                        "SourceIncompatible",
-                                        "SourceOffline"
-                                    ],
-                                    "description": "The API_HotlinkSourceStatus value without its prefix (AuthCanceld is spelled as in the API)."
-                                }
-                            },
-                            "additionalProperties": false,
-                            "required": [
-                                "status"
-                            ]
+                            "$ref": "#/HotlinkSourceStatusResult"
                         },
                         {
                             "$ref": "#/ErrorItem"
@@ -8292,39 +8273,7 @@ GS::Optional<GS::UniString> ConvertUnitValuesCommand::GetInputParametersSchema (
                 "type": "array",
                 "description": "The values to convert.",
                 "items": {
-                    "type": "object",
-                    "properties": {
-                        "value": {
-                            "type": "number",
-                            "description": "The value to convert, in meters, square meters, cubic meters or radians, matching the kind of the preference."
-                        },
-                        "preference": {
-                            "type": "string",
-                            "description": "The Project Preference whose unit and rounding are applied: WorkModel, WorkLayout and WorkAngle are the Working Units; the Dim ones are the Dimensions (DimDoorWindow the door, window and skylight dimensions, DimParapet the sill height, DimArea the area calculations); the Calc ones are the Calculation Units & Rules.",
-                            "enum": [
-                                "WorkModel",
-                                "WorkLayout",
-                                "WorkAngle",
-                                "DimLinear",
-                                "DimAngle",
-                                "DimRadial",
-                                "DimLevel",
-                                "DimElevation",
-                                "DimDoorWindow",
-                                "DimParapet",
-                                "DimArea",
-                                "CalcLength",
-                                "CalcArea",
-                                "CalcVolume",
-                                "CalcAngle"
-                            ]
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "value",
-                        "preference"
-                    ]
+                    "$ref": "#/UnitValueConversionData"
                 }
             }
         },
@@ -8347,27 +8296,7 @@ GS::Optional<GS::UniString> ConvertUnitValuesCommand::GetRawResponseSchema () co
                     "type": "object",
                     "oneOf": [
                         {
-                            "type": "object",
-                            "properties": {
-                                "convertedValue": {
-                                    "type": "string",
-                                    "description": "The value as Archicad shows it in the unit of the preference, without the extra accuracy decimals. It may contain the unit."
-                                },
-                                "extraAccuracy": {
-                                    "type": "string",
-                                    "description": "The extra accuracy decimals, if any (at most two). Empty when there are none."
-                                },
-                                "unit": {
-                                    "type": "string",
-                                    "description": "The unit of the preference. It may be empty."
-                                }
-                            },
-                            "additionalProperties": false,
-                            "required": [
-                                "convertedValue",
-                                "extraAccuracy",
-                                "unit"
-                            ]
+                            "$ref": "#/ConvertedUnitValue"
                         },
                         {
                             "$ref": "#/ErrorItem"
@@ -8447,27 +8376,7 @@ GS::Optional<GS::UniString> GetRenovationStatusNamesCommand::GetRawResponseSchem
                     "type": "object",
                     "oneOf": [
                         {
-                            "type": "object",
-                            "properties": {
-                                "status": {
-                                    "type": "string",
-                                    "description": "The renovation status.",
-                                    "enum": [
-                                        "Existing",
-                                        "New",
-                                        "Demolished"
-                                    ]
-                                },
-                                "name": {
-                                    "type": "string",
-                                    "description": "The name of the status as the running Archicad shows it (localized)."
-                                }
-                            },
-                            "additionalProperties": false,
-                            "required": [
-                                "status",
-                                "name"
-                            ]
+                            "$ref": "#/RenovationStatusName"
                         },
                         {
                             "$ref": "#/ErrorItem"

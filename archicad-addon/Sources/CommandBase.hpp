@@ -8,6 +8,7 @@
 #include "BiHashTable.hpp"
 #include "HashSet.hpp"
 
+#include <functional>
 #include <vector>
 #include <functional>
 #include <map>
@@ -66,6 +67,31 @@ GS::ObjectState CreateSuccessfulExecutionResult ();
 // already exists at location (or that cannot be checked), returns the message to fail with, naming
 // the path; empty otherwise.
 GS::UniString GetOverwriteRefusal (const GS::ObjectState& parameters, const IO::Location& location);
+
+// The optional boolean "dryRun" input of the commands that delete or change (#2195), the #/DryRun
+// schema definition. A dry run makes every check of a real run and resolves the same targets, with
+// the same errors, but changes nothing in the project. A command reads the flag once with
+// IsDryRun, makes its checks, wraps the step that writes with CallUndoableCommandUnlessDryRun,
+// reports each target that passed the checks with CreateDryRunExecutionResult, and adds the
+// response's "dryRun" field with AddDryRunField.
+bool IsDryRun (const GS::ObjectState& parameters);
+// Runs write as one undoable command named undoString and returns its error; on a dry run it does
+// not run write at all (so no undo step is made either) and returns NoError.
+GSErrCode CallUndoableCommandUnlessDryRun (bool dryRun, const GS::UniString& undoString, const std::function<GSErrCode ()>& write);
+// Adds "dryRun": true to the response of a dry run (#/DryRunFlag); a real run's response is left as it is.
+void AddDryRunField (GS::ObjectState& response, bool dryRun);
+// The execution result of a dry run for a target that passed every check: {"success": true, <wouldKey>: true},
+// e.g. "wouldDelete" (#/WouldDeleteExecutionResult).
+GS::ObjectState CreateDryRunExecutionResult (const char* wouldKey);
+// For the commands whose checks and writes are interleaved target by target: runs body as one
+// undoable command named undoString; on a dry run it runs body directly, outside any undo scope, so
+// no undo step is made and a write body would still attempt is refused by Archicad. body reads the
+// same dryRun flag, makes every check of a real run and skips only its writes.
+GSErrCode CallUndoableCommandOrDryRun (bool dryRun, const GS::UniString& undoString, const std::function<GSErrCode ()>& body);
+// The execution result of a dry run for a target a real run would change: {"success": true,
+// "wouldChange": wouldChange} (#/WouldChangeExecutionResult), wouldChange holding the target's
+// "oldValue" and the "newValue" a real run would write, each left out when it is not cheap to tell.
+GS::ObjectState CreateWouldChangeExecutionResult (const GS::ObjectState& wouldChange);
 GS::UniString DescribeDefinitionChangeError (GSErrCode err);
 // Why Archicad refused to change an element the user could not edit in Archicad either, as the end
 // of a sentence ("its layer is hidden"); empty when the refusal has another cause. elemHead is the
@@ -202,6 +228,10 @@ API_NameTypeValues DrawingNameTypeFromString (const GS::UniString& str, API_Name
 // root cause not fully understood, kept as two separate translation units instead.
 void AddMorphBodyFromMemo (const API_Element& elem, GS::ObjectState& typeSpecificDetails);
 
+// The GetDetailsOfElements keys of a Skylight, the ones CreateSkylights and ModifySkylights write
+// (ApplySkylightDetails) - defined next to them in ExtendedElementCommands.cpp.
+void AddSkylightDetails (const API_Element& elem, GS::ObjectState& typeSpecificDetails);
+
 // Shared by Morph and Wall (Get and Modify/Create) - defined in ExtendedElementCommands.cpp.
 GS::UniString ElemDisplayOptionToString (API_ElemDisplayOptionsID displayOption);
 bool ElemDisplayOptionFromString (const GS::UniString& str, API_ElemDisplayOptionsID& out);
@@ -233,6 +263,21 @@ double GetZPos (const short floorIndex, const double offset, const Stories& stor
 GS::Pair<short, double> ResolveFloorIndexAndOffset (const GS::ObjectState& parameters, const char* floorIndexFieldName, const double zPos, const Stories& stories);
 GS::UniString GetElementTypeNonLocalizedName (API_ElemTypeID typeID);
 API_ElemTypeID GetElementTypeFromNonLocalizedName (const GS::UniString& typeStr);
+
+// The server-side element filter of #/ElementTypeFloorLayerFilter (types, floorIndices,
+// layerIndices), used by GetDetailsOfElements, GetElementsByCriteria and ApplyFavoritesToElements:
+// an element matches when its type, home story and layer are each among the listed ones; an
+// omitted or empty list does not filter.
+struct ElementTypeFloorLayerFilter {
+    GS::Array<API_ElemTypeID> types;
+    GS::Array<short> floorIndices;
+    GS::Array<Int32> layerIndices;
+
+    // Reads the fields from os; returns an error message for an unknown element type.
+    GS::Optional<GS::UniString> Read (const GS::ObjectState& os);
+    bool Matches (const API_Elem_Head& header) const;
+};
+
 // The model element a section/elevation element was cut from, or elemGuid itself for any other element.
 API_Guid GetParentElemOfSectElem (const API_Guid& elemGuid);
 short ParseAnchorPointString (const GS::UniString& anchorPoint);
@@ -264,6 +309,10 @@ GS::Optional<GS::UniString> ApplyColumnVeneer (const GS::ObjectState& veneer, AP
 // when no loaded font has the name, or the index none.
 GS::Optional<short> GetFontIndexFromName (const GS::UniString& fontName);
 GS::Optional<GS::UniString> GetFontNameFromIndex (short fontIndex);
+// Archicad's own font search (ACAPI_Font_SearchFont, ACAPI_Attribute_Search before Archicad 27),
+// limited to the fonts that were loaded before it: for a name no font has, Archicad can answer
+// NoError with a new index past the loaded fonts (#2470), which is refused here. NoValue then.
+GS::Optional<short> SearchLoadedFont (const GS::UniString& fontName);
 
 class DatabaseIdResolver {
 public:
@@ -289,12 +338,15 @@ GSErrCode ExecuteActionForEachDatabase (
 // in one undoable command named undoName, calls perItem with the guid under idFieldName of every
 // item of the list listFieldName of parameters. Returns {"executionResults": [...]}, one result per
 // item in input order: "<idFieldName> is missing" for an item without the id, else perItem's result.
+// On a dry run (dryRun, see IsDryRun) perItem is called outside any undoable command, so it must
+// only make its checks and answer CreateDryRunExecutionResult, and the response gets "dryRun": true.
 GS::ObjectState ExecuteForEachIdInList (
     const GS::ObjectState& parameters,
     const char* listFieldName,
     const char* idFieldName,
     const GS::UniString& undoName,
-    const std::function<GS::ObjectState (const API_Guid&)>& perItem);
+    const std::function<GS::ObjectState (const API_Guid&)>& perItem,
+    bool dryRun = false);
 
 // The Project Map item of an independent worksheet or detail database, found by its database;
 // NoValue for any other database type or when the Project Map has no such item.
@@ -386,7 +438,13 @@ bool DoesElementExist (const API_Guid& elementGuid, API_ElemTypeID expectedTypeI
 // is shown and unlocked.
 GSErrCode GetLayerChangeError (const API_AttributeIndex& layer, GS::UniString& reason);
 
-// Writes the Element ID of an existing element: the elemInfoString memo part, which
-// GetDetailsOfElements reads back as "id" (APIMemoMask_ElemInfoString). Must be called
-// inside an undoable command. Defined in CommandBase.cpp.
+// Reads the Element ID of an element, the "id" of GetDetailsOfElements: with
+// ACAPI_Element_GetElementInfoString, or the elemInfoString memo part when that fails.
+// Defined in CommandBase.cpp.
+GSErrCode GetElementId (const API_Guid& elementGuid, GS::UniString& id);
+
+// Writes the Element ID of an existing element with ACAPI_Element_ChangeElementInfoString
+// (APIDb_ChangeElementInfoStringID before Archicad 27) and reads it back with GetElementId:
+// APIERR_REFUSEDPAR when Archicad did not keep it. Must be called inside an undoable
+// command. Defined in CommandBase.cpp.
 GSErrCode ChangeElementId (const API_Guid& elementGuid, const GS::UniString& id);

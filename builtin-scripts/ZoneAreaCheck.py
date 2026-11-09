@@ -3,6 +3,11 @@
 # dependencies = []
 # ///
 
+# /// tapir
+# category = "zones-areas"
+# changes = "files"
+# ///
+
 """
 Zone Area Check
 

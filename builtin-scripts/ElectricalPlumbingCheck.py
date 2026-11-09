@@ -3,6 +3,11 @@
 # dependencies = []
 # ///
 
+# /// tapir
+# category = "quality-assurance"
+# changes = "read-only"
+# ///
+
 """
 Electrical and Plumbing Check
 

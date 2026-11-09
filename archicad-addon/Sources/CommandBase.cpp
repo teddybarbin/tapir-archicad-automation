@@ -109,6 +109,50 @@ GS::ObjectState CreateSuccessfulExecutionResult ()
         "success", true);
 }
 
+bool IsDryRun (const GS::ObjectState& parameters)
+{
+    bool dryRun = false;
+    parameters.Get ("dryRun", dryRun);
+    return dryRun;
+}
+
+GSErrCode CallUndoableCommandUnlessDryRun (bool dryRun, const GS::UniString& undoString, const std::function<GSErrCode ()>& write)
+{
+    if (dryRun) {
+        return NoError;
+    }
+    return TAPIR_CallUndoableCommand (undoString, write);
+}
+
+void AddDryRunField (GS::ObjectState& response, bool dryRun)
+{
+    if (dryRun) {
+        response.Add ("dryRun", true);
+    }
+}
+
+GS::ObjectState CreateDryRunExecutionResult (const char* wouldKey)
+{
+    return GS::ObjectState (
+        "success", true,
+        wouldKey, true);
+}
+
+GSErrCode CallUndoableCommandOrDryRun (bool dryRun, const GS::UniString& undoString, const std::function<GSErrCode ()>& body)
+{
+    if (dryRun) {
+        return body ();
+    }
+    return TAPIR_CallUndoableCommand (undoString, body);
+}
+
+GS::ObjectState CreateWouldChangeExecutionResult (const GS::ObjectState& wouldChange)
+{
+    return GS::ObjectState (
+        "success", true,
+        "wouldChange", wouldChange);
+}
+
 GS::UniString GetOverwriteRefusal (const GS::ObjectState& parameters, const IO::Location& location)
 {
     bool overwrite = true;
@@ -1266,6 +1310,30 @@ API_ElemTypeID GetElementTypeFromNonLocalizedName (const GS::UniString& typeStr)
     return API_ZombieElemID;
 }
 
+GS::Optional<GS::UniString> ElementTypeFloorLayerFilter::Read (const GS::ObjectState& os)
+{
+    GS::Array<GS::UniString> typeNames;
+    if (os.Get ("types", typeNames)) {
+        for (const GS::UniString& typeName : typeNames) {
+            const API_ElemTypeID typeId = GetElementTypeFromNonLocalizedName (typeName);
+            if (typeId == API_ZombieElemID) {
+                return GS::UniString ("Unknown element type in types: ") + typeName;
+            }
+            types.Push (typeId);
+        }
+    }
+    os.Get ("floorIndices", floorIndices);
+    os.Get ("layerIndices", layerIndices);
+    return {};
+}
+
+bool ElementTypeFloorLayerFilter::Matches (const API_Elem_Head& header) const
+{
+    return (types.IsEmpty () || types.Contains (GetElemTypeId (header))) &&
+        (floorIndices.IsEmpty () || floorIndices.Contains (header.floorInd)) &&
+        (layerIndices.IsEmpty () || layerIndices.Contains (GetAttributeIndex (header.layer)));
+}
+
 API_Guid GetParentElemOfSectElem (const API_Guid& elemGuid)
 {
     API_Element element = {};
@@ -1462,7 +1530,27 @@ GS::Optional<short> GetFontIndexFromName (const GS::UniString& fontName)
     // Last, Archicad's own font search, as GetFontsByName uses: it also resolves a family name
     // ("Century Gothic") to the font Archicad lists with its script ("Century Gothic Western", or
     // "Century Gothic Occidental" in Spanish), so scripts need not know the language's suffix
-    // (issue #1824). Fonts are their own API from Archicad 27 and attributes (API_FontID) before.
+    // (issue #1824).
+    return SearchLoadedFont (fontName);
+}
+
+static Int32 GetLoadedFontCount ()
+{
+#ifdef ServerMainVers_2700
+    return ACAPI_Font_GetFontNum ();
+#else
+    API_AttributeIndex count = 0;
+    if (ACAPI_Attribute_GetNum (API_FontID, &count) != NoError) {
+        return 0;
+    }
+    return static_cast<Int32> (count);
+#endif
+}
+
+GS::Optional<short> SearchLoadedFont (const GS::UniString& fontName)
+{
+    // Fonts are their own API from Archicad 27 and attributes (API_FontID) before.
+    const Int32 loadedFontCount = GetLoadedFontCount ();
     GS::UniString nameToSearch = fontName;
 #ifdef ServerMainVers_2700
     API_FontType font = {};
@@ -1481,8 +1569,10 @@ GS::Optional<short> GetFontIndexFromName (const GS::UniString& fontName)
     const short foundIndex = static_cast<short> (GetAttributeIndex (attrHead.index));
 #endif
 
-    // Only an index that names a loaded font is returned.
-    if (!GetFontNameFromIndex (foundIndex).HasValue ()) {
+    // Only an index of a font that was loaded before the search is returned: on Archicad 26 and 28
+    // (German) a name no font has was answered with NoError and a new index (1907, 1908), as if
+    // the search had added the font to the list (#2470).
+    if (foundIndex < 1 || foundIndex > loadedFontCount || !GetFontNameFromIndex (foundIndex).HasValue ()) {
         return GS::NoValue;
     }
     return foundIndex;
@@ -1565,15 +1655,17 @@ GS::ObjectState ExecuteForEachIdInList (
     const char* listFieldName,
     const char* idFieldName,
     const GS::UniString& undoName,
-    const std::function<GS::ObjectState (const API_Guid&)>& perItem)
+    const std::function<GS::ObjectState (const API_Guid&)>& perItem,
+    bool dryRun)
 {
     GS::Array<GS::ObjectState> items;
     parameters.Get (listFieldName, items);
 
     GS::ObjectState response;
+    AddDryRunField (response, dryRun);
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
 
-    TAPIR_CallUndoableCommand (undoName, [&] () -> GSErrCode {
+    const auto forEachItem = [&] () -> GSErrCode {
         for (const GS::ObjectState& item : items) {
             const GS::ObjectState* id = item.Get (idFieldName);
             if (id == nullptr) {
@@ -1585,7 +1677,15 @@ GS::ObjectState ExecuteForEachIdInList (
         }
 
         return NoError;
-    });
+    };
+
+    // A dry run makes the same checks item by item, but outside an undoable command, so nothing
+    // can be written and no undo step is made; perItem itself must not write on a dry run.
+    if (dryRun) {
+        forEachItem ();
+    } else {
+        TAPIR_CallUndoableCommand (undoName, forEachItem);
+    }
 
     return response;
 }
@@ -1766,18 +1866,38 @@ void DecomposeHotlinkTransformation (const API_Tranmat& transformation, API_Coor
     mirrored = det < 0.0;
 }
 
-GSErrCode ChangeElementId (const API_Guid& elementGuid, const GS::UniString& id)
+GSErrCode GetElementId (const API_Guid& elementGuid, GS::UniString& id)
 {
-    // Only the info string part of the memo is filled and masked, so nothing else of the
-    // element is touched. ACAPI_DisposeElemMemoHdls deletes elemInfoString, the same way
-    // it frees the one ACAPI_Element_GetMemo allocates in GetDetailsOfElements.
+    if (ACAPI_Element_GetElementInfoString (&elementGuid, &id) == NoError) {
+        return NoError;
+    }
     API_ElementMemo memo = {};
     const GS::OnExit guard ([&memo] () { ACAPI_DisposeElemMemoHdls (&memo); });
-    memo.elemInfoString = new GS::UniString (id);
+    const GSErrCode err = ACAPI_Element_GetMemo (elementGuid, &memo, APIMemoMask_ElemInfoString);
+    if (err != NoError) {
+        return err;
+    }
+    id = memo.elemInfoString != nullptr ? *memo.elemInfoString : GS::EmptyUniString;
+    return NoError;
+}
 
-    // ACAPI_Element_ChangeMemo takes the guid by non-const reference.
-    API_Guid guid = elementGuid;
-    return ACAPI_Element_ChangeMemo (guid, APIMemoMask_ElemInfoString, &memo);
+GSErrCode ChangeElementId (const API_Guid& elementGuid, const GS::UniString& id)
+{
+    // Not the elemInfoString memo part: writing it answers NoError on polylines and
+    // splines and leaves their ID empty (#2470). Before Archicad 27 MigrationHelper.hpp
+    // calls APIDb_ChangeElementInfoStringID.
+    const GSErrCode err = ACAPI_Element_ChangeElementInfoString (&elementGuid, &id);
+    if (err != NoError) {
+        return err;
+    }
+
+    // Read back: an ID Archicad answered NoError for but did not keep is a failure, so a
+    // caller never reports an ID the element does not have.
+    GS::UniString written;
+    if (GetElementId (elementGuid, written) != NoError || written != id) {
+        return APIERR_REFUSEDPAR;
+    }
+    return NoError;
 }
 
 GSErrCode TAPIR_CallUndoableCommand (const GS::UniString& undoString, const std::function<GSErrCode ()>& command)

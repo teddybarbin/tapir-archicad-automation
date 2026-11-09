@@ -1,6 +1,7 @@
 # Tapir script marketplace
 
-Scripts shared by Tapir users, reviewed like any other code in this repository.
+Scripts shared by Tapir users, and scripts requested in issues, reviewed like any
+other code in this repository.
 Everything here is free and open source.
 
 Marketplace scripts are not built-in scripts: they are never copied to
@@ -95,13 +96,15 @@ Example:
 
 The script starts with two comment blocks. The first is the standard
 [inline script metadata](https://packaging.python.org/en/latest/specifications/inline-script-metadata/)
-that `uv` reads; the second is Tapir's own, which `uv` ignores:
+that `uv` reads; the second is Tapir's own, which `uv` ignores. Leave an empty line
+between them: without it `uv` reads both blocks as one and refuses to run the script.
 
 ```python
 # /// script
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
+
 # /// tapir
 # category = "element-data-properties"
 # archicad-versions = [28, 29, 30]
@@ -113,12 +116,15 @@ that `uv` reads; the second is Tapir's own, which `uv` ignores:
 - `dependencies` lists every package from PyPI the script imports, so `uv`
   installs them. Standard library only is best.
 - `category`, `archicad-versions` and `min-tapir-version` are the same as in the
-  newest entry of `listing.json`.
+  newest entry of `listing.json`. The Tapir palette uses them before it runs the
+  script: it does not run a script whose `min-tapir-version` (written `N.N.N`) is
+  newer than the installed Tapir and offers the update instead, and it warns,
+  with **Run anyway**, when the running Archicad is not in `archicad-versions`.
 - `changes` says what running the script can change:
   - `model`: elements, properties, attributes, views or anything else in the
     project. Shown as **Changes the model**.
   - `files`: it only writes files (exports, reports, logs). Shown as
-    **Read only**, with the files it writes named in its README.
+    **Writes files**, with the files it writes named in its README.
   - `read-only`: it changes nothing and writes nothing. Shown as **Read only**.
 
   When in doubt, `model`.
@@ -132,13 +138,54 @@ Plain words, for architects:
 3. Its settings, with their defaults.
 4. What it changes (or that it changes nothing), and which files it writes, where.
 5. Its limits: element types, Archicad versions, Teamwork, units.
-6. `Original by <author>`, and who adapted it if someone did.
+6. `Original by <author>`, and who adapted it if someone did; for a script
+   requested in an issue, `Requested by @<login> in #<issue number>, written with
+   the Tapir issue bot.` (see below).
 
 ### Screenshots
 
 Up to 5 PNG or JPG files in `screenshots/`, at most 1 MB each, of the script
 running in Archicad. Crop them to the script's window and the model it acts on;
 no client names, project names or people in them.
+
+## A script requested in an issue
+
+A new script that someone asks for in an issue, and that the issue bot or a
+contributor writes for them, goes here too, as `marketplace/<slug>/` in the
+format above. It goes to [`builtin-scripts/`](../builtin-scripts/) only when a
+maintainer asks for that in the issue, because every built-in script is in
+every Tapir user's palette.
+
+- The listing's `author` is the person who opened the issue: they specified
+  the script and the issue bot wrote the code, as other contributors write
+  code with AI help. `name` is their GitHub profile name when they have set
+  one, else their login, and `github` is their login, e.g.
+  `{ "name": "Parikshit Wadhwa", "github": "parikshit99" }`.
+- Its README credits the request:
+  `Requested by @<login> in #<issue number>, written with the Tapir issue bot.`
+- An issue a bot opened (the Discord issue bot files them) has no GitHub
+  author to name: the listing's `author` stays `{ "name": "Tapir" }`, and the
+  README credits the Discord user who asked for it by name.
+- Everything else (headers, README, the rules below) is as for a shared
+  script; there is no author to ask, so the person who asked for it is asked
+  to try it.
+
+## The helpers `utilities` and `aclib`
+
+A marketplace script may import the helpers of the built-in scripts,
+[`builtin-scripts/utilities/`](../builtin-scripts/utilities/) and
+[`builtin-scripts/aclib/`](../builtin-scripts/aclib/), like a built-in script
+does. Its folder holds no copies of them; they are imported from the folder the
+script runs in, so:
+
+- Installed by hand (see
+  [Using a marketplace script in the palette](../builtin-scripts/README.md#using-a-marketplace-script-in-the-palette)),
+  copy `utilities/` and `aclib/` from `builtin-scripts/` next to the script.
+- The palette's marketplace window, when it installs a script that imports
+  them, puts copies of both folders, from `main`, next to it.
+
+So changes to `utilities` and `aclib` stay backward compatible: a function or
+argument a script uses is never removed or changed in meaning.
 
 ## Adapting a shared script for public use
 
@@ -203,3 +250,10 @@ maintainer has looked at it.
 
 Either way the pull request is reviewed before it is merged, and the script is
 published under its licence (MIT unless you chose another).
+
+`python tools/check_marketplace.py` checks every folder against this page: the
+listing, the two headers, the README and that the folder holds nothing else.
+The add-on build check runs it on every pull request. Once a folder is on
+`main` and passes, `tools/generate_catalogue.py` adds it to the list the
+website's Scripts page shows (`catalogue.json` on the `site-data` branch,
+written by `.github/workflows/site_data.yml` within minutes of the merge).

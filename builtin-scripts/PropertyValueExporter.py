@@ -3,6 +3,11 @@
 # dependencies = []
 # ///
 
+# /// tapir
+# category = "import-export"
+# changes = "files"
+# ///
+
 """
 Property Value Exporter
 

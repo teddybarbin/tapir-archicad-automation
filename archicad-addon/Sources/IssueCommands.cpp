@@ -133,8 +133,27 @@ GS::ObjectState CreateIssueCommand::Execute (const GS::ObjectState& parameters, 
 
     API_MarkUpType issue (name);
     issue.tagText = tagText;
-    if (parameters.Get ("parentIssueId", parentIssueId))
+    if (parameters.Get ("parentIssueId", parentIssueId)) {
         issue.parentGuid = GetGuidFromObjectState (parentIssueId);
+        if (issue.parentGuid != APINULLGuid) {
+            // ACAPI_Markup_Create accepts a parent that does not exist, so check it first.
+            GS::Array<API_MarkUpType> issueList;
+            GSErrCode listErr = ACAPI_Markup_GetList (APINULLGuid, &issueList);
+            if (listErr != NoError) {
+                return CreateErrorResponse (listErr, "Failed to retrive issues.");
+            }
+            bool parentFound = false;
+            for (const API_MarkUpType& existingIssue : issueList) {
+                if (existingIssue.guid == issue.parentGuid) {
+                    parentFound = true;
+                    break;
+                }
+            }
+            if (!parentFound) {
+                return CreateErrorResponse (APIERR_BADPARS, "The parent issue does not exist.");
+            }
+        }
+    }
 
     GSErrCode err = TAPIR_CallUndoableCommand ("Create issue", [&]() -> GSErrCode {
         return ACAPI_Markup_Create (issue);
@@ -168,6 +187,9 @@ GS::Optional<GS::UniString> DeleteIssueCommand::GetInputParametersSchema () cons
             "acceptAllElements": {
                 "type": "boolean",
                 "description": "Accept all creation/deletion/modification of the deleted issue. By default false."
+            },
+            "dryRun": {
+                "$ref": "#/DryRun"
             }
         },
         "additionalProperties": false,
@@ -180,7 +202,27 @@ GS::Optional<GS::UniString> DeleteIssueCommand::GetInputParametersSchema () cons
 GS::Optional<GS::UniString> DeleteIssueCommand::GetRawResponseSchema () const
 {
     return R"({
-        "$ref": "#/ExecutionResult"
+        "type": "object",
+        "description": "The result of the execution: success, with error when it failed. A dry run also answers dryRun, and wouldDelete when the issue exists.",
+        "properties": {
+            "dryRun": {
+                "$ref": "#/DryRunFlag"
+            },
+            "success": {
+                "type": "boolean"
+            },
+            "error": {
+                "$ref": "#/Error"
+            },
+            "wouldDelete": {
+                "type": "boolean",
+                "enum": [ true ]
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "success"
+        ]
     })";
 }
 
@@ -195,6 +237,29 @@ GS::ObjectState DeleteIssueCommand::Execute (const GS::ObjectState& parameters, 
 
     parameters.Get ("acceptAllElements", acceptAllElements);
     API_Guid guid = GetGuidFromObjectState (issueId);
+
+    if (IsDryRun (parameters)) {
+        GS::Array<API_MarkUpType> issues;
+        const GSErrCode listErr = ACAPI_Markup_GetList (APINULLGuid, &issues);
+        bool issueExists = false;
+        for (const API_MarkUpType& issue : issues) {
+            if (issue.guid == guid) {
+                issueExists = true;
+                break;
+            }
+        }
+        GS::ObjectState result;
+        if (listErr != NoError) {
+            result = CreateFailedExecutionResult (listErr, "Failed to get the issues.");
+        } else if (!issueExists) {
+            result = CreateFailedExecutionResult (APIERR_BADID, "Failed to delete issue: there is no issue with this issueId.");
+        } else {
+            result = CreateDryRunExecutionResult ("wouldDelete");
+        }
+        AddDryRunField (result, true);
+        return result;
+    }
+
     GSErrCode err = TAPIR_CallUndoableCommand ("Delete issue", [&]() -> GSErrCode {
         return ACAPI_Markup_Delete (guid, acceptAllElements);
     });

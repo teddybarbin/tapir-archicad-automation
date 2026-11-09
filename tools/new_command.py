@@ -7,9 +7,14 @@ command, so only the Archicad API calls inside Execute are left to write by hand
   * the constructor, GetName, GetInputParametersSchema, GetRawResponseSchema and
     an Execute skeleton (parameter parsing, per-item loop, error results, undo
     scope, Archicad version guard) in Sources/<file>.cpp
+  * the input and response schemas as named definitions, <Name>Parameters and
+    <Name>Response, in Sources/RFIX/Images/CommonSchemaDefinitions.json; the two
+    schema functions only refer to them (CLAUDE.md, *Schemas*)
   * the RegisterCommand call in AddOnMain.cpp, with the version from
     tools/package_info.json
   * a starter Python example, archicad-addon/Examples/<GroupFolder>/<CommandName>.py
+  * a starter check, archicad-addon/Test/checks/<snake_case>.json, for the community
+    test runner (tools/community-test-runner), which tests pull requests on real Archicad
 
 Existing commands are never touched: a command whose class already exists is
 skipped. Standard library only; a .yaml spec also works when PyYAML is installed.
@@ -28,9 +33,12 @@ Spec format (JSON list, or {"commands": [...]}), one object per command:
     "description": "Creates level dimensions. Available from Archicad 30.",
     "requires": 30,                        optional: Archicad version guard (ServerMainVers_3000)
     "undoable": true,                      optional: default true unless the name starts with Get
-    "commonSchema": true,                  optional: CommonSchema::Used (default) or NotUsed
+    "commonSchema": true,                  optional, and only true: the command's schemas are
+                                           definitions in CommonSchemaDefinitions.json, which a
+                                           CommonSchema::NotUsed command cannot refer to
     "version": "1.7.3",                    optional: defaults to tools/package_info.json
     "example": true,                       optional: write Examples/<GroupFolder>/<CommandName>.py (default true)
+    "check": true,                         optional: write Test/checks/<snake_case>.json (default true)
     "input": { ... compact schema ... },   null or omitted for no parameters
     "output": "executionResults" | "elements" | { ... compact schema ... }
   }
@@ -66,6 +74,7 @@ from check_examples import ExampleFolder  # the Examples/<GroupFolder> of a comm
 ROOT = os.path.dirname (os.path.dirname (os.path.abspath (__file__)))
 SOURCES = os.path.join (ROOT, 'archicad-addon', 'Sources')
 EXAMPLES = os.path.join (ROOT, 'archicad-addon', 'Examples')
+CHECKS = os.path.join (ROOT, 'archicad-addon', 'Test', 'checks')
 ADDON_MAIN = os.path.join (SOURCES, 'AddOnMain.cpp')
 PACKAGE_INFO = os.path.join (ROOT, 'tools', 'package_info.json')
 
@@ -154,6 +163,11 @@ def schema_literal (schema):
 
 def words (name):
     return re.sub (r'(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])', ' ', name)
+
+
+def snake (name):
+    """The file name of a command's starter check: CreateWalls -> create_walls."""
+    return words (name).lower ().replace (' ', '_')
 
 
 def cpp_string (text):
@@ -451,6 +465,26 @@ def gen_execute (cmd, input_schema, output_schema, common):
     return '\n'.join (lines)
 
 
+def parameters_name (name):
+    return name + 'Parameters'
+
+
+def response_name (name):
+    return name + 'Response'
+
+
+def ref_literal (definition):
+    return schema_literal ({'$ref': '#/' + definition})
+
+
+def add_definitions (text, definitions):
+    """CommonSchemaDefinitions.json with the definitions appended, its existing text untouched."""
+    end = text.rstrip ().rstrip ('}').rstrip ()
+    added = ''.join (',\n    {}: {}'.format (json.dumps (name), json.dumps (schema, indent=4, ensure_ascii=False).replace ('\n', '\n    '))
+                     for name, schema in definitions.items ())
+    return end + added + '\n}\n'
+
+
 def gen_cpp (cmd, input_schema, output_schema, common):
     cls = cmd['name'] + 'Command'
     common_flag = 'Used' if cmd.get ('commonSchema', True) else 'NotUsed'
@@ -459,8 +493,8 @@ def gen_cpp (cmd, input_schema, output_schema, common):
         f'GS::String {cls}::GetName () const\n{{\n    return "{cmd["name"]}";\n}}',
     ]
     if input_schema:
-        parts.append (f'GS::Optional<GS::UniString> {cls}::GetInputParametersSchema () const\n{{\n    return R"({schema_literal (input_schema)})";\n}}')
-    parts.append (f'GS::Optional<GS::UniString> {cls}::GetRawResponseSchema () const\n{{\n    return R"({schema_literal (output_schema)})";\n}}')
+        parts.append (f'GS::Optional<GS::UniString> {cls}::GetInputParametersSchema () const\n{{\n    return R"({ref_literal (parameters_name (cmd["name"]))})";\n}}')
+    parts.append (f'GS::Optional<GS::UniString> {cls}::GetRawResponseSchema () const\n{{\n    return R"({ref_literal (response_name (cmd["name"]))})";\n}}')
     parts.append (gen_execute (cmd, input_schema, output_schema, common))
     return '\n\n'.join (parts) + '\n'
 
@@ -518,6 +552,34 @@ def gen_example (cmd, input_schema, common):
     placeholderNote = '# Replace the placeholder values with real ones from the project.\n' if params is not None else ''
     return (f'"""Runs {cmd["name"]} and prints its response.{req}"""\n'
             f"import aclib\n\n{placeholderNote}{call}\n")
+
+
+def gen_check (cmd, input_schema, output_schema, version, common):
+    """A starter check: one call of the command and expectations from its output shape. The params
+    are placeholders; the elements a command needs are made in earlier steps of the same check."""
+    params = (placeholder (input_schema, common) if input_schema else None) or {}
+    props = (output_schema or {}).get ('properties', {})
+    out = cmd.get ('output', 'executionResults')
+    step = {'id': 'call', 'command': cmd['name'], 'params': params}
+    if out == 'elements' or 'elements' in props:
+        step['expect'] = [{'path': 'elements[0].elementId.guid', 'exists': True, 'name': 'an element is created'}]
+    else:
+        step['creates'] = False
+        if out == 'executionResults' or 'executionResults' in props:
+            step['expect'] = [{'path': 'executionResults[0].success', 'eq': True, 'name': 'succeeds'}]
+        else:
+            step['expect'] = [{'path': name, 'exists': True} for name in props] or [{'path': 'error', 'exists': False}]
+    check = {
+        'title': f"{cmd['name']}: TODO what this check proves",
+        'minTapir': version,
+        '_todo': ('Replace the placeholder params with real ones: make the elements, attributes or stories '
+                  'the command needs in earlier steps, save their ids ("save": {"w1": "elements[0].elementId.guid"}) '
+                  'and use "${w1}". Then make the expectations prove the behaviour (eq, approx, len, ...), not '
+                  'only that it answers. Format: tools/community-test-runner/README.md, "Writing checks". '
+                  'Remove this note when done.'),
+        'steps': [step],
+    }
+    return json.dumps (check, indent=2) + '\n'
 
 
 # ------------------------------------------------------------ insertion --
@@ -593,6 +655,10 @@ def validate (cmd, i):
         raise SpecError (f'{cmd["name"]}: the name must be CamelCase')
     if not re.fullmatch (r'[A-Za-z0-9]+', cmd['file']):
         raise SpecError (f'{cmd["name"]}: "file" is a Sources file name without extension, e.g. MEPCommands')
+    if cmd.get ('commonSchema', True) is not True:
+        # Its schemas are <Name>Parameters/<Name>Response definitions (CLAUDE.md, Schemas), and a
+        # CommonSchema::NotUsed command gets no definitions in Archicad, so its $refs would not resolve.
+        raise SpecError (f'{cmd["name"]}: "commonSchema": false is not possible, the schemas are common definitions')
 
 
 def load_spec (path):
@@ -624,7 +690,10 @@ def main ():
         if twice:
             raise SpecError (f'the spec has {join_names (twice)} more than once')
         version = json.loads (read (PACKAGE_INFO))['version']
-        common = json.loads (read (os.path.join (SOURCES, 'RFIX', 'Images', 'CommonSchemaDefinitions.json')))
+        common_path = os.path.join (SOURCES, 'RFIX', 'Images', 'CommonSchemaDefinitions.json')
+        common_text = read (common_path)
+        common = json.loads (common_text)
+        new_definitions = {}
         main_text = read (ADDON_MAIN)
         main_original = main_text
         all_sources = '\n'.join (read (os.path.join (SOURCES, f)) for f in os.listdir (SOURCES) if f.endswith ('.hpp'))
@@ -659,6 +728,12 @@ def main ():
                 else:
                     pending[cmd['file']] = ['#pragma once\n\n#include "CommandBase.hpp"\n',
                                             f'#include "{cmd["file"]}.hpp"\n', True]
+            for definition, schema in ((parameters_name (name), input_schema), (response_name (name), output_schema)):
+                if schema is None:
+                    continue
+                if definition in common or definition in new_definitions:
+                    raise SpecError (f'{name}: "{definition}" is already in CommonSchemaDefinitions.json')
+                new_definitions[definition] = schema
             entry = pending[cmd['file']]
             hpp_part, cpp_part = gen_hpp (cmd, input_schema), gen_cpp (cmd, input_schema, output_schema, common)
             entry[0] = entry[0].rstrip ('\n') + '\n\n' + hpp_part
@@ -679,6 +754,17 @@ def main ():
                     else:
                         write_example_folder_shim (folder)
                     write (ex_path, gen_example (cmd, input_schema, common), args.dry_run, 'example')
+            if cmd.get ('check', True):
+                check_path = os.path.join (CHECKS, snake (name) + '.json')
+                check_text = gen_check (cmd, input_schema, output_schema, cmd.get ('version', version), common)
+                if os.path.exists (check_path):
+                    print (f'note: {os.path.relpath (check_path, ROOT)} exists, check not written')
+                else:
+                    if args.dry_run:
+                        print (f'===== Test/checks/{snake (name)}.json\n{check_text}')
+                    elif not os.path.isdir (CHECKS):
+                        os.makedirs (CHECKS)
+                    write (check_path, check_text, args.dry_run, 'check')
 
         if args.schemas:
             print (json.dumps (schemas_out, indent=4))
@@ -693,12 +779,17 @@ def main ():
             write (os.path.join (SOURCES, file + '.cpp'), cpp, args.dry_run, 'source')
         if main_text != main_original:
             write (ADDON_MAIN, main_text, args.dry_run, 'registration')
+        if new_definitions:
+            if args.dry_run:
+                print ('===== CommonSchemaDefinitions.json (appended)\n' + json.dumps (new_definitions, indent=4, ensure_ascii=False))
+            write (common_path, add_definitions (common_text, new_definitions), args.dry_run, 'schema definitions')
 
         print (f'generated: {", ".join (written) or "nothing"}')
         if skipped:
             print (f'skipped (already exist): {", ".join (skipped)}')
         if written and not args.dry_run:
-            print ('next: fill the TODOs in Execute, then run python tools/generate_addon_docs.py to check the schemas parse '
+            print ('next: fill the TODOs in Execute and in the check file (Test/checks/), then run '
+                   'python tools/generate_addon_docs.py to check the schemas parse '
                    '(revert docs/ afterwards: the weekly release regenerates them)')
         return 0
     except SpecError as e:

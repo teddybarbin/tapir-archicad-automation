@@ -21,6 +21,7 @@ import itertools
 import json
 import os
 import pathlib
+import re
 import shlex
 import shutil
 import socket
@@ -33,6 +34,8 @@ import time
 import types
 import unittest
 import unittest.mock
+import urllib.error
+import urllib.request
 
 sys.path.insert (0, os.path.dirname (os.path.abspath (__file__)))
 import tapir_installer
@@ -163,9 +166,13 @@ class UpdateModeTestBase (unittest.TestCase):
         self.Patch (tapir_installer, 'ARCHICAD_QUIT_TIMEOUT_SECONDS', 2)
         self.Patch (tapir_installer, 'ARCHICAD_PROCESS_EXIT_TIMEOUT_SECONDS', 10)
         self.Patch (tapir_installer, 'ARCHICAD_POLL_INTERVAL_SECONDS', 0.1)
+        self.Patch (tapir_installer, 'DOWNLOAD_RETRY_WAITS_SECONDS', (0, 0, 0))
         self.Patch (tapir_installer, 'ARCHICAD_ANSWER_TIMEOUT_SECONDS', 0.3)
         self.Patch (tapir_installer, 'REPLACE_RETRY_TIMEOUT_SECONDS', 3)
         self.Patch (tapir_installer, 'UPDATE_LOCK_WAIT_SECONDS', 0.5)
+        # The texts are compared in English, whatever the system's language.
+        self.Patch (tapir_installer, 'LANGUAGE', tapir_installer.DEFAULT_LANGUAGE)
+        self.Patch (tapir_installer, 'GetSystemLanguageTags', lambda : [])
         # The update lock files, and the downloads, go to the test folder.
         self.Patch (tempfile, 'tempdir', self.tempFolderPath)
         self.startedArchicadLocations = []
@@ -1527,6 +1534,151 @@ class ArgumentTests (UpdateModeTestBase):
                 del calledModes[:]
                 self.RunMain (arguments)
                 self.assertEqual (calledModes, [expectedMode])
+
+    def testLanguageOption (self):
+        languages = []
+        self.Patch (tapir_installer, 'RunConsoleInstaller', lambda args : languages.append (tapir_installer.LANGUAGE) or 0)
+        self.RunMain (['--console', '--language', 'GER'])
+        self.RunMain (['--console', '--language', 'fr-FR'])
+        self.RunMain (['--console'])
+        self.assertEqual (languages, ['GER', 'FRA', 'INT'])
+
+
+class DownloadRetryTests (unittest.TestCase):
+    """ A release download that fails transiently (a 5xx, a connection that ends early) is tried
+    again; one that fails for good (a 404) is not. Offline: a local server stands in for GitHub. """
+
+    def setUp (self):
+        patcher = unittest.mock.patch.object (tapir_installer, 'DOWNLOAD_RETRY_WAITS_SECONDS', (0, 0, 0))
+        patcher.start ()
+        self.addCleanup (patcher.stop)
+        self.answers = []
+        self.requests = 0
+        test = self
+
+        class Handler (http.server.BaseHTTPRequestHandler):
+            def log_message (self, *args):
+                pass
+
+            def do_GET (self):
+                test.requests += 1
+                status, body, length = test.answers.pop (0) if test.answers else (200, b'MZ new', None)
+                self.send_response (status)
+                self.send_header ('Content-Length', str (length if length is not None else len (body)))
+                self.end_headers ()
+                self.wfile.write (body)
+
+        self.server = http.server.ThreadingHTTPServer (('127.0.0.1', 0), Handler)
+        threading.Thread (target = self.server.serve_forever, daemon = True).start ()
+        self.addCleanup (self.server.server_close)
+        self.addCleanup (self.server.shutdown)
+        self.folder = tempfile.mkdtemp ()
+        self.addCleanup (shutil.rmtree, self.folder, True)
+        opener = urllib.request.build_opener (urllib.request.ProxyHandler ({}))
+        patcher = unittest.mock.patch.object (tapir_installer, 'UrlOpen', lambda request: opener.open (request, timeout = 10))
+        patcher.start ()
+        self.addCleanup (patcher.stop)
+
+    def Asset (self):
+        return { 'name' : 'TapirAddOn_AC29_Win.apx', 'browser_download_url' : 'http://127.0.0.1:{}/asset'.format (self.server.server_port) }
+
+    def testAServerErrorIsTriedAgain (self):
+        self.answers = [(504, b'Gateway Time-out', None), (502, b'Bad Gateway', None)]
+        path = tapir_installer.DownloadAsset (self.Asset (), self.folder)
+        self.assertEqual (self.requests, 3)
+        self.assertEqual (ReadBinaryFile (path), b'MZ new')
+
+    def testADownloadThatEndsEarlyIsTriedAgain (self):
+        self.answers = [(200, b'MZ n', 6)]
+        path = tapir_installer.DownloadAsset (self.Asset (), self.folder)
+        self.assertEqual (self.requests, 2)
+        self.assertEqual (ReadBinaryFile (path), b'MZ new')
+
+    def testAMissingFileIsNotTriedAgain (self):
+        self.answers = [(404, b'Not Found', None)]
+        with self.assertRaises (urllib.error.HTTPError):
+            tapir_installer.DownloadAsset (self.Asset (), self.folder)
+        self.assertEqual (self.requests, 1)
+
+    def testItGivesUpAfterTheLastWait (self):
+        self.answers = [(503, b'Unavailable', None)] * 10
+        with self.assertRaises (urllib.error.HTTPError):
+            tapir_installer.DownloadAsset (self.Asset (), self.folder)
+        self.assertEqual (self.requests, len (tapir_installer.DOWNLOAD_RETRY_WAITS_SECONDS) + 1)
+
+    def testDownloadUrlIsTriedAgain (self):
+        self.answers = [(500, b'Internal', None)]
+        self.assertEqual (tapir_installer.DownloadUrl (self.Asset ()['browser_download_url']), b'MZ new')
+        self.assertEqual (self.requests, 2)
+
+
+class LanguageTests (unittest.TestCase):
+    def setUp (self):
+        patcher = unittest.mock.patch.object (tapir_installer, 'LANGUAGE', tapir_installer.DEFAULT_LANGUAGE)
+        patcher.start ()
+        self.addCleanup (patcher.stop)
+
+    def testEveryTextIsInTheEnglishTable (self):
+        with open (tapir_installer.__file__, encoding = 'utf-8') as sourceFile:
+            source = sourceFile.read ()
+        usedKeys = set (re.findall (r"GetText \('(\w+)'", source))
+        usedKeys.update (re.findall (r"GetText \('\w+' if [^']*? else '(\w+)'\)", source))
+        self.assertGreater (len (usedKeys), 50)
+        self.assertEqual (sorted (usedKeys - set (tapir_installer.TEXTS['INT'])), [])
+
+    def testTranslationsKeepThePlaceholders (self):
+        # A translator keeps every {0}, {1}, ... of the English text.
+        def GetPlaceholders (text):
+            return sorted (re.findall (r'\{\d+\}', text))
+        englishTexts = tapir_installer.TEXTS['INT']
+        for language, texts in tapir_installer.TEXTS.items ():
+            self.assertIn (language, tapir_installer.ARCHICAD_LANGUAGE_CODES)
+            for key, text in texts.items ():
+                with self.subTest (language = language, key = key):
+                    self.assertIn (key, englishTexts)
+                    self.assertEqual (GetPlaceholders (text), GetPlaceholders (englishTexts[key]))
+
+    def testProtocolTextsAreTheEnglishOnes (self):
+        texts = tapir_installer.TEXTS['INT']
+        self.assertEqual (texts['updateRunning'], tapir_installer.UPDATE_RUNNING_TEXT)
+        self.assertEqual (texts['updateWaitingForQuit'], tapir_installer.UPDATE_WAITING_FOR_QUIT_TEXT)
+        self.assertEqual (tapir_installer.GetText ('updateRunning'), tapir_installer.UPDATE_RUNNING_TEXT)
+
+    def testLanguageCodes (self):
+        cases = [
+            ('GER', 'GER'), ('ger', 'GER'), ('USA', 'USA'), ('INT', 'INT'),
+            ('de', 'GER'), ('de-DE', 'GER'), ('de_AT.UTF-8', 'GER'), ('fr_CA', 'FRA'), ('ja-JP', 'JPN'),
+            ('pt-PT', 'POR'), ('pt_BR', 'BRA'), ('zh-Hans-CN', 'CHI'), ('zh_CN', 'CHI'), ('zh-Hant-TW', 'TAI'), ('zh_TW', 'TAI'),
+            ('nb-NO', 'NOR'), ('en-US', 'INT'), ('en_GB.UTF-8', 'INT'), ('xx', 'INT'), ('', 'INT'), ('C', 'INT'),
+        ]
+        for languageTag, expectedCode in cases:
+            with self.subTest (languageTag = languageTag):
+                self.assertEqual (tapir_installer.GetRequestedLanguage (languageTag), expectedCode)
+
+    def testSystemLanguage (self):
+        # The first tag that names a language counts, also an English one.
+        cases = [
+            (['de_DE'], 'GER'),
+            ([None, 'C', 'POSIX', 'it_IT.UTF-8', 'de_DE'], 'ITA'),
+            (['en_US', 'de_DE'], 'INT'),
+            ([], 'INT'),
+        ]
+        for languageTags, expectedCode in cases:
+            with self.subTest (languageTags = languageTags):
+                with unittest.mock.patch.object (tapir_installer, 'GetSystemLanguageTags', lambda : languageTags):
+                    self.assertEqual (tapir_installer.GetRequestedLanguage (), expectedCode)
+
+    def testMissingTranslationIsEnglish (self):
+        translatedTexts = { 'buttonClose' : 'Schließen', 'latestRelease' : 'Neueste Tapir-Version: {0}', 'updated' : 'Kaputt {1}' }
+        with unittest.mock.patch.dict (tapir_installer.TEXTS, { 'GER' : translatedTexts }):
+            tapir_installer.SetLanguage ('GER')
+            self.assertEqual (tapir_installer.GetText ('buttonClose'), 'Schließen')
+            self.assertEqual (tapir_installer.GetText ('latestRelease', '1.2.3'), 'Neueste Tapir-Version: 1.2.3')
+            self.assertEqual (tapir_installer.GetText ('buttonCancel'), 'Cancel')
+            # A wrong placeholder does not break the message.
+            self.assertEqual (tapir_installer.GetText ('updated', '1.2.3'), 'Tapir was updated to 1.2.3.')
+            tapir_installer.SetLanguage ('AUT')
+            self.assertEqual (tapir_installer.GetText ('buttonClose'), 'Close')
 
 
 if __name__ == '__main__':

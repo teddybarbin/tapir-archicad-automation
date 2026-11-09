@@ -16,6 +16,7 @@ import re
 import shutil
 import sys
 import urllib.parse
+import zipfile
 from pathlib import Path
 
 try:
@@ -29,6 +30,11 @@ LISTS = ("Include", "Disable")
 # at another path: it says some add-ons could not be loaded and loads neither (#1150).
 COLLIDES_UP_TO = 28
 CREDENTIAL_TARGET = "tapir-community-test-runner"
+GRAPHISOFT_FOLDER = r"Program Files\Graphisoft"  # on any drive; the installed programs list has other folders
+ARCHICAD_SEARCH = r"the installed programs and <drive>:\Program Files\Graphisoft"
+UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall"
+PLATFORM = "Win"  # in the build check's artifact names and the add-on's name
+TOKEN_STORE = "Windows Credential Manager"
 
 
 def state_dir() -> Path:
@@ -40,17 +46,57 @@ def state_dir() -> Path:
 
 # --- finding Archicads ---------------------------------------------------------------------------
 
-def find_archicads(root: str = r"C:\Program Files\Graphisoft") -> list[dict]:
-    """Installed Archicads, newest first: version, executable and a stock template."""
-    found = []
-    for folder in Path(root).glob("Archicad *"):
-        match = re.fullmatch(r"Archicad (\d+)", folder.name)
-        exe = folder / "Archicad.exe"
-        if not match or not exe.exists():
+def installed_programs() -> list[tuple[str, str]]:
+    """(name, install folder) of the programs in Windows' installed programs list."""
+    if winreg is None:
+        return []
+    programs = []
+    for hive, view in ((winreg.HKEY_LOCAL_MACHINE, winreg.KEY_WOW64_64KEY), (winreg.HKEY_LOCAL_MACHINE, winreg.KEY_WOW64_32KEY),
+                       (winreg.HKEY_CURRENT_USER, 0)):
+        try:
+            key = winreg.OpenKey(hive, UNINSTALL_KEY, 0, winreg.KEY_READ | view)
+        except OSError:
             continue
+        with key:
+            for i in range(winreg.QueryInfoKey(key)[0]):
+                try:
+                    with winreg.OpenKey(key, winreg.EnumKey(key, i)) as program:
+                        programs.append((str(winreg.QueryValueEx(program, "DisplayName")[0]),
+                                         str(winreg.QueryValueEx(program, "InstallLocation")[0])))
+                except OSError:
+                    continue
+    return programs
+
+
+def archicad_folders() -> list[tuple[str, Path]]:
+    """(version, folder) of every Archicad: from the installed programs, then <drive>:\\Program Files\\Graphisoft."""
+    folders = []
+    for name, location in installed_programs():
+        match = re.match(r"Archicad (\d+)\b", name, re.IGNORECASE)  # "Archicad 29 R1 INT", or "ARCHICAD 24 ..." before
+        if match and location:
+            folders.append((match.group(1), Path(location)))
+    for drive in (f"{letter}:\\" for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"):
+        if os.path.exists(drive):
+            folders += graphisoft_folder(Path(drive) / GRAPHISOFT_FOLDER)
+    return folders
+
+
+def graphisoft_folder(root: Path) -> list[tuple[str, Path]]:
+    return [(match.group(1), folder) for folder in sorted(root.glob("Archicad *"))
+            if (match := re.fullmatch(r"Archicad (\d+)", folder.name))]
+
+
+def find_archicads(root: str | None = None) -> list[dict]:
+    """Installed Archicads, newest first: version, executable and a stock template."""
+    found, seen = [], set()
+    for version, folder in graphisoft_folder(Path(root)) if root else archicad_folders():
+        exe = folder / "Archicad.exe"
+        if version in seen or not exe.exists():  # one per version: the installed programs list comes first
+            continue
+        seen.add(version)
         # The defaults folder is localized ("Defaults", "Grundeinstellungen", ...); the layout below it is not.
         templates = sorted(folder.glob("*/Archicad/*.tpl"), key=lambda p: ("template" not in p.name.lower(), len(str(p))))
-        found.append({"version": match.group(1), "archicadExe": str(exe),
+        found.append({"version": version, "archicadExe": str(exe),
                       "blankTemplate": str(templates[0]) if templates else ""})
     return sorted(found, key=lambda a: -int(a["version"]))
 
@@ -205,6 +251,15 @@ class AddOnList:
         return True
 
 
+def addon_list(ac: dict) -> AddOnList:
+    return AddOnList(str(ac["version"]))
+
+
+def kept_original(addon: Path, version: str) -> Path:
+    """Where the tester's own add-on waits while a test build takes its place (with 'addonFile')."""
+    return addon.with_name(addon.name + ".runner-original")
+
+
 def dialogs(pids: set[int]) -> list[str]:
     """Titles of the modal dialogs these processes show: Archicad's own (DGModalDlgClass) and the
     system's (#32770). Found by window class, not title, so it works in every language."""
@@ -343,8 +398,16 @@ def stage_build(build: Path, version: str) -> Path:
     """Copies a build to the runner's own folder, under the name Archicad expects."""
     folder = state_dir() / "builds" / f"AC{version}"
     folder.mkdir(parents=True, exist_ok=True)
-    target = folder / f"TapirAddOn_AC{version}_Win.apx"
+    target = folder / f"TapirAddOn_AC{version}_{PLATFORM}.apx"
     shutil.copy2(build, target)
+    return target
+
+
+def unpack_build(archive: zipfile.ZipFile, dest: Path) -> Path:
+    """The .apx from the build check's artifact."""
+    member = next(n for n in archive.namelist() if n.endswith(".apx"))
+    target = dest / Path(member).name
+    target.write_bytes(archive.read(member))
     return target
 
 

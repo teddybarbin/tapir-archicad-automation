@@ -211,7 +211,9 @@ static std::vector<char> ReadAllBytes (GS::IBinaryChannel& channel)
     return bytes;
 }
 
-static std::vector<char> DownloadFileContent (const GS::UniString& fileDownloadUrl, const std::map<GS::UniString, GS::UniString>& headers = {})
+// The body of the file at fileDownloadUrl, and the HTTP status code of the answer. Only a 200 answer is the file:
+// any other (e.g. 429 or 403 when GitHub limits the requests) is a page about the error.
+static std::vector<char> DownloadFileContent (const GS::UniString& fileDownloadUrl, const std::map<GS::UniString, GS::UniString>& headers, int& statusCode)
 {
     IO::URI::URI connectionUrl (fileDownloadUrl);
     HTTP::Client::ClientConnection clientConnection (connectionUrl);
@@ -229,6 +231,7 @@ static std::vector<char> DownloadFileContent (const GS::UniString& fileDownloadU
 
     HTTP::Client::Response response;
     std::vector<char> body = ReadAllBytes (clientConnection.BeginReceive (response));
+    statusCode = static_cast<int> (response.GetStatusCode ());
 
     clientConnection.FinishReceive ();
     clientConnection.Close (false);
@@ -432,11 +435,18 @@ static DownloadResult DownloadBinaryFile (const GS::UniString& fileDownloadUrl, 
     return DownloadResult::Failed;
 }
 
+// The files below relativeLoc (the repository's relativeLoc when empty) of a GitHub repository, as their path in the
+// repository -> their download URL. listed is false when a folder could not be listed (no connection yet, a
+// timeout, GitHub's limit of unauthenticated requests, an answer that is not a listing): the result is then
+// incomplete, and the caller keeps the files it downloaded before (#2731). The answer is read as bytes, as the
+// files are (ReadAllBytes, which also takes an exception at the end of the body as its end), and parsed afterwards.
 static std::map<GS::UniString, GS::UniString> GetFilesFromGitHubInRelativeLocation (
     const Config::Repository& repository,
+    bool& listed,
     const GS::UniString& relativeLoc = GS::EmptyUniString)
 {
     std::map<GS::UniString, GS::UniString> files;
+    listed = false;
 
     try {
         IO::URI::URI connectionUrl ("https://api.github.com");
@@ -455,27 +465,54 @@ static std::map<GS::UniString, GS::UniString> GetFilesFromGitHubInRelativeLocati
         clientConnection.Send (request);
 
         HTTP::Client::Response response;
-        JSON::JDOMParser parser;
-        JSON::ValueRef parsed = parser.Parse (clientConnection.BeginReceive (response));
+        const std::vector<char> body = ReadAllBytes (clientConnection.BeginReceive (response));
+        const int statusCode = static_cast<int> (response.GetStatusCode ());
+        clientConnection.FinishReceive ();
+        clientConnection.Close (false);
 
-        if (response.GetStatusCode () == HTTP::MessageHeader::StatusCode::OK) {
-            JSON::ArrayValueRef arrayValue = GS::DynamicCast<JSON::ArrayValue> (parsed);
-            arrayValue->Enumerate ([&] (const JSON::ValueRef& assetValue) {
-                JSON::ObjectValueRef objectValue = GS::DynamicCast<JSON::ObjectValue> (assetValue);
-                JSON::StringValueRef typeValue = GS::DynamicCast<JSON::StringValue> (objectValue->Get ("type"));
-                JSON::StringValueRef pathValue = GS::DynamicCast<JSON::StringValue> (objectValue->Get ("path"));
-
-                if (typeValue->Get () == "dir") {
-                    auto subFiles = GetFilesFromGitHubInRelativeLocation (repository, pathValue->Get ());
-                    files.insert (subFiles.begin (), subFiles.end ());
-                } else {
-                    JSON::StringValueRef downloadUrlValue = GS::DynamicCast<JSON::StringValue> (objectValue->Get ("download_url"));
-                    files[pathValue->Get ()] = downloadUrlValue->Get ();
-                }
-            });
+        if (statusCode != 200) {
+            ACAPI_WriteReport (ReportText (ID_REPORT_STRINGS_LIST_FAILED_WITH_STATUS), false,
+                repository.repoOwner.ToPrintf (), repository.repoName.ToPrintf (), statusCode);
+            return files;
         }
 
-        clientConnection.Close (false);
+        JSON::ArrayValueRef arrayValue;
+        if (!body.empty ()) {
+            const GS::UniString text (body.data (), static_cast<GS::USize> (body.size ()), CC_UTF8);
+            JSON::JDOMStringParser parser;
+            arrayValue = GS::DynamicCast<JSON::ArrayValue> (parser.Parse (text));
+        }
+        if (arrayValue == nullptr) {
+            ACAPI_WriteReport (ReportText (ID_REPORT_STRINGS_LIST_FAILED), false, repository.repoOwner.ToPrintf (), repository.repoName.ToPrintf ());
+            return files;
+        }
+
+        bool allListed = true;
+        arrayValue->Enumerate ([&] (const JSON::ValueRef& assetValue) {
+            JSON::ObjectValueRef objectValue = GS::DynamicCast<JSON::ObjectValue> (assetValue);
+            if (objectValue == nullptr) {
+                return;
+            }
+            JSON::StringValueRef typeValue = GS::DynamicCast<JSON::StringValue> (objectValue->Get ("type"));
+            JSON::StringValueRef pathValue = GS::DynamicCast<JSON::StringValue> (objectValue->Get ("path"));
+            if (typeValue == nullptr || pathValue == nullptr) {
+                return;
+            }
+
+            if (typeValue->Get () == "dir") {
+                bool subListed = false;
+                auto subFiles = GetFilesFromGitHubInRelativeLocation (repository, subListed, pathValue->Get ());
+                allListed = allListed && subListed;
+                files.insert (subFiles.begin (), subFiles.end ());
+            } else {
+                // download_url is null for a submodule, which has nothing to download
+                JSON::StringValueRef downloadUrlValue = GS::DynamicCast<JSON::StringValue> (objectValue->Get ("download_url"));
+                if (downloadUrlValue != nullptr) {
+                    files[pathValue->Get ()] = downloadUrlValue->Get ();
+                }
+            }
+        });
+        listed = allListed;
     } catch (const GS::Exception& e) {
         ACAPI_WriteReport (ReportText (ID_REPORT_STRINGS_LIST_FAILED_WITH_ERROR), false,
             repository.repoOwner.ToPrintf (), repository.repoName.ToPrintf (), GetExceptionText (e).ToPrintf ());
@@ -483,6 +520,9 @@ static std::map<GS::UniString, GS::UniString> GetFilesFromGitHubInRelativeLocati
         ACAPI_WriteReport (ReportText (ID_REPORT_STRINGS_LIST_FAILED), false, repository.repoOwner.ToPrintf (), repository.repoName.ToPrintf ());
     }
 
+    if (!listed) {
+        files.clear ();
+    }
     return files;
 }
 
@@ -649,6 +689,13 @@ void TapirPalette::PanelCloseRequested (const DG::PanelCloseRequestEvent&, bool*
 
 void TapirPalette::PanelOpened (const DG::PanelOpenEvent&)
 {
+    // A repository that could not be listed while Archicad started (no network yet, a timeout, GitHub's limit of
+    // requests) is listed again the first time the palette is opened, instead of only by "Reload scripts..." (#2731).
+    if (repositoryListingFailed && !repositoryListingRetried) {
+        repositoryListingRetried = true;
+        LoadScriptsToPopUp ();
+    }
+
     // The saved selection, else the one before (SelectScript finds it by its file), else the first script
     const GS::Ref<PopUpItemData> selectedBefore = GetSelectedScript ();
     const short savedItem = AddScriptsFromPreferences ();
@@ -1985,13 +2032,34 @@ void TapirPalette::RemoveEndedScript (const GS::UniString& scriptId)
     }
 }
 
+// The value of an environment variable in Archicad's environment, empty when it is not set. The name must be ASCII.
+static GS::UniString GetEnvironmentVariableValue (const char* name)
+{
+#if defined (WINDOWS)
+    const std::string nameStr (name);
+    const std::wstring nameW (nameStr.begin (), nameStr.end ());
+    const DWORD valueSize = GetEnvironmentVariableW (nameW.c_str (), nullptr, 0);
+    if (valueSize == 0) {
+        return GS::EmptyUniString;
+    }
+    std::vector<wchar_t> valueW (valueSize + 1, L'\0');
+    if (GetEnvironmentVariableW (nameW.c_str (), valueW.data (), valueSize) >= valueSize) {
+        return GS::EmptyUniString;
+    }
+    return GS::UniString (reinterpret_cast<const GS::UniChar::Layout*> (valueW.data ()));
+#else
+    const char* value = getenv (name);
+    return value == nullptr ? GS::EmptyUniString : GS::UniString (value, CC_UTF8);
+#endif
+}
+
 // Sets an environment variable in Archicad's environment while this object exists, so that only the process
-// started meanwhile inherits it, then puts back the value Archicad had. The value must be ASCII.
+// started meanwhile inherits it, then puts back the value Archicad had. The name must be ASCII; the value may
+// be any text (a path with the user's name in it, for example).
 class ScopedEnvironmentVariable {
 public:
     ScopedEnvironmentVariable (const char* _name, const GS::UniString& value) : name (_name)
     {
-        const std::string valueStr (value.ToCStr ().Get ());
 #if defined (WINDOWS)
         const std::wstring nameW (name.begin (), name.end ());
         const DWORD oldValueSize = GetEnvironmentVariableW (nameW.c_str (), nullptr, 0);
@@ -2000,7 +2068,7 @@ public:
         if (hasOldValue) {
             oldValue = std::wstring (oldValueW.data ());
         }
-        const std::wstring valueW (valueStr.begin (), valueStr.end ());
+        const std::wstring valueW (reinterpret_cast<const wchar_t*> (value.ToUStr ().Get ()));
         SetEnvironmentVariableW (nameW.c_str (), valueW.c_str ());
 #else
         const char* old = getenv (name.c_str ());
@@ -2008,6 +2076,7 @@ public:
         if (hasOldValue) {
             oldValue = old;
         }
+        const std::string valueStr (value.ToCStr (CC_UTF8).Get ());
         setenv (name.c_str (), valueStr.c_str (), 1);
 #endif
     }
@@ -2057,6 +2126,52 @@ static GS::UniString PrefixLines (const GS::UniString& scriptName, const GS::Uni
         result += prefix + GS::UniString (text.GetSubstring (lineStart, length - lineStart));
     }
     return result;
+}
+
+// The folder of the built-in scripts the palette downloaded from the Tapir repository (see AddScriptsFromRepositories),
+// which holds the helpers utilities/ and aclib/ that marketplace scripts import (issue #2608). Empty when the
+// helpers are not there, for example because the download failed or the repository was removed from the config.
+static GS::UniString GetBuiltInHelpersPath ()
+{
+    IO::Location folderLoc = GetTapirTemporaryFolder ();
+    folderLoc.AppendToLocal (IO::Name ("ENZYME-APD"));
+    folderLoc.AppendToLocal (IO::Name ("tapir-archicad-automation"));
+    folderLoc.AppendToLocal (IO::Name ("builtin-scripts"));
+
+    for (const char* helper : { "utilities", "aclib" }) {
+        IO::Location initLoc = folderLoc;
+        initLoc.AppendToLocal (IO::Name (helper));
+        initLoc.AppendToLocal (IO::Name ("__init__.py"));
+        bool exists = false;
+        if (IO::fileSystem.Contains (initLoc, &exists) != NoError || !exists) {
+            return GS::EmptyUniString;
+        }
+    }
+
+    GS::UniString folderPath;
+    folderLoc.ToPath (&folderPath);
+    return folderPath;
+}
+
+// PYTHONPATH for a Python script: the folder of the built-in scripts' helpers, followed by the PYTHONPATH the user
+// already has. Python looks in the script's own folder first, so a script that ships its own copies of the helpers
+// still uses those. Empty when the helpers were not downloaded, then PYTHONPATH is left as it is.
+static GS::UniString GetPythonPathWithBuiltInHelpers ()
+{
+    const GS::UniString helpersPath = GetBuiltInHelpersPath ();
+    if (helpersPath.IsEmpty ()) {
+        return GS::EmptyUniString;
+    }
+
+    const GS::UniString oldPythonPath = GetEnvironmentVariableValue ("PYTHONPATH");
+    if (oldPythonPath.IsEmpty ()) {
+        return helpersPath;
+    }
+#if defined (WINDOWS)
+    return helpersPath + ";" + oldPythonPath;
+#else
+    return helpersPath + ":" + oldPythonPath;
+#endif
 }
 
 void TapirPalette::ExecuteScript (const PopUpItemData& popUpItemData)
@@ -2294,6 +2409,15 @@ void TapirPalette::ExecuteScript (const PopUpItemData& popUpItemData)
         script->scriptId = scriptId;
         {
             const ScopedEnvironmentVariable scriptIdVariable ("TAPIR_SCRIPT_ID", scriptId);
+            // A Python script finds the helpers utilities and aclib of the built-in scripts even when it runs from a
+            // local folder that has no copies of them, such as a marketplace script installed by hand (issue #2608).
+            std::unique_ptr<ScopedEnvironmentVariable> pythonPathVariable;
+            if (filePath.EndsWith (".py")) {
+                const GS::UniString pythonPath = GetPythonPathWithBuiltInHelpers ();
+                if (!pythonPath.IsEmpty ()) {
+                    pythonPathVariable.reset (new ScopedEnvironmentVariable ("PYTHONPATH", pythonPath));
+                }
+            }
 #if defined (WINDOWS)
             // Python writes to a pipe in the system code page unless told otherwise (cp932 on Japanese
             // Windows), while the output is read as UTF-8. PYTHONIOENCODING makes the script's standard
@@ -2422,12 +2546,81 @@ static GS::UniString GetUvProjectPath (const IO::Location& baseFolderLoc, const 
     return projectPath;
 }
 
+// Collects every file below folderLoc as (folder-relative path with '/' separators, file location),
+// mirroring what GetFilesFromGitHubInRelativeLocation returns for a repository.
+static void CollectFilesInFolder (const IO::Location& folderLoc, const GS::UniString& relativePrefix, std::map<GS::UniString, IO::Location>& files)
+{
+    IO::Folder folder (folderLoc);
+    if (folder.GetStatus () != NoError) {
+        return;
+    }
+
+    folder.Enumerate ([&] (const IO::Name& name, bool isFolder) {
+        const GS::UniString relativePath = relativePrefix.IsEmpty () ? name.ToString () : relativePrefix + "/" + name.ToString ();
+        const IO::Location entryLoc (folderLoc, name);
+        if (isFolder) {
+            CollectFilesInFolder (entryLoc, relativePath, files);
+        } else {
+            files[relativePath] = entryLoc;
+        }
+    });
+}
+
+// Deletes the downloads of the repositories that are no longer in the config: the folders <owner>/<name> of the
+// Tapir temporary folder that no configured repository downloads to. The folder used to be deleted as a whole on
+// every reload; now each repository's folder is kept until it has been listed again (AddScriptsFromRepositories).
+static void DeleteDownloadsOfRemovedRepositories (const IO::Location& tapirTempFolder, const std::vector<Config::Repository>& repositories)
+{
+    IO::Folder tempFolder (tapirTempFolder);
+    if (tempFolder.GetStatus () != NoError) {
+        return;
+    }
+
+    GS::Array<IO::Location> foldersToDelete;
+    tempFolder.Enumerate ([&] (const IO::Name& ownerName, bool isFolder) {
+        const IO::Location ownerLoc (tapirTempFolder, ownerName);
+        if (!isFolder) {
+            foldersToDelete.Push (ownerLoc);
+            return;
+        }
+        bool ownerUsed = false;
+        GS::Array<IO::Location> unusedRepoFolders;
+        IO::Folder ownerFolder (ownerLoc);
+        if (ownerFolder.GetStatus () == NoError) {
+            ownerFolder.Enumerate ([&] (const IO::Name& repoName, bool /*isFolder*/) {
+                bool used = false;
+                for (const Config::Repository& repo : repositories) {
+                    if (repo.repoOwner == ownerName.ToString () && repo.repoName == repoName.ToString ()) {
+                        used = true;
+                        break;
+                    }
+                }
+                if (used) {
+                    ownerUsed = true;
+                } else {
+                    unusedRepoFolders.Push (IO::Location (ownerLoc, repoName));
+                }
+            });
+        }
+        if (ownerUsed) {
+            foldersToDelete.Append (unusedRepoFolders);
+        } else {
+            foldersToDelete.Push (ownerLoc);
+        }
+    });
+
+    for (const IO::Location& folderLoc : foldersToDelete) {
+        IO::fileSystem.Delete (folderLoc);
+    }
+}
+
 void TapirPalette::AddScriptsFromRepositories ()
 {
-    IO::Location tapirTempFolder = GetTapirTemporaryFolder ();
-    IO::fileSystem.Delete (tapirTempFolder);
+    const IO::Location tapirTempFolder = GetTapirTemporaryFolder ();
+    repositoryListingFailed = false;
 
     const auto& repositories = Config::Instance ().Repositories ();
+    DeleteDownloadsOfRemovedRepositories (tapirTempFolder, repositories);
     for (auto& repo : repositories) {
         const std::unique_ptr<std::regex> excludeFromDownloadRegex = repo.excludeFromDownloadPattern.IsEmpty () ? nullptr : std::make_unique<std::regex> (repo.excludeFromDownloadPattern.ToCStr ().Get ());
         const std::unique_ptr<std::regex> excludeRegex = repo.excludePattern.IsEmpty () ? nullptr : std::make_unique<std::regex> (repo.excludePattern.ToCStr ().Get ());
@@ -2444,33 +2637,65 @@ void TapirPalette::AddScriptsFromRepositories ()
         IO::Location repoFolderLoc = tapirTempFolder;
         repoFolderLoc.AppendToLocal (repoFolderRelativeLoc);
         const GS::UniString uvProjectPath = GetUvProjectPath (repoFolderLoc, repo.uvProject);
+        // The folder of the repository's downloads, which hold the files under their path in the repository
+        IO::Location repoDownloadLoc = tapirTempFolder;
+        repoDownloadLoc.AppendToLocal (repoRelativeLoc);
         std::map<GS::UniString, GS::UniString> headers;
         if (!repo.token.IsEmpty ()) {
             headers.emplace ("Authorization", "Bearer " + repo.token);
         }
         ACAPI_WriteReport (ReportText (ID_REPORT_STRINGS_DOWNLOADING_REPOSITORY), false, repo.repoOwner.ToPrintf (), repo.repoName.ToPrintf ());
-        for (auto kv : GetFilesFromGitHubInRelativeLocation (repo)) {
+
+        // The repository's files on disk, by their path in the repository
+        std::map<GS::UniString, IO::Location> files;
+        bool listed = false;
+        const std::map<GS::UniString, GS::UniString> remoteFiles = GetFilesFromGitHubInRelativeLocation (repo, listed);
+        if (listed) {
+            IO::fileSystem.Delete (repoDownloadLoc);
+            for (const auto& kv : remoteFiles) {
+                const GS::UniString repoLoc = repo.repoOwner + "/" + repo.repoName + "/" + kv.first;
+                if (excludeFromDownloadRegex && std::regex_match (repoLoc.ToCStr ().Get (), *excludeFromDownloadRegex)) {
+                    ACAPI_WriteReport (ReportText (ID_REPORT_STRINGS_SKIP_DOWNLOAD_EXCLUDED), false, repoLoc.ToPrintf ());
+                    continue;
+                }
+                // A failed download (e.g. the timeout) skips this file only: an exception here used to abort the
+                // creation of the whole palette, which runs during the Add-On's Initialize.
+                std::vector<char> content;
+                int statusCode = 0;
+                try {
+                    content = DownloadFileContent (kv.second, headers, statusCode);
+                } catch (const GS::Exception& e) {
+                    ACAPI_WriteReport (ReportText (ID_REPORT_STRINGS_DOWNLOAD_FAILED_WITH_ERROR), false, repoLoc.ToPrintf (), GetExceptionText (e).ToPrintf ());
+                    continue;
+                } catch (...) {
+                    ACAPI_WriteReport (ReportText (ID_REPORT_STRINGS_DOWNLOAD_FAILED), false, repoLoc.ToPrintf ());
+                    continue;
+                }
+                if (statusCode != 200) {
+                    ACAPI_WriteReport (ReportText (ID_REPORT_STRINGS_DOWNLOAD_FAILED_WITH_STATUS), false, repoLoc.ToPrintf (), statusCode);
+                    continue;
+                }
+                IO::RelativeLocation relLoc = repoRelativeLoc;
+                relLoc.Append (IO::RelativeLocation (kv.first));
+                const IO::Location fileLoc = SaveBuiltInScript (tapirTempFolder, relLoc, content);
+                ACAPI_WriteReport (ReportText (ID_REPORT_STRINGS_DOWNLOADED), false, repoLoc.ToPrintf ());
+                files[kv.first] = fileLoc;
+            }
+        } else {
+            // The repository could not be listed (offline, a timeout, GitHub's limit of requests): its scripts stay
+            // listed from the files downloaded before, if any, instead of disappearing from the palette (#2731).
+            repositoryListingFailed = true;
+            CollectFilesInFolder (repoDownloadLoc, GS::EmptyUniString, files);
+            if (!files.empty ()) {
+                ACAPI_WriteReport (ReportText (ID_REPORT_STRINGS_USING_EARLIER_DOWNLOAD), false, repo.repoOwner.ToPrintf (), repo.repoName.ToPrintf ());
+            }
+        }
+
+        for (const auto& kv : files) {
             const GS::UniString repoLoc = repo.repoOwner + "/" + repo.repoName + "/" + kv.first;
-            if (excludeFromDownloadRegex && std::regex_match (repoLoc.ToCStr ().Get (), *excludeFromDownloadRegex)) {
-                ACAPI_WriteReport (ReportText (ID_REPORT_STRINGS_SKIP_DOWNLOAD_EXCLUDED), false, repoLoc.ToPrintf ());
-                continue;
-            }
-            // A failed download (e.g. the timeout) skips this file only: an exception here used to abort the
-            // creation of the whole palette, which runs during the Add-On's Initialize.
-            std::vector<char> content;
-            try {
-                content = DownloadFileContent (kv.second, headers);
-            } catch (const GS::Exception& e) {
-                ACAPI_WriteReport (ReportText (ID_REPORT_STRINGS_DOWNLOAD_FAILED_WITH_ERROR), false, repoLoc.ToPrintf (), GetExceptionText (e).ToPrintf ());
-                continue;
-            } catch (...) {
-                ACAPI_WriteReport (ReportText (ID_REPORT_STRINGS_DOWNLOAD_FAILED), false, repoLoc.ToPrintf ());
-                continue;
-            }
+            const IO::Location& fileLoc = kv.second;
             IO::RelativeLocation relLoc = repoRelativeLoc;
             relLoc.Append (IO::RelativeLocation (kv.first));
-            const IO::Location fileLoc = SaveBuiltInScript (tapirTempFolder, relLoc, content);
-            ACAPI_WriteReport (ReportText (ID_REPORT_STRINGS_DOWNLOADED), false, repoLoc.ToPrintf ());
             if (excludeRegex) {
                 if (std::regex_match (kv.first.ToCStr ().Get (), *excludeRegex)) {
                     ACAPI_WriteReport (ReportText (ID_REPORT_STRINGS_SKIP_USE_EXCLUDED), false, repoLoc.ToPrintf ());
@@ -2501,26 +2726,6 @@ void TapirPalette::AddScriptsFromRepositories ()
             }
         }
     }
-}
-
-// Collects every file below folderLoc as (folder-relative path with '/' separators, file location),
-// mirroring what GetFilesFromGitHubInRelativeLocation returns for a repository.
-static void CollectFilesInFolder (const IO::Location& folderLoc, const GS::UniString& relativePrefix, std::map<GS::UniString, IO::Location>& files)
-{
-    IO::Folder folder (folderLoc);
-    if (folder.GetStatus () != NoError) {
-        return;
-    }
-
-    folder.Enumerate ([&] (const IO::Name& name, bool isFolder) {
-        const GS::UniString relativePath = relativePrefix.IsEmpty () ? name.ToString () : relativePrefix + "/" + name.ToString ();
-        const IO::Location entryLoc (folderLoc, name);
-        if (isFolder) {
-            CollectFilesInFolder (entryLoc, relativePath, files);
-        } else {
-            files[relativePath] = entryLoc;
-        }
-    });
 }
 
 void TapirPalette::AddScriptsFromLocalFolders ()

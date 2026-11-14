@@ -8012,6 +8012,7 @@ static const char* StairSettingsSchemaProperties = R"(
                         })";
 
 static GS::Optional<GS::UniString> ApplyStairSettings (const GS::ObjectState& details, API_Element& element, API_Element& mask);
+static GS::Optional<GS::UniString> ApplyStairRules (const GS::ObjectState& rulesOs, API_StairRulesData& rules, API_StairRulesData& rulesMask);
 
 CreateStairsCommand::CreateStairsCommand () :
     CreateElementsCommandBase ("CreateStairs", API_StairID, "stairsData")
@@ -8150,13 +8151,23 @@ void CreateStairsCommand::AfterCreateFromParameters (API_Element& element, const
     Int32 stepNum = 0;
     parameters.Get ("stepNum", stepNum);
     API_StairRulesData& rules = elem.stair.rules;
-    if (totalHeight.HasValue ()) {
+    // The top link and the lock given explicitly (#2531) are kept: with a non-zero relativeTopStory Archicad
+    // computes the height from the story levels, so totalHeight is not forced then (merge of 14/11/2026).
+    Int32 requestedTopStory = 0;
+    const bool hasTopStory = parameters.Get ("relativeTopStory", requestedTopStory);
+    bool requestedLocked = false;
+    const bool hasLocked = parameters.Get ("totalHeightLocked", requestedLocked);
+    if (totalHeight.HasValue () && !(hasTopStory && requestedTopStory != 0)) {
         elem.stair.totalHeight = totalHeight.Get ();
-        elem.stair.totalHeightLocked = true;
-        elem.stair.relativeTopStory = 0;
         ACAPI_ELEMENT_MASK_SET (mask, API_StairType, totalHeight);
-        ACAPI_ELEMENT_MASK_SET (mask, API_StairType, totalHeightLocked);
-        ACAPI_ELEMENT_MASK_SET (mask, API_StairType, relativeTopStory);
+        if (!hasLocked) {
+            elem.stair.totalHeightLocked = true;
+            ACAPI_ELEMENT_MASK_SET (mask, API_StairType, totalHeightLocked);
+        }
+        if (!hasTopStory) {
+            elem.stair.relativeTopStory = 0;
+            ACAPI_ELEMENT_MASK_SET (mask, API_StairType, relativeTopStory);
+        }
     }
     if (stepNum > 0) {
         elem.stair.stepNum = static_cast<UInt32> (stepNum);
@@ -8183,6 +8194,11 @@ void CreateStairsCommand::AfterCreateFromParameters (API_Element& element, const
         rules.riserPlusGoingMinApplied = rules.riserPlusGoingMaxApplied = false;
         rules.riserGoingRatioMinApplied = rules.riserGoingRatioMaxApplied = false;
         rules.stairPitchMinApplied = rules.stairPitchMaxApplied = false;
+        ACAPI_ELEMENT_MASK_SET (mask, API_StairType, rules);
+    }
+    // The rules given explicitly (#2531) are written last, as before the creation.
+    const GS::ObjectState* rulesOs = parameters.Get ("rules");
+    if (rulesOs != nullptr && !ApplyStairRules (*rulesOs, rules, mask.stair.rules).HasValue ()) {
         ACAPI_ELEMENT_MASK_SET (mask, API_StairType, rules);
     }
     if (ACAPI_Element_Change (&elem, &mask, nullptr, 0, true) == NoError) {
@@ -20407,12 +20423,14 @@ GS::ObjectState ModifyMeshesCommand::Execute (const GS::ObjectState& parameters,
             const GS::Optional<GS::UniString> surfacesError = ApplyMeshStructureAndSurfaces (elem, mask, *meshData, false, surfacesChanged);
             if (surfacesError.HasValue ()) {
                 executionResults (CreateFailedExecutionResult (APIERR_BADPARS, surfacesError.Get ()));
+                ++nResults;
                 continue;
             }
             bool floorPlanChanged = false;
             const GS::Optional<GS::UniString> floorPlanError = ApplyMeshFloorPlanAndSection (elem, mask, *meshData, floorPlanChanged);
             if (floorPlanError.HasValue ()) {
                 executionResults (CreateFailedExecutionResult (APIERR_BADPARS, floorPlanError.Get ()));
+                ++nResults;
                 continue;
             }
 

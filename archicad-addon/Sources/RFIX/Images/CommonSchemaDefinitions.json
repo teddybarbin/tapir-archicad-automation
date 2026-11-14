@@ -27957,6 +27957,10 @@
             "cutSurfaceId": {
                 "$ref": "#/AttributeId",
                 "description": "The surface the 3D window draws the faces cut by this plane with. Get3DCutPlanes leaves it out when the plane has no surface attribute (surface 0 draws them black)."
+            },
+            "cutStatus": {
+                "type": "integer",
+                "description": "Imaginns fork: the raw cutStatus of the shape, as Get3DCutPlanes returns it; pass it back to Set3DCutPlanes to restore the cut. Bit 16, which Archicad sets on a cut placed by hand and refuses as input, is ignored."
             }
         },
         "required": [

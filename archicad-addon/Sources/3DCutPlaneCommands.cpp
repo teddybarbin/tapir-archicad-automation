@@ -52,37 +52,7 @@ GS::Optional<GS::UniString> Set3DCutPlanesCommand::GetInputParametersSchema () c
             "type": "array",
             "description": "The cut planes, replacing the current ones. Each cuts away the side of its plane that its normal vector (pa, pb, pc) points to; several planes cut away the union of those sides. Setting planes also turns 3D Cutaway on (off and on again when it is on), which puts them in force in the 3D window. An empty array switches the 3D cut off. A plane without cutPen or cutSurfaceId keeps those of the current plane in its place, or of the last current plane; where there is none, or it is pen 0 or no surface (which draws black), it takes customPen and customSurfaceId.",
             "items": {
-                "type": "object",
-                "description": "Defines a 3D cut plane using the plane equation: pa*x + pb*y + pc*z + pd = 0",
-                "properties": {
-                    "pa": {
-                        "type": "number",
-                        "description": "Coefficient of x in the plane equation. The x coordinate of the normal vector of the plane."
-                    },
-                    "pb": {
-                        "type": "number",
-                        "description": "Coefficient of y in the plane equation. The y coordinate of the normal vector of the plane."
-                    },
-                    "pc": {
-                        "type": "number",
-                        "description": "Coefficient of z in the plane equation. The z coordinate of the normal vector of the plane."
-                    },
-                    "pd": {
-                        "type": "number",
-                        "description": "Constant term in the plane equation, in meters. The distance of the plane from the origin along the normal vector."
-                    },
-                    "cutStatus": {
-                        "type": "integer",
-                        "description": "Optional raw cutStatus of the shape, as Get3DCutPlanes returns it (copy it back to restore a cut). Bit 16, which Archicad sets on a cut placed by hand and refuses as input, is ignored."
-                    }
-                },
-                "required": [
-                    "pa",
-                    "pb",
-                    "pc",
-                    "pd"
-                ],
-                "additionalProperties": false
+                "$ref": "#/CutPlane"
             }
         },
         "useCustom": {
@@ -276,17 +246,7 @@ GS::Optional<GS::UniString> Get3DCutPlanesCommand::GetRawResponseSchema () const
             "type": "array",
             "description": "The cut planes, in the form accepted by Set3DCutPlanes: pa*x + pb*y + pc*z = pd, pd in meters.",
             "items": {
-                "type": "object",
-                "properties": {
-                    "pa": { "type": "number" },
-                    "pb": { "type": "number" },
-                    "pc": { "type": "number" },
-                    "pd": { "type": "number" },
-                    "cutStatus": { "type": "integer", "description": "Raw cutStatus of the shape; pass it back to Set3DCutPlanes to restore the cut." },
-                    "cutPen": { "type": "integer" }
-                },
-                "required": ["pa", "pb", "pc", "pd", "cutStatus", "cutPen"],
-                "additionalProperties": false
+                "$ref": "#/CutPlane"
             }
         }
     },

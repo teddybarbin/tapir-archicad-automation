@@ -6403,7 +6403,7 @@ const std::pair<const char*, API_WindowDoorDirectionTypes> WindowDoorDirectionTy
 };
 
 const std::pair<const char*, short> WindowDoorFixPoints[] = {
-    { "Beginning", APIHoleAnchor_BegFix }, { "Center", APIHoleAnchor_CenterFix }, { "End", APIHoleAnchor_EndFix }
+    { "Beginning", static_cast<short> (APIHoleAnchor_BegFix) }, { "Center", static_cast<short> (APIHoleAnchor_CenterFix) }, { "End", static_cast<short> (APIHoleAnchor_EndFix) }
 };
 
 template <typename T, size_t N>

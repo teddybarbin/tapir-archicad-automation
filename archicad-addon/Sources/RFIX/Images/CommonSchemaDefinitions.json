@@ -3724,7 +3724,7 @@
             },
             "polygonArcs": {
                 "type": "array",
-                "description": "Optional arcs along this contour's edges. begIndex/endIndex are 0-based positions within this contour's own polygonCoordinates.",
+                "description": "Optional arcs along this contour's edges. begIndex/endIndex are 0-based positions within this contour's own polygonCoordinates and must be the two ends of one edge (consecutive vertices, either direction); the closing edge is n-1 -> 0 (n-1 -> n is also accepted). An arc that is not on an edge is refused with an error.",
                 "items": {
                     "$ref": "#/PolyArc"
                 }
@@ -6252,6 +6252,10 @@
             "textFrame": {
                 "type": "boolean",
                 "description": "Whether the dimension text has a frame."
+            },
+            "textStyle": {
+                "$ref": "#/DimensionTextStyle",
+                "description": "The font and style of the dimension text."
             },
             "content": {
                 "type": "string",
@@ -15059,6 +15063,10 @@
                 "type": "boolean",
                 "description": "The text frame of the dimension's settings. Each witness point keeps its own (GetDimensionData)."
             },
+            "textStyle": {
+                "$ref": "#/DimensionTextStyle",
+                "description": "The font and style of the texts of the dimension's settings. Each witness point keeps its own (GetDimensionData)."
+            },
             "defaultWitnessForm": {
                 "type": "string",
                 "description": "The witness line form of the dimension's settings; each witness point has its own witnessForm.",
@@ -15101,6 +15109,7 @@
             "textHeight",
             "textPen",
             "textFrame",
+            "textStyle",
             "defaultWitnessForm",
             "defaultWitnessVal",
             "staticDimension",
@@ -15180,6 +15189,40 @@
             "angle",
             "horizontalMarker"
         ]
+    },
+    "DimensionTextStyle": {
+        "type": "object",
+        "description": "The font and style of the texts of a linear dimension, as in the Dimension Settings' text panel (API_NoteType noteFont, faceBits, widthFactor, spacingFactor). Taken as textStyle by CreateAssociativeDimensions, CreateAssociativeDimensionsOnSection, CreateWallThicknessDimensions and ModifyAssociativeDimensions, where only the fields given are changed, and returned by GetDetailsOfElements and, per witness point, by GetDimensionData.",
+        "properties": {
+            "fontIndex": {
+                "type": "integer",
+                "description": "Font attribute index, as GetFontsByName reports it. On input it must be the index of a loaded font; fontName wins when both are given."
+            },
+            "fontName": {
+                "type": "string",
+                "description": "Name of the font, as the Font attributes carry it, e.g. 'Arial'. On input resolved to the font's index like a Text style's fontName, taking precedence over fontIndex, and failing when no loaded font has the name; on read-back the name of the font fontIndex refers to, absent when no loaded font has that index."
+            },
+            "bold": {
+                "type": "boolean"
+            },
+            "italic": {
+                "type": "boolean"
+            },
+            "underline": {
+                "type": "boolean"
+            },
+            "widthFactor": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "Width scale of the characters (1 is 100 %)."
+            },
+            "spacingFactor": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "Spacing scale between the characters (1 is 100 %)."
+            }
+        },
+        "additionalProperties": false
     },
     "DimensionMarker": {
         "type": "object",
@@ -29168,6 +29211,10 @@
             "charSpaceFactor": {
                 "type": "number"
             },
+            "content": {
+                "type": "string",
+                "description": "Text: the text the primitive draws, as Archicad displays it (for example a line of a zone stamp or a label, with its values already filled in)."
+            },
             "drawSegmentMode": {
                 "type": "integer"
             },
@@ -29329,11 +29376,19 @@
                 "items": {
                     "$ref": "#/DrawingPrimitive"
                 }
+            },
+            "texts": {
+                "type": "array",
+                "description": "The content of every Text primitive of the element, in the order Archicad draws them: the text as Archicad displays it, for example the lines of a zone stamp.",
+                "items": {
+                    "type": "string"
+                }
             }
         },
         "additionalProperties": false,
         "required": [
-            "primitives"
+            "primitives",
+            "texts"
         ]
     },
     "NavigatorParentItem": {

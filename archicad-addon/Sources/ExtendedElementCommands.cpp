@@ -734,6 +734,10 @@ static const char* DimensionSettingsSchemaProperties = R"(
                             "type": "boolean",
                             "description": "Optional frame around the dimension texts (true: framed, false: not framed), applied to every witness point. Without it a new dimension gets the Dimension tool's setting."
                         },
+                        "textStyle": {
+                            "$ref": "#/DimensionTextStyle",
+                            "description": "Optional font and style of the dimension texts (font, bold, italic, underline, width factor, spacing factor), applied to every witness point (on creation after favoriteName). Only the fields given are changed."
+                        },
                         "appearance": {
                             "type": "string",
                             "enum": ["Linear", "Cumulative", "Baseline", "Elevation"],
@@ -787,6 +791,92 @@ static const char* DimensionSettingsSchemaProperties = R"(
                             "$ref": "#/LayeredElementDimensions",
                             "description": "Optional automatic dimensioning of layered (composite) elements. Give any of the three; the others stay as they are. Without it a new dimension gets the setting of favoriteName or of the Dimension tool defaults."
                         })";
+
+static const unsigned short DimensionTextFaceBits = APIFace_Bold | APIFace_Italic | APIFace_Underline;
+
+// Writes the fields of a DimensionTextStyle given in style (the font, bold/italic/underline, width
+// and spacing factor of the dimension texts) to note, the dimension's defNote, and sets their bits
+// in mask when it is not nullptr (#2663). The face bits other than bold, italic and underline are
+// kept. Returns the error response of an invalid value.
+static GS::Optional<GS::ObjectState> ApplyDimensionTextStyle (const GS::ObjectState& style, API_NoteType& note, API_Element* mask)
+{
+    GS::UniString fontName;
+    Int32 fontIndex = 0;
+    if (style.Get ("fontName", fontName)) {
+        const GS::Optional<short> foundIndex = GetFontIndexFromName (fontName);
+        if (!foundIndex.HasValue ()) {
+            return CreateErrorResponse (APIERR_BADNAME, "No loaded font is named '" + fontName + "'. textStyle.fontName takes the name of a Font attribute, as GetDetailsOfElements reports it in fontName; use fontIndex to give the font by its index instead.");
+        }
+        note.noteFont = *foundIndex;
+        if (mask != nullptr) {
+            ACAPI_ELEMENT_MASK_SET (*mask, API_DimensionType, defNote.noteFont);
+        }
+    } else if (style.Get ("fontIndex", fontIndex)) {
+        if (fontIndex < 1 || fontIndex > 32767 || !GetFontNameFromIndex (static_cast<short> (fontIndex)).HasValue ()) {
+            return CreateErrorResponse (APIERR_BADINDEX, GS::UniString::Printf ("No loaded font has the index %d given in textStyle.fontIndex.", fontIndex));
+        }
+        note.noteFont = static_cast<short> (fontIndex);
+        if (mask != nullptr) {
+            ACAPI_ELEMENT_MASK_SET (*mask, API_DimensionType, defNote.noteFont);
+        }
+    }
+
+    bool bold = (note.faceBits & APIFace_Bold) != 0;
+    bool italic = (note.faceBits & APIFace_Italic) != 0;
+    bool underline = (note.faceBits & APIFace_Underline) != 0;
+    bool faceChanged = false;
+    faceChanged |= style.Get ("bold", bold);
+    faceChanged |= style.Get ("italic", italic);
+    faceChanged |= style.Get ("underline", underline);
+    if (faceChanged) {
+        note.faceBits = static_cast<unsigned short> ((note.faceBits & ~DimensionTextFaceBits) |
+            (bold ? APIFace_Bold : 0) | (italic ? APIFace_Italic : 0) | (underline ? APIFace_Underline : 0));
+        if (mask != nullptr) {
+            ACAPI_ELEMENT_MASK_SET (*mask, API_DimensionType, defNote.faceBits);
+        }
+    }
+
+    double widthFactor = 0.0;
+    if (style.Get ("widthFactor", widthFactor)) {
+        if (widthFactor <= 0.0) {
+            return CreateErrorResponse (APIERR_BADPARS, "'textStyle.widthFactor' must be greater than 0.");
+        }
+        note.widthFactor = widthFactor;
+        if (mask != nullptr) {
+            ACAPI_ELEMENT_MASK_SET (*mask, API_DimensionType, defNote.widthFactor);
+        }
+    }
+
+    double spacingFactor = 0.0;
+    if (style.Get ("spacingFactor", spacingFactor)) {
+        if (spacingFactor <= 0.0) {
+            return CreateErrorResponse (APIERR_BADPARS, "'textStyle.spacingFactor' must be greater than 0.");
+        }
+        note.spacingFactor = spacingFactor;
+        if (mask != nullptr) {
+            ACAPI_ELEMENT_MASK_SET (*mask, API_DimensionType, defNote.spacingFactor);
+        }
+    }
+
+    return {};
+}
+
+// The DimensionTextStyle of a dimension text (the dimension's defNote or a witness point's note).
+static GS::ObjectState CreateDimensionTextStyleObjectState (const API_NoteType& note)
+{
+    GS::ObjectState style;
+    style.Add ("fontIndex", static_cast<Int32> (note.noteFont));
+    const GS::Optional<GS::UniString> fontName = GetFontNameFromIndex (note.noteFont);
+    if (fontName.HasValue ()) {
+        style.Add ("fontName", *fontName);
+    }
+    style.Add ("bold", (note.faceBits & APIFace_Bold) != 0);
+    style.Add ("italic", (note.faceBits & APIFace_Italic) != 0);
+    style.Add ("underline", (note.faceBits & APIFace_Underline) != 0);
+    style.Add ("widthFactor", note.widthFactor);
+    style.Add ("spacingFactor", note.spacingFactor);
+    return style;
+}
 
 // The bits of API_DimensionType::compAutoThick (APIdefs_Elements.h: totalBit = 1, coreBit = 2,
 // refLineBit = 4, manualBit = 16). The DevKit names no constants for them.
@@ -866,6 +956,14 @@ static GS::Optional<GS::ObjectState> ApplyDimensionSettings (const GS::ObjectSta
         element.dimension.defNote.frame = textFrame;
         if (mask != nullptr) {
             ACAPI_ELEMENT_MASK_SET (*mask, API_DimensionType, defNote.frame);
+        }
+    }
+
+    const GS::ObjectState* textStyle = data.Get ("textStyle");
+    if (textStyle != nullptr) {
+        auto textStyleError = ApplyDimensionTextStyle (*textStyle, element.dimension.defNote, mask);
+        if (textStyleError.HasValue ()) {
+            return textStyleError;
         }
     }
 
@@ -1030,9 +1128,15 @@ static bool ApplyDimensionSettingsToWitnessPoints (const GS::ObjectState& data, 
     const bool hasTextHeight = data.Contains ("textHeight");
     const bool hasTextPen = data.Contains ("textPen");
     const bool hasTextFrame = data.Contains ("textFrame");
+    const GS::ObjectState* textStyle = data.Get ("textStyle");
+    const bool hasFont = textStyle != nullptr && (textStyle->Contains ("fontName") || textStyle->Contains ("fontIndex"));
+    const bool hasFace = textStyle != nullptr && (textStyle->Contains ("bold") || textStyle->Contains ("italic") || textStyle->Contains ("underline"));
+    const bool hasWidthFactor = textStyle != nullptr && textStyle->Contains ("widthFactor");
+    const bool hasSpacingFactor = textStyle != nullptr && textStyle->Contains ("spacingFactor");
+    const bool hasTextStyle = hasFont || hasFace || hasWidthFactor || hasSpacingFactor;
     const bool hasWitnessForm = data.Contains ("defaultWitnessForm");
     const bool hasWitnessVal = data.Contains ("defaultWitnessVal");
-    if (!hasTextHeight && !hasTextPen && !hasTextFrame && !hasWitnessForm && !hasWitnessVal) {
+    if (!hasTextHeight && !hasTextPen && !hasTextFrame && !hasTextStyle && !hasWitnessForm && !hasWitnessVal) {
         return false;
     }
     if (memo.dimElems == nullptr || *memo.dimElems == nullptr) {
@@ -1049,6 +1153,20 @@ static bool ApplyDimensionSettingsToWitnessPoints (const GS::ObjectState& data, 
         }
         if (hasTextFrame) {
             dimElem.note.frame = element.dimension.defNote.frame;
+        }
+        if (hasFont) {
+            dimElem.note.noteFont = element.dimension.defNote.noteFont;
+        }
+        if (hasFace) {
+            // Only bold, italic and underline; the point's other face bits stay.
+            dimElem.note.faceBits = static_cast<unsigned short> ((dimElem.note.faceBits & ~DimensionTextFaceBits) |
+                (element.dimension.defNote.faceBits & DimensionTextFaceBits));
+        }
+        if (hasWidthFactor) {
+            dimElem.note.widthFactor = element.dimension.defNote.widthFactor;
+        }
+        if (hasSpacingFactor) {
+            dimElem.note.spacingFactor = element.dimension.defNote.spacingFactor;
         }
         if (hasWitnessForm) {
             dimElem.witnessForm = element.dimension.defWitnessForm;
@@ -1288,6 +1406,7 @@ void AddDimensionDetails (GS::ObjectState& details, const API_Element& element)
     details.Add ("textHeight", element.dimension.defNote.noteSize);
     details.Add ("textPen", static_cast<Int32> (element.dimension.defNote.notePen));
     details.Add ("textFrame", element.dimension.defNote.frame);
+    details.Add ("textStyle", CreateDimensionTextStyleObjectState (element.dimension.defNote));
     details.Add ("defaultWitnessForm", WitnessFormToString (element.dimension.defWitnessForm));
     details.Add ("defaultWitnessVal", element.dimension.defWitnessVal);
     details.Add ("staticDimension", element.dimension.defStaticDim);
@@ -2201,6 +2320,7 @@ static Int32 GetMemoCoordsHandleCount (const API_ElementMemo& memo)
 // intermediate polygon keeps a real area. An arc on such a temporary edge could cross another edge, so the arcs are
 // dropped; the final coordinates and arcs are written after the resize, as before. This is what the client-side
 // workaround in #2504 does (the same point count on a circle first), which works on both reproductions.
+// Growing calls it with desiredOutlineCount == outlineCount, which puts every point on a regular polygon (#2818).
 static void MoveOutlineOntoCircle (API_ElementMemo& memo, Int32 outlineCount, Int32 desiredOutlineCount)
 {
     API_Coord minCoord = (*memo.coords)[1];
@@ -2345,15 +2465,39 @@ static GS::Optional<GS::UniString> ApplySlabPolygonChange (
         }
         --outlineCount;
     }
+    // Growing (#2818): every placeholder used to be inserted in the middle of the edge between nodes 1
+    // and 2, so that edge was halved by each insert. After about 20-30 inserts (depending on how long
+    // the first edge was) its points coincided within Archicad's tolerance, and Archicad answered
+    // APIERR_BADPOLY or left the memo with fewer points than requested. Now the outline is first put
+    // on a regular polygon on a circle (MoveOutlineOntoCircle with the same point count, which also
+    // drops the arcs, so no placeholder lands on an arc edge), and each placeholder goes in the middle
+    // of the longest edge. The polygon stays convex, and the edges are split evenly, so none gets
+    // much shorter than an edge of a regular polygon with the requested point count.
+    if (outlineCount < desiredOutlineCount) {
+        MoveOutlineOntoCircle (memo, outlineCount, outlineCount);
+    }
     while (outlineCount < desiredOutlineCount) {
+        // The longest edge between node i and node i + 1, i < outlineCount: the closing edge (from
+        // the last node back to node 1) is never split, so the new node never goes after the last one.
+        Int32 longestEdgeBegin = 1;
+        double longestEdgeLength = -1.0;
+        for (Int32 i = 1; i < outlineCount; ++i) {
+            const API_Coord& p = (*memo.coords)[i];
+            const API_Coord& q = (*memo.coords)[i + 1];
+            const double length = std::sqrt ((q.x - p.x) * (q.x - p.x) + (q.y - p.y) * (q.y - p.y));
+            if (length > longestEdgeLength) {
+                longestEdgeLength = length;
+                longestEdgeBegin = i;
+            }
+        }
         // Per Graphisoft's own DevKit reference example (Do_Poly_InsertNode), nodeIndex is set to
         // the clicked edge's begin-node index + 1 - i.e. the position the NEW node will occupy
         // (shifting what was there up by one), not "insert after this existing node" as the header
-        // doc's wording alone suggests. To insert between existing nodes 1 and 2, that means
-        // nodeIndex = 2, not 1.
-        Int32 idx = 2;
-        const API_Coord& p1 = (*memo.coords)[1];
-        const API_Coord& p2 = (*memo.coords)[2];
+        // doc's wording alone suggests. To insert between existing nodes i and i + 1, that means
+        // nodeIndex = i + 1, not i.
+        Int32 idx = longestEdgeBegin + 1;
+        const API_Coord p1 = (*memo.coords)[longestEdgeBegin];
+        const API_Coord p2 = (*memo.coords)[longestEdgeBegin + 1];
         API_Coord placeholder = {(p1.x + p2.x) / 2.0, (p1.y + p2.y) / 2.0};
         GSErrCode err = TAPIR_Polygon_InsertPolyNode (&memo, &idx, &placeholder);
         if (err != NoError) {
@@ -13681,6 +13825,23 @@ GS::ObjectState ModifyAssociativeDimensionsCommand::Execute (const GS::ObjectSta
                     if (item.Contains ("textFrame") && firstPoint.note.frame != element.dimension.defNote.frame) {
                         notApplied += " textFrame";
                     }
+                    const GS::ObjectState* textStyle = item.Get ("textStyle");
+                    if (textStyle != nullptr) {
+                        const API_NoteType& wanted = element.dimension.defNote;
+                        if ((textStyle->Contains ("fontName") || textStyle->Contains ("fontIndex")) && firstPoint.note.noteFont != wanted.noteFont) {
+                            notApplied += " textStyle.font";
+                        }
+                        if ((textStyle->Contains ("bold") || textStyle->Contains ("italic") || textStyle->Contains ("underline")) &&
+                            (firstPoint.note.faceBits & DimensionTextFaceBits) != (wanted.faceBits & DimensionTextFaceBits)) {
+                            notApplied += " textStyle.bold/italic/underline";
+                        }
+                        if (textStyle->Contains ("widthFactor") && std::abs (firstPoint.note.widthFactor - wanted.widthFactor) > tolerance) {
+                            notApplied += " textStyle.widthFactor";
+                        }
+                        if (textStyle->Contains ("spacingFactor") && std::abs (firstPoint.note.spacingFactor - wanted.spacingFactor) > tolerance) {
+                            notApplied += " textStyle.spacingFactor";
+                        }
+                    }
                     if (item.Contains ("defaultWitnessForm") && firstPoint.witnessForm != element.dimension.defWitnessForm) {
                         notApplied += " witnessForm of the witness points";
                     }
@@ -17597,6 +17758,7 @@ GS::ObjectState GetDimensionDataCommand::Execute (const GS::ObjectState& paramet
                 witnessPoint.Add ("textHeight", dimElem.note.noteSize);
                 witnessPoint.Add ("textPen", static_cast<Int32> (dimElem.note.notePen));
                 witnessPoint.Add ("textFrame", dimElem.note.frame);
+                witnessPoint.Add ("textStyle", CreateDimensionTextStyleObjectState (dimElem.note));
                 witnessPoint.Add ("content", GS::UniString (dimElem.note.contentType == API_NoteContent_Custom ? "CustomText" : "MeasuredValue"));
                 witnessPoint.Add ("customText", GetDimensionNoteTextWithPlaceholder (dimElem.note));
                 witnessPoint.Add ("superscript", (dimElem.note.effectBits & APIEffect_SuperScript) != 0);

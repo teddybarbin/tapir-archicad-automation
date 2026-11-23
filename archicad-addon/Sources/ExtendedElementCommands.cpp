@@ -25598,14 +25598,15 @@ GS::Optional<GS::UniString> ModifyMeshesCommand::GetRawResponseSchema () const
     })";
 }
 
-// Reads a mesh outline back and checks it against what was asked: every asked point present (1 mm) at its height
-// (1 mm). Extra vertices are allowed: Archicad inserts one where a level line crosses the new outline (#2958). Used by ModifyMeshes, which reapplies an outline that came back wrong (see
+// Reads a mesh outline back and checks it against what was asked: same number of coords, every asked point present
+// (1 mm) at its height (1 mm). With allowInserted, extra vertices are accepted only when each lies on a segment
+// between two consecutive asked points: Archicad inserts one where a level line crosses the new outline (#2958). Used by ModifyMeshes, which reapplies an outline that came back wrong (see
 // BuildMeshPolyMemoFromGeometry).
-static bool MeshOutlineMatches (const API_Guid& guid, const std::vector<API_Coord3D>& asked, Int32 askedNCoords)
+static bool MeshOutlineMatches (const API_Guid& guid, const std::vector<API_Coord3D>& asked, Int32 askedNCoords, bool allowInserted = false)
 {
     API_Element e = {};
     e.header.guid = guid;
-    if (ACAPI_Element_Get (&e) != NoError || e.mesh.poly.nCoords < askedNCoords) {
+    if (ACAPI_Element_Get (&e) != NoError || (allowInserted ? e.mesh.poly.nCoords < askedNCoords : e.mesh.poly.nCoords != askedNCoords)) {
         return false;
     }
     API_ElementMemo m = {};
@@ -25620,6 +25621,28 @@ static bool MeshOutlineMatches (const API_Guid& guid, const std::vector<API_Coor
         }
         if (!found) {
             return false;
+        }
+    }
+    if (allowInserted && e.mesh.poly.nCoords != askedNCoords) {
+        for (Int32 i = 1; i <= e.mesh.poly.nCoords; ++i) {
+            const API_Coord& c = (*m.coords)[i];
+            bool onAsked = false;
+            for (size_t k = 0; k < asked.size () && !onAsked; ++k) {
+                onAsked = std::abs (asked[k].x - c.x) < 0.001 && std::abs (asked[k].y - c.y) < 0.001;
+            }
+            for (size_t k = 0; k + 1 < asked.size () && !onAsked; ++k) {
+                const double dx = asked[k + 1].x - asked[k].x;
+                const double dy = asked[k + 1].y - asked[k].y;
+                const double len2 = dx * dx + dy * dy;
+                if (len2 < 1e-12) continue;
+                const double t = ((c.x - asked[k].x) * dx + (c.y - asked[k].y) * dy) / len2;
+                const double px = asked[k].x + t * dx - c.x;
+                const double py = asked[k].y + t * dy - c.y;
+                onAsked = t > 0.0 && t < 1.0 && px * px + py * py < 1e-6;
+            }
+            if (!onAsked) {
+                return false;
+            }
         }
     }
     return true;
@@ -25883,18 +25906,6 @@ GS::ObjectState ModifyMeshesCommand::Execute (const GS::ObjectState& parameters,
                     }
                 }
             }
-            GSErrCode heightErr = NoError;
-            GS::Optional<GS::UniString> heightError;
-            if (hasPolyGeom) {
-                heightError = RestoreRequestedMeshPolyHeights (elem.header.guid, requestedPoints, heightErr);
-            }
-            if (heightError.HasValue ()) {
-                changeReporter.MarkChanged (elem.header.guid);
-                executionResults (CreateFailedExecutionResult (heightErr != NoError ? heightErr : APIERR_GENERAL, heightError.Get ()));
-                ++nResults;
-                continue;
-            }
-
             // A changed point count can come back wrong (vertices merged or inserted, heights shifted): read it back and
             // reapply from the element's NEW vertex IDs, at most 3 times. Measured on 18/10/2026: the second identical
             // call on the already-changed mesh came back exact. Never report a success that was not read back.
@@ -25912,11 +25923,18 @@ GS::ObjectState ModifyMeshesCommand::Execute (const GS::ObjectState& parameters,
                 API_Element mask2 = {};
                 ACAPI_ELEMENT_MASK_CLEAR (mask2);
                 err = ACAPI_Element_Change (&again, &mask2, &memo2, APIMemoMask_Polygon | APIMemoMask_MeshPolyZ, true);
-                if (err == NoError) {
-                    heightError = RestoreRequestedMeshPolyHeights (elem.header.guid, requestedPoints, heightErr);
-                    if (heightError.HasValue ()) { err = heightErr != NoError ? heightErr : APIERR_GENERAL; break; }
-                }
                 outlineOk = err == NoError && MeshOutlineMatches (elem.header.guid, asked, askedNCoords);
+            }
+            if (!outlineOk && hasPolyGeom && err == NoError) {
+                GSErrCode heightErr = NoError;
+                const GS::Optional<GS::UniString> heightError = RestoreRequestedMeshPolyHeights (elem.header.guid, requestedPoints, heightErr);
+                if (heightError.HasValue ()) {
+                    changeReporter.MarkChanged (elem.header.guid);
+                    executionResults (CreateFailedExecutionResult (heightErr != NoError ? heightErr : APIERR_GENERAL, heightError.Get ()));
+                    ++nResults;
+                    continue;
+                }
+                outlineOk = MeshOutlineMatches (elem.header.guid, asked, askedNCoords, true);
             }
             if (!outlineOk) {
                 executionResults (CreateFailedExecutionResult (err != NoError ? err : APIERR_GENERAL,

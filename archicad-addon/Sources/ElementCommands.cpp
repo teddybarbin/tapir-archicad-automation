@@ -2520,6 +2520,10 @@ GS::Optional<GS::UniString> GetDetailsOfElementsCommand::GetInputParametersSchem
                     "$ref": "#/ElementDetailsAdditionalField"
                 },
                 "minItems": 1
+            },
+            "readFromOtherDatabases": {
+                "type": "boolean",
+                "description": "Optional, default false. When true, a listed element of another database (a drawing on a layout that is not open, an element of a worksheet, a section, a master layout ...) is read in full: the add-on makes the element's own database the current one while it reads it, without opening a window, and puts the starting database back afterwards. Without it, such an element returns only its header fields with fromOtherDatabase set to true. An element whose database cannot be made current (for example a worksheet whose window was never opened) still returns only its header. Archicad 29 already reads such elements in full without this key (seen on macOS), so it changes nothing there."
             }
         },
         "additionalProperties": false,
@@ -3464,6 +3468,8 @@ static void AddAdditionalElementDetails (GS::ObjectState& os, const API_Elem_Hea
     }
 }
 
+static GSErrCode ChangeToContainingDatabase (const API_Guid& elemGuid, API_DatabaseInfo& currentDatabase);
+
 GS::ObjectState GetDetailsOfElementsCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const
 {
     GS::Array<GS::ObjectState> elements;
@@ -3517,6 +3523,25 @@ GS::ObjectState GetDetailsOfElementsCommand::Execute (const GS::ObjectState& par
     GS::Array<GS::UniString> additionalFields;
     parameters.Get ("additionalFields", additionalFields);
 
+    // With readFromOtherDatabases an element of another database is read in its own database
+    // (#2791), which is made the current one the way Get3DBoundingBoxes does it, without opening
+    // a window; the starting database is put back when the command returns.
+    bool readFromOtherDatabases = false;
+    parameters.Get ("readFromOtherDatabases", readFromOtherDatabases);
+    API_DatabaseInfo startingDatabase = {};
+    if (readFromOtherDatabases) {
+        const GSErrCode databaseErr = ACAPI_Database_GetCurrentDatabase (&startingDatabase);
+        if (databaseErr != NoError) {
+            return CreateErrorResponse (databaseErr, "Failed to get the current database.");
+        }
+    }
+    API_DatabaseInfo currentDatabase = startingDatabase;
+    const GS::OnExit restoreDatabase ([&] () {
+        if (readFromOtherDatabases) {
+            ACAPI_Database_ChangeCurrentDatabase (&startingDatabase);
+        }
+    });
+
     GS::ObjectState response;
     const auto& detailsOfElements = response.AddList<GS::ObjectState> ("detailsOfElements");
 
@@ -3533,6 +3558,14 @@ GS::ObjectState GetDetailsOfElementsCommand::Execute (const GS::ObjectState& par
         API_Element elem = {};
         elem.header.guid = guid;
         GSErrCode err = ACAPI_Element_Get (&elem);
+
+        if (err == APIERR_BADID && readFromOtherDatabases && ChangeToContainingDatabase (guid, currentDatabase) == NoError) {
+            // Now in the element's own database, so it is read again from there. When that
+            // database was already the current one, the read fails the same way as before.
+            elem = {};
+            elem.header.guid = guid;
+            err = ACAPI_Element_Get (&elem);
+        }
 
         if (err == APIERR_BADID) {
             // Not in the current database: an element of another database (a layout, a section,
@@ -5309,11 +5342,13 @@ struct RequestedDrawingSettings {
     GS::Optional<bool>                        isTransparentBk;
     GS::Optional<double>                      rasterizeDPI;
     GS::Optional<bool>                        useOwnOrigoAsAnchor;
+    GS::Optional<bool>                        manualUpdate;
 
     bool HasValue () const
     {
         return penTableUsageMode.HasValue () || penTableIndex.HasValue () || colorMode.HasValue () ||
-            isTransparentBk.HasValue () || rasterizeDPI.HasValue () || useOwnOrigoAsAnchor.HasValue ();
+            isTransparentBk.HasValue () || rasterizeDPI.HasValue () || useOwnOrigoAsAnchor.HasValue () ||
+            manualUpdate.HasValue ();
     }
 
     // The names of the given settings the drawing does not have, comma separated; empty when all were taken.
@@ -5332,6 +5367,8 @@ struct RequestedDrawingSettings {
             names.Push ("rasterizeDPI");
         if (useOwnOrigoAsAnchor.HasValue () && drawing.useOwnOrigoAsAnchor != *useOwnOrigoAsAnchor)
             names.Push ("useOwnOriginAsAnchor");
+        if (manualUpdate.HasValue () && drawing.manualUpdate != *manualUpdate)
+            names.Push ("manualUpdate");
 
         GS::UniString result;
         for (const GS::UniString& name : names) {
@@ -5769,6 +5806,11 @@ GS::ObjectState SetDetailsOfElementsCommand::Execute (const GS::ObjectState& par
                         if (typeSpecificDetails->Get ("rasterizeDPI", elem.drawing.rasterizeDPI)) {
                             ACAPI_ELEMENT_MASK_SET (mask, API_DrawingType, rasterizeDPI);
                             requestedDrawingSettings.rasterizeDPI = elem.drawing.rasterizeDPI;
+                        }
+                        // The Drawing Manager's Update Type (#3076): true is Manual, false Automatic.
+                        if (typeSpecificDetails->Get ("manualUpdate", elem.drawing.manualUpdate)) {
+                            ACAPI_ELEMENT_MASK_SET (mask, API_DrawingType, manualUpdate);
+                            requestedDrawingSettings.manualUpdate = elem.drawing.manualUpdate;
                         }
                         // Drawing Settings > Size and Display: the anchor point the drawing is
                         // placed by. Graphisoft support confirmed ACAPI_Element_Change resets
@@ -11034,12 +11076,12 @@ GS::Optional<GS::UniString> ScaleElementsCommand::GetInputParametersSchema () co
             },
             "factor": {
                 "type": "number",
-                "exclusiveMinimum": 0,
+                "minimum": 0, "exclusiveMinimum": true,
                 "description": "The scale factor, greater than 0: 2 doubles the distances from the center, 0.5 halves them."
             },
             "factorY": {
                 "type": "number",
-                "exclusiveMinimum": 0,
+                "minimum": 0, "exclusiveMinimum": true,
                 "description": "Optional scale factor in Y. Archicad's Resize scales X and Y by one ratio, so it must be the same as factor (or left out); a different value is refused."
             }
         },
@@ -12781,7 +12823,12 @@ GS::Optional<GS::UniString> GetPolygonVertexIdsOfElementsCommand::GetRawResponse
                                                         "vertexId": {
                                                             "type": "integer",
                                                             "minimum": 0,
-                                                            "description": "The vertex ID Archicad stores for the point (API_ElementMemo vertexIDs). It is kept when vertices are inserted or deleted, so it does not follow the order of the points. Give it as the nodeId of a witness point of CreateAssociativeDimensions."
+                                                            "description": "The vertex ID Archicad stores for the point (API_ElementMemo vertexIDs). It is kept when vertices are inserted or deleted, so it does not follow the order of the points. Give it as the nodeId of a witness point of CreateAssociativeDimensions on this vertex (line false)."
+                                                        },
+                                                        "edgeId": {
+                                                            "type": "integer",
+                                                            "minimum": 0,
+                                                            "description": "The edge ID Archicad stores for the edge from this point to the next one (API_ElementMemo edgeIDs). Like vertexId it is kept when the polygon is edited, and on an edited polygon it differs from vertexId. Give it as the nodeId of a witness point of CreateAssociativeDimensions on this edge (line true, inIndex of this point). Missing on the closing point of a contour, which starts no edge, and for elements whose memo has no edge IDs (#3034)."
                                                         }
                                                     },
                                                     "additionalProperties": false,
@@ -12854,8 +12901,12 @@ GS::ObjectState GetPolygonVertexIdsOfElementsCommand::Execute (const GS::ObjectS
         // vertices (vertexIDs[0] holds the largest vertex ID), pends[k] is the index of the closing
         // point of contour k, which repeats the contour's first point. A witness point refers to a
         // vertex by its index in coords (inIndex) and by its vertex ID (node_id) together (#3004).
+        // An edge (line true) is referred to by the index of its start point and by its edge ID:
+        // edgeIDs[i] belongs to the edge from coords[i] to coords[i + 1], so the closing point of
+        // each contour carries none, as for edgeTrims and sideMaterials (#3034).
         const Int32 nCoords = memo.coords == nullptr ? 0 : static_cast<Int32> (BMhGetSize (reinterpret_cast<GSHandle> (memo.coords)) / sizeof (API_Coord)) - 1;
         const Int32 nVertexIds = memo.vertexIDs == nullptr ? 0 : static_cast<Int32> (BMhGetSize (reinterpret_cast<GSHandle> (memo.vertexIDs)) / sizeof (UInt32)) - 1;
+        const Int32 nEdgeIds = memo.edgeIDs == nullptr ? 0 : static_cast<Int32> (BMhGetSize (reinterpret_cast<GSHandle> (memo.edgeIDs)) / sizeof (UInt32)) - 1;
         if (nCoords < 1 || nVertexIds < nCoords) {
             polygonVertexIdsOfElements (CreateErrorResponse (APIERR_BADPARS, "The element has no polygon with vertex IDs."));
             continue;
@@ -12882,6 +12933,9 @@ GS::ObjectState GetPolygonVertexIdsOfElementsCommand::Execute (const GS::ObjectS
                 point.Add ("coordinate", Create2DCoordinateObjectState ((*memo.coords)[coordIndex]));
                 point.Add ("inIndex", coordIndex);
                 point.Add ("vertexId", static_cast<Int64> ((*memo.vertexIDs)[coordIndex]));
+                if (coordIndex < endIndex && coordIndex <= nEdgeIds) {
+                    point.Add ("edgeId", static_cast<Int64> ((*memo.edgeIDs)[coordIndex]));
+                }
                 points (point);
             }
             contours (contour);

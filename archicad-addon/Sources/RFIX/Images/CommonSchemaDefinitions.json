@@ -3535,7 +3535,7 @@
                 "description": "The sizes (widths of the columns or heights of the rows) of the pattern unit in meters, in order from the start of the segment or from the bottom. The unit is repeated to fill the segment.",
                 "items": {
                     "type": "number",
-                    "exclusiveMinimum": 0.0
+                    "minimum": 0.0, "exclusiveMinimum": true
                 },
                 "minItems": 1
             },
@@ -3659,11 +3659,11 @@
             },
             "width": {
                 "type": "number",
-                "exclusiveMinimum": 0.0
+                "minimum": 0.0, "exclusiveMinimum": true
             },
             "height": {
                 "type": "number",
-                "exclusiveMinimum": 0.0,
+                "minimum": 0.0, "exclusiveMinimum": true,
                 "description": "Only used for the Rectangular type."
             }
         },
@@ -6243,7 +6243,7 @@
             },
             "inIndex": {
                 "type": "integer",
-                "description": "Subindex of the element's node (API_Base inIndex). On a polygon element (a Slab, for example) the 1-based index of the vertex among all the coordinates of the element's polygon, as GetPolygonVertexIdsOfElements returns it; with line true it is the edge from that vertex to the next. Always give it together with nodeId there."
+                "description": "Subindex of the element's node (API_Base inIndex). On a polygon element (a Slab, for example) the 1-based index of the vertex among all the coordinates of the element's polygon, as GetPolygonVertexIdsOfElements returns it; with line true it is the edge from that vertex to the next. Always give it together with nodeId there: the vertexId of that vertex, or with line true the edgeId of that edge."
             },
             "special": {
                 "type": "integer"
@@ -6257,7 +6257,7 @@
             "nodeId": {
                 "type": "number",
                 "minimum": 0.0,
-                "description": "Polygon vertex ID (API_Base node_id), for elements with a polygon: the vertexId of the vertex at inIndex, as GetPolygonVertexIdsOfElements returns it. It is the ID Archicad keeps for the vertex, not its position in the polygon: on an edited slab it can be any number. With a nodeId that is not the ID of the vertex at inIndex, or without inIndex, Archicad does not attach the point to the element, and the command reports an error instead of creating the dimension (#3004)."
+                "description": "Polygon vertex or edge ID (API_Base node_id), for elements with a polygon: the vertexId of the vertex at inIndex, or with line true the edgeId of the edge that starts at inIndex, as GetPolygonVertexIdsOfElements returns them. It is the ID Archicad keeps for the vertex or edge, not its position in the polygon: on an edited slab it can be any number, and an edge's ID differs from the ID of its start vertex (#3034). With a nodeId that is not the ID of the vertex or edge at inIndex, or without inIndex, Archicad does not attach the point to the element, and the command reports an error instead of creating the dimension (#3004)."
             }
         },
         "additionalProperties": false
@@ -6604,7 +6604,7 @@
             "depth": {
                 "type": "number",
                 "description": "How far each segment looks. Applied to every segment. Defaults to 1.0.",
-                "exclusiveMinimum": 0.0
+                "minimum": 0.0, "exclusiveMinimum": true
             },
             "name": {
                 "type": "string",
@@ -10122,7 +10122,14 @@
             },
             "layerCombination": {
                 "type": "string",
-                "description": "The name of the layer combination. If empty, the view has custom layer combination."
+                "description": "The name of the layer combination. If empty, the view has custom layer combination. SetViewSettings reads the view back and fails the item when Archicad did not apply the name given: it keeps the old one when no layer combination of the project has the name, and its API can't switch a view from a layer combination to custom layers (an empty name)."
+            },
+            "customLayers": {
+                "type": "array",
+                "description": "The view's own layer settings (Archicad 27 and later): the layer states the view stores when it stores its layers (saveFlags.layers) under no layer combination name, as the View Settings dialog's \"Get Current Window's Settings\" stores them. GetViewSettings returns every layer of the set, ordered by layer index, and omits the field when the view stores no custom layers. Archicad's API can't change them (nor switch a view from a layer combination to custom layers), so SetViewSettings accepts customLayers only when each field given is the state the view already stores (so GetViewSettings' answer can be given back), and otherwise fails the item and writes nothing. To change the layers a view shows, give it a layerCombination.",
+                "items": {
+                    "$ref": "#/ViewLayerState"
+                }
             },
             "dimensionStyle": {
                 "type": "string",
@@ -10239,6 +10246,36 @@
         },
         "additionalProperties": false,
         "required": []
+    },
+    "ViewLayerState": {
+        "type": "object",
+        "description": "The state of one layer in a view's own (custom) layer settings. GetViewSettings returns every field; SetViewSettings checks only the fields given.",
+        "properties": {
+            "attributeId": {
+                "description": "The identifier of the Layer attribute.",
+                "$ref": "#/AttributeId"
+            },
+            "isHidden": {
+                "type": "boolean",
+                "description": "Whether the layer is hidden in the view."
+            },
+            "isLocked": {
+                "type": "boolean",
+                "description": "Whether the layer is locked in the view."
+            },
+            "isWireframe": {
+                "type": "boolean",
+                "description": "Whether the layer's elements are forced to wireframe in the view's 3D."
+            },
+            "intersectionGroupNr": {
+                "type": "integer",
+                "description": "Intersection group of the layer in the view. Elements on layers having the same group will be intersected."
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "attributeId"
+        ]
     },
     "ViewSettingsOrError": {
         "type": "object",
@@ -11798,12 +11835,12 @@
             },
             "width": {
                 "type": "number",
-                "exclusiveMinimum": 0.0,
+                "minimum": 0.0, "exclusiveMinimum": true,
                 "description": "Cross section width of this segment (at its start when it is tapered)."
             },
             "depth": {
                 "type": "number",
-                "exclusiveMinimum": 0.0,
+                "minimum": 0.0, "exclusiveMinimum": true,
                 "description": "Cross section depth (height) of this segment (at its start when it is tapered)."
             },
             "isWidthAndHeightLinked": {
@@ -12028,12 +12065,12 @@
             },
             "width": {
                 "type": "number",
-                "exclusiveMinimum": 0.0,
+                "minimum": 0.0, "exclusiveMinimum": true,
                 "description": "Cross section width of the segment (at its start, for a tapered segment)."
             },
             "height": {
                 "type": "number",
-                "exclusiveMinimum": 0.0,
+                "minimum": 0.0, "exclusiveMinimum": true,
                 "description": "Cross section height of the segment (at its start, for a tapered segment)."
             },
             "isWidthAndHeightLinked": {
@@ -12058,12 +12095,12 @@
             },
             "endWidth": {
                 "type": "number",
-                "exclusiveMinimum": 0.0,
+                "minimum": 0.0, "exclusiveMinimum": true,
                 "description": "Cross section width at the end of a tapered segment. Archicad uses it only when isHomogeneous is false."
             },
             "endHeight": {
                 "type": "number",
-                "exclusiveMinimum": 0.0,
+                "minimum": 0.0, "exclusiveMinimum": true,
                 "description": "Cross section height at the end of a tapered segment. Archicad uses it only when isHomogeneous is false."
             },
             "isEndWidthAndHeightLinked": {
@@ -12739,7 +12776,7 @@
             },
             "size": {
                 "type": "number",
-                "exclusiveMinimum": 0,
+                "minimum": 0, "exclusiveMinimum": true,
                 "description": "The arrowhead size in mm."
             },
             "pen": {
@@ -13556,7 +13593,7 @@
             },
             "length": {
                 "type": "number",
-                "exclusiveMinimum": 0.0,
+                "minimum": 0.0, "exclusiveMinimum": true,
                 "description": "The length of one repetition (API_RailingDistributionData::length)."
             },
             "patternAmount": {
@@ -15100,7 +15137,7 @@
             },
             "manualUpdate": {
                 "type": "boolean",
-                "description": "The Drawing Manager's Update Type: true for Manual, false for Automatic. Read-only."
+                "description": "The Drawing Manager's Update Type: true for Manual, false for Automatic. SetDetailsOfElements writes it, and ChangeDrawingLink gives the new Drawing the old one's."
             },
             "storedInProject": {
                 "type": "boolean",
@@ -15706,12 +15743,12 @@
             },
             "widthFactor": {
                 "type": "number",
-                "exclusiveMinimum": 0,
+                "minimum": 0, "exclusiveMinimum": true,
                 "description": "Width scale of the characters (1 is 100 %)."
             },
             "spacingFactor": {
                 "type": "number",
-                "exclusiveMinimum": 0,
+                "minimum": 0, "exclusiveMinimum": true,
                 "description": "Spacing scale between the characters (1 is 100 %)."
             }
         },
@@ -15734,7 +15771,7 @@
             },
             "size": {
                 "type": "number",
-                "exclusiveMinimum": 0,
+                "minimum": 0, "exclusiveMinimum": true,
                 "description": "The marker size, the API's markerData.markerSize, which the DevKit calls the size in millimeters at the drawing scale. Compare it with the marker size of the Dimension Settings before relying on it: on Archicad 29 a linear dimension whose dialog showed 1.0 read 2.5 here."
             }
         },
@@ -16053,9 +16090,7 @@
                 "description": "Whether the riser is shown."
             },
             "riserPosition": {
-                "type": "string",
-                "enum": [ "OnTread", "BehindTread" ],
-                "description": "Whether the riser stands on the tread below or behind it."
+                "$ref": "#/StairRiserPosition"
             },
             "crossSection": {
                 "type": "string",
@@ -16149,9 +16184,7 @@
                 "description": "The offset of the walking line from the side walkingLinePosition names, as CreateStairs and ModifyStairs take it."
             },
             "walkingLineSymbolPosition": {
-                "type": "string",
-                "enum": [ "Auto", "Center", "Custom" ],
-                "description": "Where the symbol of the walking line is placed (API_StairType::walkLineSymbPos), as CreateStairs and ModifyStairs take it."
+                "$ref": "#/StairWalkingLineSymbolPosition"
             },
             "numberingType": {
                 "type": "string",
@@ -16218,46 +16251,14 @@
                 "type": "array",
                 "description": "The segment type of each baseline edge, one item per edge (edge i runs from baseLinePoints[i] to baseLinePoints[i + 1]), as CreateStairs takes them.",
                 "items": {
-                    "type": "object",
-                    "properties": {
-                        "segmentType": {
-                            "type": "string",
-                            "enum": ["Flight", "Landing", "DividedLanding", "Unknown"]
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": ["segmentType"]
+                    "$ref": "#/StairBaselineEdgeDetails"
                 }
             },
             "baseLineVertices": {
                 "type": "array",
                 "description": "The turn at each baseline point, one item per point, as CreateStairs takes them. A stair whose turns Archicad decided itself reports Landing at every point, also at the first and last.",
                 "items": {
-                    "type": "object",
-                    "properties": {
-                        "turnType": {
-                            "type": "string",
-                            "enum": ["None", "Landing", "Winder", "DividedLanding", "Unknown"]
-                        },
-                        "landingStartEdgeOffset": {
-                            "type": "number",
-                            "description": "The lead edge offset of the landing as Archicad calculated it."
-                        },
-                        "landingEndEdgeOffset": {
-                            "type": "number",
-                            "description": "The trail edge offset of the landing as Archicad calculated it."
-                        },
-                        "minLandingStartEdgeOffset": {
-                            "type": "number",
-                            "description": "The minimal lead edge offset."
-                        },
-                        "minLandingEndEdgeOffset": {
-                            "type": "number",
-                            "description": "The minimal trail edge offset."
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": ["turnType", "landingStartEdgeOffset", "landingEndEdgeOffset", "minLandingStartEdgeOffset", "minLandingEndEdgeOffset"]
+                    "$ref": "#/StairBaselineVertexDetails"
                 }
             },
             "basePlane": {
@@ -16269,9 +16270,7 @@
                 "description": "Whether the stair was mirrored, as its basePlane tells (xAxis and yAxis of the other handedness). Its left boundary is then on the right seen along the baseline, and its arcs bend the other way in its own coordinate system; the arcs reported are already turned back to model coordinates."
             },
             "baselinePosition": {
-                "type": "string",
-                "enum": ["Left", "Right", "Center", "Auto", "Unknown"],
-                "description": "The edge of the flight the baseline runs on, as CreateStairs takes it (API_StairType::baselinePosition)."
+                "$ref": "#/StairBaselinePositionOrUnknown"
             },
             "baselineOffset": {
                 "type": "number",
@@ -16306,23 +16305,10 @@
                 "$ref": "#/LinkToSettings"
             },
             "uniformLeftRightSideSupports": {
-                "type": "object",
-                "description": "Whether the left and right side supports of the flights (run) and of the landings (landing) share their settings (API_StairType::uniformLeftRightSideSupports).",
-                "properties": {
-                    "run": {
-                        "type": "boolean"
-                    },
-                    "landing": {
-                        "type": "boolean"
-                    }
-                },
-                "additionalProperties": false,
-                "required": ["run", "landing"]
+                "$ref": "#/StairUniformSideSupports"
             },
             "stairDisplayType": {
-                "type": "string",
-                "description": "Whether the floor plan display of the stair is set in the stair itself (Custom) or comes from the Model View Options (ByModelViewOptions) (API_StairType::stairDisplayType).",
-                "enum": ["Custom", "ByModelViewOptions", "Unknown"]
+                "$ref": "#/StairDisplayType"
             },
             "floorPlanLayout": {
                 "$ref": "#/StairLayout",
@@ -16343,8 +16329,7 @@
                     "type": "object",
                     "properties": {
                         "structureType": {
-                            "type": "string",
-                            "enum": ["UnderStructure", "Stringer", "Unknown"]
+                            "$ref": "#/StairStructureSymbolType"
                         },
                         "view": {
                             "$ref": "#/StairSymbolView"
@@ -16470,21 +16455,7 @@
                                         "type": "array",
                                         "description": "Whether the lines of each structure are shown, per visible or hidden part.",
                                         "items": {
-                                            "type": "object",
-                                            "properties": {
-                                                "part": {
-                                                    "$ref": "#/StairSymbolPart"
-                                                },
-                                                "structure": {
-                                                    "type": "string",
-                                                    "enum": ["Beam", "Cantilevered", "Stringer", "Monolith", "Unknown"]
-                                                },
-                                                "visible": {
-                                                    "type": "boolean"
-                                                }
-                                            },
-                                            "additionalProperties": false,
-                                            "required": ["part", "structure", "visible"]
+                                            "$ref": "#/StairStoryStructureVisibility"
                                         }
                                     },
                                     "fills": {
@@ -16617,15 +16588,7 @@
                 "type": "array",
                 "description": "One item per segment: edge i runs from points[i] to points[i + 1].",
                 "items": {
-                    "type": "object",
-                    "properties": {
-                        "visible": {
-                            "type": "boolean",
-                            "description": "Whether the part of the stair this segment describes is visible."
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": ["visible"]
+                    "$ref": "#/StairBoundaryEdge"
                 }
             }
         },
@@ -16641,28 +16604,20 @@
         "description": "The settings of one structure of a stair: of one part (Run or Landing) and side in the stair's structures, or of a StairStructure subelement, whose values are the ones Archicad solved for that part (API_StairStructureType). monolith is given for a Monolith structure and sideStair for a Side structure; beam supported and cantilevered structures have no extra data.",
         "properties": {
             "role": {
-                "type": "string",
-                "description": "Whether the structure belongs to the flights (Run) or to the landings (Landing).",
-                "enum": ["Run", "Landing", "Unknown"]
+                "$ref": "#/StairStructureRoleOrUnknown"
             },
             "side": {
-                "type": "string",
-                "description": "Where the structure supports the steps: from the left, from the right or from under.",
-                "enum": ["LeftSide", "RightSide", "UnderSide", "Unknown"]
+                "$ref": "#/StairStructureSideOrUnknown"
             },
             "visible": {
                 "type": "boolean",
                 "description": "Whether the structure is modeled."
             },
             "structureType": {
-                "type": "string",
-                "description": "The type of the structure: side stringers, monolithic, beam supported or cantilevered.",
-                "enum": ["Side", "Monolith", "BeamSupport", "CantileveredSupport", "Unknown"]
+                "$ref": "#/StairStructureTypeOrUnknown"
             },
             "bottomType": {
-                "type": "string",
-                "description": "The bottom of the structure: stepped along with the steps, flat under the steps, or smooth.",
-                "enum": ["Stepped", "Flat", "Smooth", "Unknown"]
+                "$ref": "#/StairStructureBottomTypeOrUnknown"
             },
             "thickness": {
                 "type": "number",
@@ -16774,8 +16729,7 @@
         "description": "The draining of one side of a monolithic stair structure (API_StairStructureDrainingData).",
         "properties": {
             "side": {
-                "type": "string",
-                "enum": ["Left", "Right"]
+                "$ref": "#/StairDrainingSide"
             },
             "enabled": {
                 "type": "boolean",
@@ -16802,9 +16756,7 @@
                 "description": "The surface of the draining."
             },
             "surfaceType": {
-                "type": "string",
-                "description": "Whether the draining is stepped or smooth.",
-                "enum": ["Stepped", "Smooth"]
+                "$ref": "#/StairDrainingSurfaceType"
             }
         },
         "additionalProperties": false,
@@ -16823,9 +16775,7 @@
                 "description": "The height of the stringer above its tread."
             },
             "heightMeasure": {
-                "type": "string",
-                "description": "How the height above the tread is measured: perpendicular to the stair or vertically.",
-                "enum": ["Perpendicular", "Vertical"]
+                "$ref": "#/StairSideStructureHeightMeasure"
             }
         },
         "additionalProperties": false,
@@ -16927,9 +16877,8 @@
         "description": "The draining of one side of a monolithic stair structure that CreateStairs and ModifyStairs write (API_StairStructureDrainingData). Only the given fields are changed.",
         "properties": {
             "side": {
-                "type": "string",
-                "description": "The side of the draining.",
-                "enum": ["Left", "Right"]
+                "$ref": "#/StairDrainingSide",
+                "description": "The side of the draining."
             },
             "enabled": {
                 "type": "boolean",
@@ -16959,9 +16908,7 @@
                 "description": "The surface of the draining."
             },
             "surfaceType": {
-                "type": "string",
-                "description": "Whether the draining is stepped or smooth.",
-                "enum": ["Stepped", "Smooth"]
+                "$ref": "#/StairDrainingSurfaceType"
             }
         },
         "additionalProperties": false,
@@ -16981,9 +16928,7 @@
                 "description": "The height of the stringer above its tread."
             },
             "heightMeasure": {
-                "type": "string",
-                "description": "How the height above the tread is measured: perpendicular to the stair or vertically.",
-                "enum": ["Perpendicular", "Vertical"]
+                "$ref": "#/StairSideStructureHeightMeasure"
             }
         },
         "additionalProperties": false
@@ -17069,8 +17014,10 @@
         "type": "object",
         "description": "The headroom of a Stair (API_StairHeadroomData, Stair Settings > Headroom): the clear space above the flights that Archicad checks against the elements above the stair. GetDetailsOfElements returns every field; CreateStairs and ModifyStairs write only the given ones.",
         "properties": {
-            "method": { "type": "string", "enum": ["RightAngleToSlope", "VerticallyToSlope", "Unknown"], "description": "How the headroom is generated: at right angle to the slope of the stair (APIHM_RightAngleToSlope) or vertically to it (APIHM_VerticallyToSlope). GetDetailsOfElements returns Unknown for a value it does not know; CreateStairs and ModifyStairs refuse Unknown." },
-            "height": { "type": "number", "exclusiveMinimum": 0.0, "description": "The height of the headroom." },
+            "method": {
+                "$ref": "#/StairHeadroomMethod"
+            },
+            "height": { "type": "number", "minimum": 0.0, "exclusiveMinimum": true, "description": "The height of the headroom." },
             "leftOffset": { "type": "number", "description": "The offset of the headroom from the left side of the stair." },
             "rightOffset": { "type": "number", "description": "The offset of the headroom from the right side of the stair." }
         },
@@ -17081,9 +17028,7 @@
         "description": "The floor plan or reflected ceiling plan display settings of a Stair that CreateStairs and ModifyStairs write (API_StairLayoutData without its visibility and isAutoOnStoryVisibility, which storyVisibility sets): the shown stories and components, the symbol on each story, the break line and the line type, pen and fill overrides. Only the given fields are changed; GetDetailsOfElements reads them back in floorPlanLayout and reflectedCeilingPlanLayout, with the same keys.",
         "properties": {
             "storyVisibility": {
-                "type": "string",
-                "description": "The stories the stair is shown on. The AllRelevant... values let Archicad work out the relevant stories from the stair's height (isAutoOnStoryVisibility true); the others set the shown stories (visibility) to match and isAutoOnStoryVisibility false.",
-                "enum": ["HomeStoryOnly", "HomeAndOneStoryUp", "HomeAndOneStoryDown", "HomeAndOneStoryUpAndDown", "OneStoryUp", "OneStoryDown", "AllStories", "AllRelevantStories", "AllRelevantAndOneStoryUp", "AllRelevantAndOneStoryDown"]
+                "$ref": "#/StairStoryVisibilityInput"
             },
             "showWalkingLine": {
                 "type": "boolean",
@@ -17126,9 +17071,7 @@
                 "description": "The symbol shown on the stories below the stair's relevant stories (Unknown is refused)."
             },
             "breakLineAngleType": {
-                "type": "string",
-                "description": "How the angle of the break line is given: by breakLineAngle to the vertical or to the horizontal, or worked out from breakLineAngleNumberOfGoings.",
-                "enum": ["AngleToVertical", "AngleToHorizontal", "NumberOfGoings"]
+                "$ref": "#/StairBreakLineAngleTypeInput"
             },
             "breakLineAngle": {
                 "type": "number",
@@ -17144,9 +17087,7 @@
                 "description": "The gap of the break line."
             },
             "breakLinePositionType": {
-                "type": "string",
-                "description": "Where the break line is: at the floor plan cut plane height, at a custom height or at a given riser.",
-                "enum": ["FloorPlanCutPlaneHeight", "CustomHeight", "AtNthRiser"]
+                "$ref": "#/StairBreakLinePositionTypeInput"
             },
             "upperBreakLineCustomPosition": {
                 "type": "number",
@@ -17212,9 +17153,7 @@
         "description": "The line types, pens and fills of one structure symbol of a Stair that CreateStairs and ModifyStairs write (API_StairStructureSymbolData of API_StairType::structSymbData), for one structure type and view. Only the given fields are changed; GetDetailsOfElements reads them back in structureSymbols, with the same keys.",
         "properties": {
             "structureType": {
-                "type": "string",
-                "description": "The structure the symbol is for: the structure under the stair or the stringers.",
-                "enum": ["UnderStructure", "Stringer"]
+                "$ref": "#/StairSymbolStructureType"
             },
             "view": {
                 "$ref": "#/StairSymbolView",
@@ -17374,99 +17313,7 @@
                 "type": "array",
                 "description": "The visibility per story range relative to the stair's relevant stories (API_StairStructSymbRelevantStoriesID). Only the given story ranges are changed.",
                 "items": {
-                    "type": "object",
-                    "properties": {
-                        "relevantStories": {
-                            "type": "string",
-                            "description": "The story range: every story, the stories below the relevant stories, the bottom, middle and top relevant story, or the stories above them.",
-                            "enum": ["AllStories", "BelowRelevant", "BottomRelevant", "MiddleRelevant", "TopRelevant", "AboveRelevant"]
-                        },
-                        "structures": {
-                            "type": "array",
-                            "description": "Whether the lines of each structure are shown, per visible or hidden part. Only the given items are changed.",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "part": {
-                                        "$ref": "#/StairSymbolPart",
-                                        "description": "The visible or the hidden part of the structure (Unknown is refused)."
-                                    },
-                                    "structure": {
-                                        "type": "string",
-                                        "description": "The structure: beam, cantilevered, stringer or monolithic.",
-                                        "enum": ["Beam", "Cantilevered", "Stringer", "Monolith"]
-                                    },
-                                    "visible": {
-                                        "type": "boolean",
-                                        "description": "Whether its lines are shown."
-                                    }
-                                },
-                                "additionalProperties": false,
-                                "required": ["part", "structure", "visible"]
-                            }
-                        },
-                        "fills": {
-                            "type": "array",
-                            "description": "Whether the fills of each structure type are shown, per visible or hidden part. Only the given items are changed.",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "part": {
-                                        "$ref": "#/StairSymbolPart",
-                                        "description": "The visible or the hidden part of the structure (Unknown is refused)."
-                                    },
-                                    "structureType": {
-                                        "type": "string",
-                                        "description": "The structure under the stair or the stringers.",
-                                        "enum": ["UnderStructure", "Stringer"]
-                                    },
-                                    "visible": {
-                                        "type": "boolean",
-                                        "description": "Whether its fill is shown."
-                                    }
-                                },
-                                "additionalProperties": false,
-                                "required": ["part", "structureType", "visible"]
-                            }
-                        },
-                        "monolithParts": {
-                            "type": "array",
-                            "description": "Which parts of a monolithic structure are shown, per visible or hidden part. Only the given fields are changed.",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "part": {
-                                        "$ref": "#/StairSymbolPart",
-                                        "description": "The visible or the hidden part of the structure (Unknown is refused)."
-                                    },
-                                    "connectionVisible": {
-                                        "type": "boolean",
-                                        "description": "Whether the connection lines are shown."
-                                    },
-                                    "drainingVisible": {
-                                        "type": "boolean",
-                                        "description": "Whether the draining is shown."
-                                    },
-                                    "landingLineVisible": {
-                                        "type": "boolean",
-                                        "description": "Whether the landing lines are shown."
-                                    },
-                                    "structureGoingVisible": {
-                                        "type": "boolean",
-                                        "description": "Whether the going lines of the structure are shown."
-                                    },
-                                    "structureGoingNosingVisible": {
-                                        "type": "boolean",
-                                        "description": "Whether the nosing lines of the structure are shown."
-                                    }
-                                },
-                                "additionalProperties": false,
-                                "required": ["part"]
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": ["relevantStories"]
+                    "$ref": "#/StairStoryVisibilitySettings"
                 }
             }
         },
@@ -17484,9 +17331,7 @@
                 "type": "boolean"
             },
             "storyVisibility": {
-                "type": "string",
-                "description": "The stories the stair is shown on.",
-                "enum": ["HomeStoryOnly", "HomeAndOneStoryUp", "HomeAndOneStoryDown", "HomeAndOneStoryUpAndDown", "OneStoryUp", "OneStoryDown", "AllStories", "AllRelevantStories", "AllRelevantAndOneStoryUp", "AllRelevantAndOneStoryDown", "Unknown"]
+                "$ref": "#/StairStoryVisibility"
             },
             "gridTypeAbove": {
                 "$ref": "#/StairGridType",
@@ -17524,8 +17369,7 @@
                 "type": "boolean"
             },
             "breakLineAngleType": {
-                "type": "string",
-                "enum": ["AngleToVertical", "AngleToHorizontal", "NumberOfGoings", "Unknown"]
+                "$ref": "#/StairBreakLineAngleType"
             },
             "breakLineAngle": {
                 "type": "number",
@@ -17540,8 +17384,7 @@
                 "description": "The gap of the break line."
             },
             "breakLinePositionType": {
-                "type": "string",
-                "enum": ["FloorPlanCutPlaneHeight", "CustomHeight", "AtNthRiser", "Unknown"]
+                "$ref": "#/StairBreakLinePositionType"
             },
             "upperBreakLineCustomPosition": {
                 "type": "number",
@@ -18334,7 +18177,7 @@
             },
             "levelAngle": {
                 "type": "number",
-                "exclusiveMinimum": 0.0
+                "minimum": 0.0, "exclusiveMinimum": true
             },
             "height": {
                 "type": "number",
@@ -18342,7 +18185,7 @@
             },
             "angle": {
                 "type": "number",
-                "exclusiveMinimum": 0.0,
+                "minimum": 0.0, "exclusiveMinimum": true,
                 "description": "The same as levelAngle, as GetDetailsOfElements reads it."
             }
         },
@@ -19261,7 +19104,7 @@
             },
             "roomLSize": {
                 "type": "number",
-                "exclusiveMinimum": 0.0,
+                "minimum": 0.0, "exclusiveMinimum": true,
                 "description": "Letter size of the zone (roomLSize of the Archicad API) in millimetres, not in metres like the other lengths. The zone stamps of the current Archicad libraries size their texts with their own parameters (GetGDLParametersOfElements, SetGDLParametersOfElements), so this value may not change how the stamp looks."
             },
             "referencePosition": {
@@ -19746,7 +19589,7 @@
             },
             "rasterizeDPI": {
                 "type": "number",
-                "exclusiveMinimum": 0,
+                "minimum": 0, "exclusiveMinimum": true,
                 "description": "The resolution, in dots per inch, a PDF drawing is rasterized at (API_DrawingType::rasterizeDPI)."
             },
             "anchorPoint": {
@@ -19755,6 +19598,10 @@
             "useOwnOriginAsAnchor": {
                 "type": "boolean",
                 "description": "Whether the drawing is placed by its own origin instead of anchorPoint (API_DrawingType::useOwnOrigoAsAnchor)."
+            },
+            "manualUpdate": {
+                "type": "boolean",
+                "description": "The Drawing Manager's Update Type: true for Manual, false for Automatic (API_DrawingType::manualUpdate). The item fails when Archicad keeps the old value."
             }
         },
         "additionalProperties": false
@@ -24103,7 +23950,7 @@
             "length": {
                 "type": "number",
                 "description": "Optional length of the take-off in meters, set after placing it; must be positive. The length of the Take-Off tool when not given.",
-                "exclusiveMinimum": 0
+                "minimum": 0, "exclusiveMinimum": true
             },
             "defaults": {
                 "type": "object",
@@ -30409,12 +30256,12 @@
             "totalHeight": {
                 "type": "number",
                 "description": "Total height of the stair.",
-                "exclusiveMinimum": 0.0
+                "minimum": 0.0, "exclusiveMinimum": true
             },
             "flightWidth": {
                 "type": "number",
                 "description": "Width of the stair flight.",
-                "exclusiveMinimum": 0.0
+                "minimum": 0.0, "exclusiveMinimum": true
             },
             "stepNum": {
                 "type": "integer",
@@ -30424,12 +30271,12 @@
             "riserHeight": {
                 "type": "number",
                 "description": "Height of each riser.",
-                "exclusiveMinimum": 0.0
+                "minimum": 0.0, "exclusiveMinimum": true
             },
             "treadDepth": {
                 "type": "number",
                 "description": "Depth (going) of each tread.",
-                "exclusiveMinimum": 0.0
+                "minimum": 0.0, "exclusiveMinimum": true
             },
             "finishVisible": {
                 "type": "boolean",
@@ -32317,7 +32164,7 @@
     },
     "ElementHeaderFromOtherDatabase": {
         "type": "object",
-        "description": "An element that is not in the current database but in another one (a layout, a section, a worksheet ...). Only the fields of its element header are returned: no id, details or floorPlanPolygons. Use GetContainingDatabases and ChangeWindow to open its database and read its full details.",
+        "description": "An element that is not in the current database but in another one (a layout, a section, a worksheet ...). Only the fields of its element header are returned: no id, details or floorPlanPolygons. Give GetDetailsOfElements readFromOtherDatabases: true to read its full details without opening a window, or use GetContainingDatabases and ChangeWindow to open its database first.",
         "properties": {
             "elementId": {
                 "$ref": "#/ElementId"
@@ -33124,13 +32971,7 @@
         "type": "object",
         "properties": {
             "segmentType": {
-                "type": "string",
-                "enum": [
-                    "Flight",
-                    "Landing",
-                    "DividedLanding"
-                ],
-                "description": "Flight: steps. Landing: a landing segment, the edge between two landing turns of a U-shaped stair. DividedLanding: a divided landing segment."
+                "$ref": "#/StairBaselineSegmentType"
             }
         },
         "additionalProperties": false,
@@ -33229,5 +33070,463 @@
                 }
             ]
         }
+    },
+    "StairBaselineEdgeDetails": {
+        "type": "object",
+        "properties": {
+            "segmentType": {
+                "$ref": "#/StairBaselineSegmentTypeOrUnknown"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "segmentType"
+        ]
+    },
+    "StairBaselineSegmentTypeOrUnknown": {
+        "type": "string",
+        "enum": [
+            "Flight",
+            "Landing",
+            "DividedLanding",
+            "Unknown"
+        ]
+    },
+    "StairBaselineVertexDetails": {
+        "type": "object",
+        "properties": {
+            "turnType": {
+                "$ref": "#/StairBaselineTurnTypeOrUnknown"
+            },
+            "landingStartEdgeOffset": {
+                "type": "number",
+                "description": "The lead edge offset of the landing as Archicad calculated it."
+            },
+            "landingEndEdgeOffset": {
+                "type": "number",
+                "description": "The trail edge offset of the landing as Archicad calculated it."
+            },
+            "minLandingStartEdgeOffset": {
+                "type": "number",
+                "description": "The minimal lead edge offset."
+            },
+            "minLandingEndEdgeOffset": {
+                "type": "number",
+                "description": "The minimal trail edge offset."
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "turnType",
+            "landingStartEdgeOffset",
+            "landingEndEdgeOffset",
+            "minLandingStartEdgeOffset",
+            "minLandingEndEdgeOffset"
+        ]
+    },
+    "StairBaselineTurnTypeOrUnknown": {
+        "type": "string",
+        "enum": [
+            "None",
+            "Landing",
+            "Winder",
+            "DividedLanding",
+            "Unknown"
+        ]
+    },
+    "StairStructureSymbolType": {
+        "type": "string",
+        "enum": [
+            "UnderStructure",
+            "Stringer",
+            "Unknown"
+        ]
+    },
+    "StairStoryStructureVisibility": {
+        "type": "object",
+        "properties": {
+            "part": {
+                "$ref": "#/StairSymbolPart"
+            },
+            "structure": {
+                "$ref": "#/StairStoryStructureType"
+            },
+            "visible": {
+                "type": "boolean"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "part",
+            "structure",
+            "visible"
+        ]
+    },
+    "StairStoryStructureType": {
+        "type": "string",
+        "enum": [
+            "Beam",
+            "Cantilevered",
+            "Stringer",
+            "Monolith",
+            "Unknown"
+        ]
+    },
+    "StairStoryVisibility": {
+        "type": "string",
+        "description": "The stories the stair is shown on.",
+        "enum": [
+            "HomeStoryOnly",
+            "HomeAndOneStoryUp",
+            "HomeAndOneStoryDown",
+            "HomeAndOneStoryUpAndDown",
+            "OneStoryUp",
+            "OneStoryDown",
+            "AllStories",
+            "AllRelevantStories",
+            "AllRelevantAndOneStoryUp",
+            "AllRelevantAndOneStoryDown",
+            "Unknown"
+        ]
+    },
+    "StairBoundaryEdge": {
+        "type": "object",
+        "properties": {
+            "visible": {
+                "type": "boolean",
+                "description": "Whether the part of the stair this segment describes is visible."
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "visible"
+        ]
+    },
+    "StairStoryVisibilitySettings": {
+        "type": "object",
+        "properties": {
+            "relevantStories": {
+                "$ref": "#/StairVisibilityStoryRange"
+            },
+            "structures": {
+                "type": "array",
+                "description": "Whether the lines of each structure are shown, per visible or hidden part. Only the given items are changed.",
+                "items": {
+                    "$ref": "#/StairStructureLineVisibility"
+                }
+            },
+            "fills": {
+                "type": "array",
+                "description": "Whether the fills of each structure type are shown, per visible or hidden part. Only the given items are changed.",
+                "items": {
+                    "$ref": "#/StairStructureFillVisibility"
+                }
+            },
+            "monolithParts": {
+                "type": "array",
+                "description": "Which parts of a monolithic structure are shown, per visible or hidden part. Only the given fields are changed.",
+                "items": {
+                    "$ref": "#/StairMonolithPartVisibility"
+                }
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "relevantStories"
+        ]
+    },
+    "StairStructureLineVisibility": {
+        "type": "object",
+        "properties": {
+            "part": {
+                "$ref": "#/StairSymbolPart",
+                "description": "The visible or the hidden part of the structure (Unknown is refused)."
+            },
+            "structure": {
+                "$ref": "#/StairLineStructureType"
+            },
+            "visible": {
+                "type": "boolean",
+                "description": "Whether its lines are shown."
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "part",
+            "structure",
+            "visible"
+        ]
+    },
+    "StairStructureFillVisibility": {
+        "type": "object",
+        "properties": {
+            "part": {
+                "$ref": "#/StairSymbolPart",
+                "description": "The visible or the hidden part of the structure (Unknown is refused)."
+            },
+            "structureType": {
+                "$ref": "#/StairSymbolStructureType"
+            },
+            "visible": {
+                "type": "boolean",
+                "description": "Whether its fill is shown."
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "part",
+            "structureType",
+            "visible"
+        ]
+    },
+    "StairMonolithPartVisibility": {
+        "type": "object",
+        "properties": {
+            "part": {
+                "$ref": "#/StairSymbolPart",
+                "description": "The visible or the hidden part of the structure (Unknown is refused)."
+            },
+            "connectionVisible": {
+                "type": "boolean",
+                "description": "Whether the connection lines are shown."
+            },
+            "drainingVisible": {
+                "type": "boolean",
+                "description": "Whether the draining is shown."
+            },
+            "landingLineVisible": {
+                "type": "boolean",
+                "description": "Whether the landing lines are shown."
+            },
+            "structureGoingVisible": {
+                "type": "boolean",
+                "description": "Whether the going lines of the structure are shown."
+            },
+            "structureGoingNosingVisible": {
+                "type": "boolean",
+                "description": "Whether the nosing lines of the structure are shown."
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "part"
+        ]
+    },
+    "StairBaselineSegmentType": {
+        "type": "string",
+        "enum": [
+            "Flight",
+            "Landing",
+            "DividedLanding"
+        ],
+        "description": "Flight: steps. Landing: a landing segment, the edge between two landing turns of a U-shaped stair. DividedLanding: a divided landing segment."
+    },
+    "StairBaselinePositionOrUnknown": {
+        "type": "string",
+        "enum": [
+            "Left",
+            "Right",
+            "Center",
+            "Auto",
+            "Unknown"
+        ],
+        "description": "The edge of the flight the baseline runs on, as CreateStairs takes it (API_StairType::baselinePosition)."
+    },
+    "StairDisplayType": {
+        "type": "string",
+        "description": "Whether the floor plan display of the stair is set in the stair itself (Custom) or comes from the Model View Options (ByModelViewOptions) (API_StairType::stairDisplayType).",
+        "enum": [
+            "Custom",
+            "ByModelViewOptions",
+            "Unknown"
+        ]
+    },
+    "StairHeadroomMethod": {
+        "type": "string",
+        "enum": [
+            "RightAngleToSlope",
+            "VerticallyToSlope",
+            "Unknown"
+        ],
+        "description": "How the headroom is generated: at right angle to the slope of the stair (APIHM_RightAngleToSlope) or vertically to it (APIHM_VerticallyToSlope). GetDetailsOfElements returns Unknown for a value it does not know; CreateStairs and ModifyStairs refuse Unknown."
+    },
+    "StairRiserPosition": {
+        "type": "string",
+        "enum": [
+            "OnTread",
+            "BehindTread"
+        ],
+        "description": "Whether the riser stands on the tread below or behind it."
+    },
+    "StairStructureRoleOrUnknown": {
+        "type": "string",
+        "description": "Whether the structure belongs to the flights (Run) or to the landings (Landing).",
+        "enum": [
+            "Run",
+            "Landing",
+            "Unknown"
+        ]
+    },
+    "StairStructureSideOrUnknown": {
+        "type": "string",
+        "description": "Where the structure supports the steps: from the left, from the right or from under.",
+        "enum": [
+            "LeftSide",
+            "RightSide",
+            "UnderSide",
+            "Unknown"
+        ]
+    },
+    "StairStructureTypeOrUnknown": {
+        "type": "string",
+        "description": "The type of the structure: side stringers, monolithic, beam supported or cantilevered.",
+        "enum": [
+            "Side",
+            "Monolith",
+            "BeamSupport",
+            "CantileveredSupport",
+            "Unknown"
+        ]
+    },
+    "StairStructureBottomTypeOrUnknown": {
+        "type": "string",
+        "description": "The bottom of the structure: stepped along with the steps, flat under the steps, or smooth.",
+        "enum": [
+            "Stepped",
+            "Flat",
+            "Smooth",
+            "Unknown"
+        ]
+    },
+    "StairDrainingSide": {
+        "type": "string",
+        "enum": [
+            "Left",
+            "Right"
+        ]
+    },
+    "StairSymbolStructureType": {
+        "type": "string",
+        "description": "The structure the symbol is for: the structure under the stair or the stringers.",
+        "enum": [
+            "UnderStructure",
+            "Stringer"
+        ]
+    },
+    "StairWalkingLineSymbolPosition": {
+        "type": "string",
+        "enum": [
+            "Auto",
+            "Center",
+            "Custom"
+        ],
+        "description": "Where the symbol of the walking line is placed (API_StairType::walkLineSymbPos), as CreateStairs and ModifyStairs take it."
+    },
+    "StairUniformSideSupports": {
+        "type": "object",
+        "description": "Whether the left and right side supports of the flights (run) and of the landings (landing) share their settings (API_StairType::uniformLeftRightSideSupports).",
+        "properties": {
+            "run": {
+                "type": "boolean"
+            },
+            "landing": {
+                "type": "boolean"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "run",
+            "landing"
+        ]
+    },
+    "StairSideStructureHeightMeasure": {
+        "type": "string",
+        "description": "How the height above the tread is measured: perpendicular to the stair or vertically.",
+        "enum": [
+            "Perpendicular",
+            "Vertical"
+        ]
+    },
+    "StairVisibilityStoryRange": {
+        "type": "string",
+        "description": "The story range: every story, the stories below the relevant stories, the bottom, middle and top relevant story, or the stories above them.",
+        "enum": [
+            "AllStories",
+            "BelowRelevant",
+            "BottomRelevant",
+            "MiddleRelevant",
+            "TopRelevant",
+            "AboveRelevant"
+        ]
+    },
+    "StairLineStructureType": {
+        "type": "string",
+        "description": "The structure: beam, cantilevered, stringer or monolithic.",
+        "enum": [
+            "Beam",
+            "Cantilevered",
+            "Stringer",
+            "Monolith"
+        ]
+    },
+    "StairBreakLineAngleType": {
+        "type": "string",
+        "enum": [
+            "AngleToVertical",
+            "AngleToHorizontal",
+            "NumberOfGoings",
+            "Unknown"
+        ]
+    },
+    "StairBreakLinePositionType": {
+        "type": "string",
+        "enum": [
+            "FloorPlanCutPlaneHeight",
+            "CustomHeight",
+            "AtNthRiser",
+            "Unknown"
+        ]
+    },
+    "StairStoryVisibilityInput": {
+        "type": "string",
+        "description": "The stories the stair is shown on. The AllRelevant... values let Archicad work out the relevant stories from the stair's height (isAutoOnStoryVisibility true); the others set the shown stories (visibility) to match and isAutoOnStoryVisibility false.",
+        "enum": [
+            "HomeStoryOnly",
+            "HomeAndOneStoryUp",
+            "HomeAndOneStoryDown",
+            "HomeAndOneStoryUpAndDown",
+            "OneStoryUp",
+            "OneStoryDown",
+            "AllStories",
+            "AllRelevantStories",
+            "AllRelevantAndOneStoryUp",
+            "AllRelevantAndOneStoryDown"
+        ]
+    },
+    "StairBreakLineAngleTypeInput": {
+        "type": "string",
+        "description": "How the angle of the break line is given: by breakLineAngle to the vertical or to the horizontal, or worked out from breakLineAngleNumberOfGoings.",
+        "enum": [
+            "AngleToVertical",
+            "AngleToHorizontal",
+            "NumberOfGoings"
+        ]
+    },
+    "StairBreakLinePositionTypeInput": {
+        "type": "string",
+        "description": "Where the break line is: at the floor plan cut plane height, at a custom height or at a given riser.",
+        "enum": [
+            "FloorPlanCutPlaneHeight",
+            "CustomHeight",
+            "AtNthRiser"
+        ]
+    },
+    "StairDrainingSurfaceType": {
+        "type": "string",
+        "description": "Whether the draining is stepped or smooth.",
+        "enum": [
+            "Stepped",
+            "Smooth"
+        ]
     }
 }

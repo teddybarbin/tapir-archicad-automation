@@ -1608,9 +1608,19 @@ GS::ObjectState ActivateLayerCombinationCommand::Execute (const GS::ObjectState&
     API_Attribute attribute = {};
     attribute.header.typeID = API_LayerCombID;
     attribute.header.guid = GetGuidFromObjectState (attributeId);
+    const API_Guid requestedGuid = attribute.header.guid;
     GSErrCode err = ACAPI_Attribute_Get (&attribute);
     if (err != NoError) {
         return CreateFailedExecutionResult (err, "Layer combination not found.");
+    }
+
+    // A lookup by guid also finds attributes of other types (the guid of a Layer returned the Layer, whose index
+    // then activated an unrelated layer combination). Reading the layer combination back by that index tells them apart.
+    API_Attribute layerComb = {};
+    layerComb.header.typeID = API_LayerCombID;
+    layerComb.header.index = attribute.header.index;
+    if (attribute.header.typeID != API_LayerCombID || ACAPI_Attribute_Get (&layerComb) != NoError || layerComb.header.guid != requestedGuid) {
+        return CreateFailedExecutionResult (APIERR_BADID, "Layer combination not found.");
     }
 
     // Applies the combination to the current window, like choosing it in the
@@ -6204,7 +6214,8 @@ GS::Optional<GS::UniString> CreateBuildingMaterialsCommand::GetInputParametersSc
                         },
                         "name": {
                             "type": "string",
-                            "description": "Name. If overwriteExisting is true, then the existing Building Material with the given name will be overwritten."
+                            "description": "Name. If overwriteExisting is true, then the existing Building Material with the given name will be overwritten. It must not be empty.",
+                            "minLength": 1
                         },
                         "id": {
                             "type": "string",
@@ -6403,7 +6414,8 @@ GS::Optional<GS::UniString> CreateLayersCommand::GetInputParametersSchema () con
                         },
                         "name": {
                             "type": "string",
-                            "description": "Name. If overwriteExisting is true, then the existing Layer with the given name will be overwritten."
+                            "description": "Name. If overwriteExisting is true, then the existing Layer with the given name will be overwritten. It must not be empty.",
+                            "minLength": 1
                         },
                         "isHidden": {
                             "type": "boolean",
@@ -6498,7 +6510,8 @@ GS::Optional<GS::UniString> CreateLayerCombinationsCommand::GetInputParametersSc
                         },
                         "name": {
                             "type": "string",
-                            "description": "Name. If overwriteExisting is true, then the existing Layer Combination with the given name will be overwritten."
+                            "description": "Name. If overwriteExisting is true, then the existing Layer Combination with the given name will be overwritten. It must not be empty.",
+                            "minLength": 1
                         },
                         "layers": {
                             "$ref": "#/LayersOfLayerCombination",
@@ -6666,7 +6679,8 @@ GS::Optional<GS::UniString> CreateLinesCommand::GetInputParametersSchema () cons
                         },
                         "name": {
                             "type": "string",
-                            "description": "Name. If overwriteExisting is true, then the existing Line with the given name will be overwritten."
+                            "description": "Name. If overwriteExisting is true, then the existing Line with the given name will be overwritten. It must not be empty.",
+                            "minLength": 1
                         },
                         "scaleWithPlan": {
                             "type": "boolean",
@@ -6875,7 +6889,8 @@ GS::Optional<GS::UniString> CreateFillsCommand::GetInputParametersSchema () cons
                         },
                         "name": {
                             "type": "string",
-                            "description": "Name. If overwriteExisting is true, then the existing Fill with the given name will be overwritten."
+                            "description": "Name. If overwriteExisting is true, then the existing Fill with the given name will be overwritten. It must not be empty.",
+                            "minLength": 1
                         },
                         "subType": {
                             "type": "string",
@@ -7425,7 +7440,8 @@ GS::Optional<GS::UniString> CreateZoneCategoriesCommand::GetInputParametersSchem
                         },
                         "name": {
                             "type": "string",
-                            "description": "Name. If overwriteExisting is true, then the existing Zone Category with the given name will be overwritten."
+                            "description": "Name. If overwriteExisting is true, then the existing Zone Category with the given name will be overwritten. It must not be empty.",
+                            "minLength": 1
                         },
                         "categoryCode": {
                             "type": "string",
@@ -7605,7 +7621,8 @@ GS::Optional<GS::UniString> CreateMEPSystemsCommand::GetInputParametersSchema ()
                         },
                         "name": {
                             "type": "string",
-                            "description": "Name. If overwriteExisting is true, then the existing MEP System with the given name will be overwritten."
+                            "description": "Name. If overwriteExisting is true, then the existing MEP System with the given name will be overwritten. It must not be empty.",
+                            "minLength": 1
                         },
                         "domain": {
                             "$ref": "#/MEPDomain",
@@ -7753,7 +7770,8 @@ GS::Optional<GS::UniString> CreateSurfacesCommand::GetInputParametersSchema () c
                         },
                         "name": {
                             "type": "string",
-                            "description": "Name. If overwriteExisting is true, then the existing surface with the given name will be overwritten."
+                            "description": "Name. If overwriteExisting is true, then the existing surface with the given name will be overwritten. It must not be empty.",
+                            "minLength": 1
                         },
                         "materialType": {
                             "$ref": "#/SurfaceType"
@@ -7989,7 +8007,8 @@ GS::Optional<GS::UniString> CreatePenTablesCommand::GetInputParametersSchema () 
                         },
                         "name": {
                             "type": "string",
-                            "description": "Name. If overwriteExisting is true, then the existing Pen Table with the given name will be overwritten."
+                            "description": "Name. If overwriteExisting is true, then the existing Pen Table with the given name will be overwritten. It must not be empty.",
+                            "minLength": 1
                         },
                         "isActiveForModel": {
                             "type": "boolean",
@@ -8662,7 +8681,8 @@ GS::Optional<GS::UniString> CreateProfilesCommand::GetInputParametersSchema () c
                         },
                         "name": {
                             "type": "string",
-                            "description": "Name. If overwriteExisting is true, then the existing Profile with the given name will be overwritten."
+                            "description": "Name. If overwriteExisting is true, then the existing Profile with the given name will be overwritten. It must not be empty.",
+                            "minLength": 1
                         },
                         "sourceAttributeId": {
                             "description": "Identifier of an existing Profile whose geometry (cross-section shape) will be copied as the starting point. Optional if newSkins is given: omit it to build the Profile's geometry entirely from newSkins instead of copying anything (AC27+ only).",
@@ -9285,7 +9305,8 @@ GS::Optional<GS::UniString> CreateCompositesCommand::GetInputParametersSchema ()
                         },
                         "name": {
                             "type": "string",
-                            "description": "Name. If overwriteExisting is true, then the existing Composite with the given name will be overwritten."
+                            "description": "Name. If overwriteExisting is true, then the existing Composite with the given name will be overwritten. It must not be empty.",
+                            "minLength": 1
                         },
                         "useWith": {
                             "type": "array",

@@ -2676,6 +2676,21 @@ static void AddFloorPlanPolygonsIfAvailable (const API_Guid& guid, GS::ObjectSta
     params.allStories = true;
     params.polygon    = nullptr;
 
+    // The floor plan primitives of a model element are only generated in the floor plan
+    // database: with the 3D window (or a section, ...) current, the same request returned no
+    // floorPlanPolygons for a wall that has them on the floor plan (#3090). So the CURRENT
+    // DATABASE - not the visible window - is switched to the floor plan for this read and put
+    // back on every exit path, as Get3DBoundingBoxes does it (#1482). From the floor plan nothing
+    // is touched.
+    API_DatabaseInfo previousDatabase = {};
+    bool databaseSwitched = false;
+    const GS::OnExit restoreDatabase ([&] () {
+        if (databaseSwitched) {
+            ACAPI_Database_ChangeCurrentDatabase (&previousDatabase);
+        }
+    });
+    SwitchCurrentDatabaseToFloorPlan (previousDatabase, databaseSwitched);
+
 #if defined(ServerMainVers_2700)
     const GSErrCode fpErr = ACAPI_DrawingPrimitive_ShapePrimsExt (elemHead, CollectCutFillPolygons, &params);
 #else
@@ -11948,7 +11963,15 @@ GS::ObjectState Get3DBoundingBoxesCommand::Execute (const GS::ObjectState& param
             // returning an error (#686). Deliberately no CalcBounds fallback for the Slab:
             // the situations that leave it without a solid body are the very ones in which
             // CalcBounds crashes.
-            err = CalculateSolidBodyBounds (elemHead, box3D);
+            InitializeEmptyBounds (box3D);
+            bool foundSolidBody = false;
+            err = AccumulateSolidBodyBounds (elemHead, box3D, foundSolidBody);
+            if (err == NoError && !foundSolidBody) {
+                // Archicad's 3D model of the element is there but holds no solid body: a trim can
+                // remove the whole body, e.g. of an in-place copy trimmed like its original (#3088).
+                boundingBoxes3D (CreateErrorResponse (APIERR_GENERAL, "Archicad's 3D model of the element has no solid body (it may be trimmed away entirely), so there is no 3D bounding box"));
+                continue;
+            }
         } else if (typeID == API_WallID) {
             // ACAPI_Element_CalcBounds measures a Wall along its reference line, so it leaves
             // out what the wall connections add: at an L or T corner the 3D body reaches up to

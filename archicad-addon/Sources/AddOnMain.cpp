@@ -1257,8 +1257,9 @@ GSErrCode Initialize (void)
             elementCommands, "2.0.0",
             "Modifies Skylight elements: anchor position and anchor point, fix mode, width, height, azimuth and elevation angles, mirroring, floor plan display option, pens, line types, section fill and pens, surface and the use-the-library-part's-settings flags - the same settings CreateSkylights takes and GetDetailsOfElements returns. Only the given settings change. Not written by this command: the owner roof or shell, the anchor level and the vertical link (Archicad places the skylight on its owner), the plane of a multi-plane roof it sits on, the dimension marker (a separate element) and the library part's own parameters (use SetGDLParametersOfElements). Archicad may set the elevation angle again from the owner."
         );
-        // CreateRailings: the fork's own command is registered further down; upstream's is kept as
-        // CreateRailingsUpstreamCommand (unregistered), the base of CreateRailingsFromPolyline.
+        // CreateRailings and ModifyRailings: the fork's commands are registered further down. They take upstream's
+        // schema too and run upstream's code for it (CreateRailingsUpstreamCommand, ModifyRailingsUpstreamCommand,
+        // unregistered); CreateRailingsUpstreamCommand is also the base of CreateRailingsFromPolyline.
         err |= RegisterCommand<CreateRailingsFromPolylineCommand> (
             elementCommands, "2.0.0",
             "Creates Railing elements along a 3D reference polyline: each node has its own elevation and segments can be arcs. Posts, rails, handrails, toprails, panels and balusters come from the favorite or from the Railing tool defaults."
@@ -1301,7 +1302,7 @@ GSErrCode Initialize (void)
         );
         err |= RegisterCommand<CreateRailingsCommand> (
             elementCommands, "1.7.3",
-            "Creates Railing elements along a 2D reference line, from the Railing tool defaults or a Railing favorite."
+            "Creates Railing elements, each item in one of two forms: the fork's (polylineCoordinates, absolute level, optional floorIndex and favorite) or upstream's (coordinates, floorIndex, bottomOffset, height, favorite or templateElementId). Each railing is created with its home story made active, so it is homed on the requested story."
         );
         err |= RegisterCommand<GetRailingsCommand> (
             elementCommands, "1.7.3",
@@ -1309,7 +1310,7 @@ GSErrCode Initialize (void)
         );
         err |= RegisterCommand<ModifyRailingsCommand> (
             elementCommands, "1.7.3",
-            "Modifies the reference line, its elevation and the segment height of Railing elements."
+            "Modifies Railing elements: upstream's fields (height of every segment, bottom offset, home story, story visibility, pens, segments and nodes), or the fork's reference line (polylineCoordinates: the railing is rebuilt, the response gives the new one) and its absolute elevation (level), with the height. An item mixing level or polylineCoordinates with other fields than height is refused."
         );
         err |= RegisterCommand<ModifyPolylinesCommand> (
             elementCommands, "2.0.1",

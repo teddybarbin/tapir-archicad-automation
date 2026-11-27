@@ -1832,7 +1832,7 @@ GS::ObjectState SetGraphicOverrideRuleGroupOrderCommand::Execute (const GS::Obje
     }
 
     GS::UniString builtInListedName;
-    err = TAPIR_CallUndoableCommand ("Set Graphic Override Rule Group Order", [&] () -> GSErrCode {
+    err = TAPIR_CallUndoableCommandExpecting ("Set Graphic Override Rule Group Order", [&] () -> GSErrCode {
         // Archicad refuses to move a built-in rule group (APIERR_NOACCESSRIGHT), e.g. the Renovation group at the
         // top, and the API has no flag for it. Renaming a group to its own name changes nothing and fails only for
         // a built-in group, so that is how they are found. Built-in groups keep their place.
@@ -1843,10 +1843,10 @@ GS::ObjectState SetGraphicOverrideRuleGroupOrderCommand::Execute (const GS::Obje
         }
         for (UIndex index : listedIndices) {
             if (isBuiltIn[index]) {
-                // Nothing was changed (the probes rename each group to its own name): the undo step ends
-                // normally and the refusal is reported below, so it is not logged as a refused undo step.
+                // The refusal cancels the undo step (no empty step is left by the probes) and is reported
+                // below; it is the expected refusal, so it is not logged as a refused undo step.
                 builtInListedName = currentNames[index];
-                return NoError;
+                return APIERR_NOACCESSRIGHT;
             }
         }
 
@@ -1867,7 +1867,7 @@ GS::ObjectState SetGraphicOverrideRuleGroupOrderCommand::Execute (const GS::Obje
             orderedRuleGroupIds.Push (isBuiltIn[i] ? ruleGroupIds[i] : movableOrder[nextMovable++]);
         }
         return ACAPI_GraphicalOverride_SetOverrideRuleGroupOrder (orderedRuleGroupIds);
-    });
+    }, APIERR_NOACCESSRIGHT);
     if (!builtInListedName.IsEmpty ()) {
         return CreateFailedExecutionResult (APIERR_NOACCESSRIGHT, "The rule group '" + builtInListedName + "' is built in and cannot be moved.");
     }

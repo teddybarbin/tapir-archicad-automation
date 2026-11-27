@@ -25,6 +25,9 @@ enum class CommonSchema
 // error. The wrapper returns the code unchanged and, on error, appends one line (time, step name, code) to
 // %TEMP%/tapir_annulations_refusees.log, which the bench reads after every test: a silent refusal fails the test.
 GSErrCode TAPIR_CallUndoableCommand (const GS::UniString& undoString, const std::function<GSErrCode ()>& command);
+// The same, for a command whose own refusal (expectedRefusal, returned by the command to cancel its undo step) is an
+// answer to the caller and not a refused undo step: that code is not written to tapir_annulations_refusees.log.
+GSErrCode TAPIR_CallUndoableCommandExpecting (const GS::UniString& undoString, const std::function<GSErrCode ()>& command, GSErrCode expectedRefusal);
 
 class CommandBase : public API_AddOnCommand
 {

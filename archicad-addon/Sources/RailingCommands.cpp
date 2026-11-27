@@ -2,6 +2,7 @@
 #include "MigrationHelper.hpp"
 #include "ExtendedElementCommands.hpp"
 #include <string>
+#include <vector>
 
 // Railings: read and change the reference line, its elevation and the segment height.
 // The reference line lives in memo.coords (1-based) with one absolute elevation per vertex in
@@ -211,8 +212,8 @@ GS::Optional<GS::UniString> ModifyRailingsCommand::GetRawResponseSchema () const
 })";
 }
 
-// The fork's part of ModifyRailings: level and polylineCoordinates. The height and every other field go through
-// upstream's code (ModifyRailingsUpstreamCommand), so withHeight is false when called from Execute.
+// The fork's part of ModifyRailings: level and polylineCoordinates, with the height of the default segment (a new
+// reference line regenerates every segment from it). The other fields go through upstream's code.
 static GS::ObjectState ExecuteOwnPart (const GS::Array<GS::ObjectState>& items, bool withHeight)
 {
 
@@ -323,66 +324,107 @@ static GS::ObjectState ExecuteOwnPart (const GS::Array<GS::ObjectState>& items, 
     return response;
 }
 
-// Each item goes first through upstream's ModifyRailings for its own fields, then through the fork's part for level
-// and polylineCoordinates (a new line rebuilds the railing from its settings, the ones just changed included). An
-// item with only the fork's fields skips upstream's code, which refuses an item without one of its fields.
+// An item with level or polylineCoordinates goes to the fork's part, with its height if given; every other item goes
+// to upstream's code. Each part runs once for all its items, so each item is changed in one undo step. The fork's
+// part does not take upstream's other fields: a new reference line rebuilds the railing from its settings only
+// (segments and nodes changed by upstream's code would be lost, and the home story is not made active), and level
+// and bottomOffset both set the base. Such an item is refused, nothing is changed for it.
+static GS::Optional<GS::UniString> RefusedForkCombination (const GS::ObjectState& item)
+{
+    const bool hasLine = item.Contains ("polylineCoordinates");
+    const bool hasLevel = item.Contains ("level");
+    if (!hasLine && !hasLevel) {
+        return {};
+    }
+    GS::UniString others;
+    item.EnumerateFields ([&] (const GS::String& name) {
+        if (name != "elementId" && name != "height" && name != "level" && name != "polylineCoordinates") {
+            others += (others.IsEmpty () ? "" : ", ") + GS::UniString (name.ToCStr ());
+        }
+    });
+    if (others.IsEmpty ()) {
+        return {};
+    }
+    const GS::UniString own = hasLine ? "polylineCoordinates" : "level";
+    return own + " cannot be combined with " + others + (hasLine
+        ? ": a new reference line rebuilds the railing from its own settings, which would drop them. Change the reference line first, then send these fields for the new railing (the response's elements) in another call."
+        : ": level sets the absolute elevation of the reference line, which these fields set or depend on too. Send them in another call.");
+}
+
 GS::ObjectState ModifyRailingsCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& processControl) const
 {
     GS::Array<GS::ObjectState> items;
     parameters.Get ("railingsWithDetails", items);
 
+    enum class Route { Refused, Own, Upstream };
+    std::vector<Route> routes;
+    std::vector<GS::ObjectState> refusals (items.GetSize ());
+    GS::Array<GS::ObjectState> ownItems;
+    GS::ObjectState upstreamParameters;
+    const auto& upstreamItems = upstreamParameters.AddList<GS::ObjectState> ("railingsWithDetails");
+    UIndex upstreamCount = 0;
+    for (UIndex i = 0; i < items.GetSize (); ++i) {
+        const GS::ObjectState& item = items[i];
+        const GS::Optional<GS::UniString> refusal = RefusedForkCombination (item);
+        if (refusal.HasValue ()) {
+            routes.push_back (Route::Refused);
+            refusals[i] = CreateFailedExecutionResult (APIERR_BADPARS, refusal.Get ());
+        } else if (item.Contains ("level") || item.Contains ("polylineCoordinates")) {
+            routes.push_back (Route::Own);
+            ownItems.Push (item);
+        } else {
+            routes.push_back (Route::Upstream);
+            upstreamItems (item);
+            ++upstreamCount;
+        }
+    }
+
+    GS::Array<GS::ObjectState> ownResults;
+    GS::Array<GS::ObjectState> ownElements;
+    if (!ownItems.IsEmpty ()) {
+        const GS::ObjectState ownResponse = ExecuteOwnPart (ownItems, true);
+        ownResponse.Get ("executionResults", ownResults);
+        ownResponse.Get ("elements", ownElements);
+    }
+    GS::Array<GS::ObjectState> upstreamResults;
+    GS::ObjectState upstreamFailure = CreateFailedExecutionResult (APIERR_GENERAL, "Failed to modify the railing.");
+    if (upstreamCount > 0) {
+        const GS::ObjectState upstreamResponse = ModifyRailingsUpstreamCommand ().Execute (upstreamParameters, processControl);
+        upstreamResponse.Get ("executionResults", upstreamResults);
+        const GS::ObjectState* error = upstreamResponse.Get ("error");
+        if (error != nullptr) {
+            GSErrCode code = APIERR_GENERAL;
+            GS::UniString message = "Failed to modify the railing.";
+            error->Get ("code", code);
+            error->Get ("message", message);
+            upstreamFailure = CreateFailedExecutionResult (code, message);
+        }
+    }
+
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
     const auto& outElements = response.AddList<GS::ObjectState> ("elements");
-
-    for (const GS::ObjectState& item : items) {
-        const GS::ObjectState* elementId = item.Get ("elementId");
-        GS::ObjectState element = elementId != nullptr ? CreateElementIdObjectState (GetGuidFromObjectState (*elementId)) : GS::ObjectState ();
-        bool hasUpstreamFields = false;
-        item.EnumerateFields ([&] (const GS::String& name) {
-            if (name != "elementId" && name != "level" && name != "polylineCoordinates") {
-                hasUpstreamFields = true;
-            }
-        });
-        const bool hasOwnFields = item.Contains ("level") || item.Contains ("polylineCoordinates");
-
-        GS::ObjectState result = CreateSuccessfulExecutionResult ();
-        if (hasUpstreamFields || !hasOwnFields) {
-            GS::ObjectState upstreamParameters;
-            const auto& upstreamItems = upstreamParameters.AddList<GS::ObjectState> ("railingsWithDetails");
-            upstreamItems (item);
-            const GS::ObjectState upstreamResponse = ModifyRailingsUpstreamCommand ().Execute (upstreamParameters, processControl);
-            GS::Array<GS::ObjectState> upstreamResults;
-            if (upstreamResponse.Get ("executionResults", upstreamResults) && !upstreamResults.IsEmpty ()) {
-                result = upstreamResults[0];
-            } else {
-                const GS::ObjectState* error = upstreamResponse.Get ("error");
-                GSErrCode code = APIERR_GENERAL;
-                GS::UniString message = "Failed to modify the railing.";
-                if (error != nullptr) {
-                    error->Get ("code", code);
-                    error->Get ("message", message);
-                }
-                result = CreateFailedExecutionResult (code, message);
-            }
+    UIndex nextOwn = 0;
+    UIndex nextUpstream = 0;
+    for (UIndex i = 0; i < items.GetSize (); ++i) {
+        const GS::ObjectState* elementId = items[i].Get ("elementId");
+        const GS::ObjectState element = elementId != nullptr ? CreateElementIdObjectState (GetGuidFromObjectState (*elementId)) : GS::ObjectState ();
+        switch (routes[i]) {
+            case Route::Refused:
+                executionResults (refusals[i]);
+                outElements (element);
+                break;
+            case Route::Own:
+                executionResults (nextOwn < ownResults.GetSize () ? ownResults[nextOwn] : CreateFailedExecutionResult (APIERR_GENERAL, "Failed to change the railing."));
+                outElements (nextOwn < ownElements.GetSize () ? ownElements[nextOwn] : element);
+                ++nextOwn;
+                break;
+            case Route::Upstream:
+                executionResults (nextUpstream < upstreamResults.GetSize () ? upstreamResults[nextUpstream] : upstreamFailure);
+                outElements (element);
+                ++nextUpstream;
+                break;
         }
-        bool success = false;
-        result.Get ("success", success);
-        if (success && hasOwnFields) {
-            GS::Array<GS::ObjectState> ownItems;
-            ownItems.Push (item);
-            const GS::ObjectState ownResponse = ExecuteOwnPart (ownItems, false);
-            GS::Array<GS::ObjectState> ownResults;
-            GS::Array<GS::ObjectState> ownElements;
-            ownResponse.Get ("executionResults", ownResults);
-            ownResponse.Get ("elements", ownElements);
-            result = !ownResults.IsEmpty () ? ownResults[0] : CreateFailedExecutionResult (APIERR_GENERAL, "Failed to change the railing.");
-            if (!ownElements.IsEmpty ()) {
-                element = ownElements[0];
-            }
-        }
-        executionResults (result);
-        outElements (element);
     }
     return response;
 }

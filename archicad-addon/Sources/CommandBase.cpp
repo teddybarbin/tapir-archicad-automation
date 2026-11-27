@@ -2347,10 +2347,38 @@ static GSErrCode WriteElementId (const API_Guid& elementGuid, const GS::UniStrin
     return NoError;
 }
 
+static void LogRefusedUndoStep (const GS::UniString& undoString, GSErrCode err);
+
+static GSErrCode TAPIR_CallUndoableCommandUnlogged (const GS::UniString& undoString, const std::function<GSErrCode ()>& command)
+{
+    return ACAPI_CallUndoableCommand (undoString, command);
+}
+
+GSErrCode TAPIR_CallUndoableCommandExpecting (const GS::UniString& undoString, const std::function<GSErrCode ()>& command, GSErrCode expectedRefusal)
+{
+    GSErrCode commandErr = NoError;
+    const GSErrCode err = TAPIR_CallUndoableCommandUnlogged (undoString, [&] () -> GSErrCode {
+        commandErr = command ();
+        return commandErr;
+    });
+    if (err != NoError && !(err == expectedRefusal && commandErr == expectedRefusal)) {
+        LogRefusedUndoStep (undoString, err);
+    }
+    return err;
+}
+
 GSErrCode TAPIR_CallUndoableCommand (const GS::UniString& undoString, const std::function<GSErrCode ()>& command)
 {
-    const GSErrCode err = ACAPI_CallUndoableCommand (undoString, command);
+    const GSErrCode err = TAPIR_CallUndoableCommandUnlogged (undoString, command);
     if (err != NoError) {
+        LogRefusedUndoStep (undoString, err);
+    }
+    return err;
+}
+
+static void LogRefusedUndoStep (const GS::UniString& undoString, GSErrCode err)
+{
+    {
         const wchar_t* temp = _wgetenv (L"TEMP");
         if (temp != nullptr) {
             std::wstring path = std::wstring (temp) + L"\\tapir_annulations_refusees.log";
@@ -2364,7 +2392,6 @@ GSErrCode TAPIR_CallUndoableCommand (const GS::UniString& undoString, const std:
             }
         }
     }
-    return err;
 }
 
 

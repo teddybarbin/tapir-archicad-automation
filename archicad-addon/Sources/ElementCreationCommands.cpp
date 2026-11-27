@@ -2609,6 +2609,10 @@ GS::ObjectState CreateRailingsCommand::Execute (const GS::ObjectState& parameter
     return CreateRailingsUpstreamCommand::Execute (completed, processControl);
 }
 
+
+
+
+
 // The reference line goes to memo.coords (1-based, as everywhere in the polygon API), with one
 // zero height per vertex in memo.polyZCoords and its vertex count in railing.nVertices: this is
 // how the DevKit's Element_Test creates a railing (Do_CreateRailing). The railing tree (nodes,
@@ -6439,6 +6443,35 @@ CreateRailingsUpstreamCommand::CreateRailingsUpstreamCommand () :
 // automatic zones (#853), the items are created in groups of one story each, with that story made active
 // (APIStory_GoTo), and the previously active story is put back afterwards. The responses keep the order
 // of the request. A call whose items all stay on the active story runs exactly as before.
+// Archicad can answer NoError for ACAPI_Element_Create of a railing and remove the new railing when the undoable
+// command ends (bench, 27/11/2026: made from a favorite that CreateFavoritesFromElements took from a railing, the
+// response named an element that did not exist, error 7204, and nothing was created). Every railing of the response
+// is read again after the command, and one that is not there becomes an error: never a success without an element.
+static GS::ObjectState WithoutVanishedRailings (const GS::ObjectState& response)
+{
+    GS::Array<GS::ObjectState> elements;
+    if (!response.Get ("elements", elements)) {
+        return response;
+    }
+    bool vanished = false;
+    GS::ObjectState checked;
+    const auto& outElements = checked.AddList<GS::ObjectState> ("elements");
+    for (const GS::ObjectState& element : elements) {
+        const GS::ObjectState* elementId = element.Get ("elementId");
+        if (elementId != nullptr) {
+            API_Elem_Head head = {};
+            head.guid = GetGuidFromObjectState (*elementId);
+            if (ACAPI_Element_GetHeader (&head) != NoError) {
+                vanished = true;
+                outElements (CreateErrorResponse (APIERR_GENERAL, "Archicad did not keep the new Railing: it answered that it was created, then removed it when the command ended, so nothing was created. Seen with settings taken from an existing railing (a favorite created from a railing with CreateFavoritesFromElements); create it from the tool defaults or another favorite, then change it."));
+                continue;
+            }
+        }
+        outElements (element);
+    }
+    return vanished ? checked : response;
+}
+
 GS::ObjectState CreateRailingsUpstreamCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& processControl) const
 {
     GS::Array<GS::ObjectState> railingsData;
@@ -6448,7 +6481,7 @@ GS::ObjectState CreateRailingsUpstreamCommand::Execute (const GS::ObjectState& p
     const GSErrCode storyErr = ACAPI_ProjectSetting_GetStorySettings (&storyInfo);
     BMKillHandle (reinterpret_cast<GSHandle*> (&storyInfo.data));
     if (storyErr != NoError) {
-        return CreateElementsCommandBase::Execute (parameters, processControl);
+        return WithoutVanishedRailings (CreateElementsCommandBase::Execute (parameters, processControl));
     }
     const short originalActStory = storyInfo.actStory;
 
@@ -6475,7 +6508,7 @@ GS::ObjectState CreateRailingsUpstreamCommand::Execute (const GS::ObjectState& p
     const bool needsStorySwitch = std::any_of (itemStories.begin (), itemStories.end (),
         [&] (short story) { return story != originalActStory; });
     if (!needsStorySwitch) {
-        return CreateElementsCommandBase::Execute (parameters, processControl);
+        return WithoutVanishedRailings (CreateElementsCommandBase::Execute (parameters, processControl));
     }
 
     short activeStory = originalActStory;
@@ -6532,7 +6565,7 @@ GS::ObjectState CreateRailingsUpstreamCommand::Execute (const GS::ObjectState& p
     for (const GS::ObjectState& result : results) {
         elements (result);
     }
-    return response;
+    return WithoutVanishedRailings (response);
 }
 
 GS::Optional<GS::UniString> CreateRailingsUpstreamCommand::GetInputParametersSchema () const

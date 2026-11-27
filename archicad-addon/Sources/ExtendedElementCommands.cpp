@@ -13871,7 +13871,9 @@ GS::ObjectState RecreateRailingsCommand::Execute (const GS::ObjectState& paramet
             }
             newGuid = element.header.guid;
 
-            stepError = CarryOverAndDeleteOld (data, newGuid, "railing", stepErr);
+            // The old railing is kept here and deleted in a second undoable command, once the new one is known to
+            // be there (see below); oldDeletedFirst skips the deletion.
+            stepError = CarryOverAndDeleteOld (data, newGuid, "railing", stepErr, true);
             return stepError.HasValue () ? (stepErr != NoError ? stepErr : APIERR_GENERAL) : NoError;
         });
         if (stepError.HasValue ()) {
@@ -13881,6 +13883,31 @@ GS::ObjectState RecreateRailingsCommand::Execute (const GS::ObjectState& paramet
         if (commandErr != NoError) {
             results (CreateErrorResponse (commandErr, "Failed to recreate the railing."));
             continue;
+        }
+
+        // Archicad can answer NoError for ACAPI_Element_Create of the railing made from the old one (its template)
+        // and remove it when the undoable command ends. Measured on the bench (27/11/2026, test_correctifs_2711),
+        // even for a railing just made from the tool defaults: with the old railing deleted in the same command, the
+        // railing was LOST and the response said success. So the old railing is deleted only now, in a second
+        // undoable command, if the new one is there; else it is kept and the item answers with an error.
+        {
+            API_Elem_Head newHead = {};
+            newHead.guid = newGuid;
+            if (ACAPI_Element_GetHeader (&newHead) != NoError) {
+                results (CreateErrorResponse (APIERR_GENERAL, "Archicad did not keep the new railing: it answered that it was created from the settings of the old one, then removed it when the command ended. Nothing was changed: the old railing is kept."));
+                continue;
+            }
+            GSErrCode deleteErr = NoError;
+            TAPIR_CallUndoableCommand ("Recreate Railing", [&] () -> GSErrCode {
+                GS::Array<API_Guid> toDelete;
+                toDelete.Push (oldGuid);
+                deleteErr = ACAPI_Element_Delete (toDelete);
+                return deleteErr;
+            });
+            if (deleteErr != NoError) {
+                results (CreateErrorResponse (deleteErr, "The new railing was created, but the old one could not be deleted: both are in the project."));
+                continue;
+            }
         }
 
         API_Element newElement = {};

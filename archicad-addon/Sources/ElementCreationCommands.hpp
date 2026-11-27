@@ -120,14 +120,6 @@ public:
     virtual GS::Optional<GS::ObjectState> SetTypeSpecificParameters (API_Element& element, API_ElementMemo& memo, const Stories& stories, const GS::ObjectState& parameters) const override;
 };
 
-class CreateRailingsCommand : public CreateElementsCommandBase
-{
-public:
-    CreateRailingsCommand ();
-    virtual GS::Optional<GS::UniString> GetInputParametersSchema () const override;
-    virtual GS::Optional<GS::ObjectState> SetTypeSpecificParameters (API_Element& element, API_ElementMemo& memo, const Stories& stories, const GS::ObjectState& parameters) const override;
-};
-
 class ModifyPolylinesCommand : public CommandBase
 {
 public:
@@ -245,8 +237,20 @@ public:
     virtual GS::Optional<GS::ObjectState> SetTypeSpecificParameters (API_Element& element, API_ElementMemo& memo, const Stories& stories, const GS::ObjectState& parameters) const override;
 };
 
-// The fork registers its own CreateRailings (ElementCreationCommands above); upstream's is kept
-// under this class name, unregistered, as the base of CreateRailingsFromPolyline.
+// The fork's CreateRailings takes both schemas: an item with polylineCoordinates and level (the fork's, used by the
+// Imaginns scripts and the bench) or an item of upstream's schema (coordinates, templateElementId...), which goes to
+// upstream's code. Both run under upstream's Execute, which makes each railing's home story active while it is
+// created (Archicad puts a new railing on the active story whatever header.floorInd says).
+class CreateRailingsCommand : public CreateRailingsUpstreamCommand
+{
+public:
+    virtual GS::ObjectState Execute (const GS::ObjectState& parameters, GS::ProcessControl& processControl) const override;
+    virtual GS::Optional<GS::UniString> GetInputParametersSchema () const override;
+    virtual GS::Optional<GS::ObjectState> SetTypeSpecificParameters (API_Element& element, API_ElementMemo& memo, const Stories& stories, const GS::ObjectState& parameters) const override;
+};
+
+// Upstream's CreateRailings is kept under this class name, unregistered: the base of the fork's CreateRailings and of
+// CreateRailingsFromPolyline.
 // Railings along a 3D reference polyline with arc segments. Derived from CreateRailingsUpstreamCommand for its
 // Execute, which creates each railing with its home story made active.
 class CreateRailingsFromPolylineCommand : public CreateRailingsUpstreamCommand

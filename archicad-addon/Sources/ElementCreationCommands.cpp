@@ -2481,20 +2481,8 @@ GS::Optional<GS::ObjectState> CreatePolylinesCommand::SetTypeSpecificParameters 
     return {};
 }
 
-CreateRailingsCommand::CreateRailingsCommand () :
-    CreateElementsCommandBase ("CreateRailings", API_RailingID, "railingsData")
-{
-}
-
-GS::Optional<GS::UniString> CreateRailingsCommand::GetInputParametersSchema () const
-{
-    return R"({
-    "type": "object",
-    "properties": {
-        "railingsData": {
-            "type": "array",
-            "description": "Array of data to create Railings.",
-            "items": {
+// The fork's item schema, offered next to upstream's (anyOf): an item matching it is created by the fork's code.
+static const char* ForkRailingItemSchema = R"({
                 "type": "object",
                 "description": "The parameters of the new Railing. Posts, rails and panels come from the Railing tool defaults, or from favoriteName.",
                 "properties": {
@@ -2531,7 +2519,54 @@ GS::Optional<GS::UniString> CreateRailingsCommand::GetInputParametersSchema () c
                     "polylineCoordinates",
                     "level"
                 ]
+            })";
+
+// The object that follows "key": in a JSON text (braces inside strings skipped), or an empty string.
+static std::string JsonObjectAfter (const std::string& json, const std::string& key, size_t from = 0)
+{
+    const size_t keyAt = json.find ("\"" + key + "\"", from);
+    if (keyAt == std::string::npos) {
+        return {};
+    }
+    const size_t open = json.find ('{', keyAt);
+    if (open == std::string::npos) {
+        return {};
+    }
+    int depth = 0;
+    bool inString = false;
+    for (size_t i = open; i < json.size (); ++i) {
+        const char c = json[i];
+        if (inString) {
+            if (c == '\\') {
+                ++i;
+            } else if (c == '"') {
+                inString = false;
             }
+        } else if (c == '"') {
+            inString = true;
+        } else if (c == '{') {
+            ++depth;
+        } else if (c == '}' && --depth == 0) {
+            return json.substr (open, i - open + 1);
+        }
+    }
+    return {};
+}
+
+GS::Optional<GS::UniString> CreateRailingsCommand::GetInputParametersSchema () const
+{
+    const std::string upstream = CreateRailingsUpstreamCommand::GetInputParametersSchema ().Get ().ToCStr (CC_UTF8).Get ();
+    const size_t dataAt = upstream.find ("\"railingsData\"");
+    const std::string upstreamItem = dataAt == std::string::npos ? std::string () : JsonObjectAfter (upstream, "items", dataAt);
+    const std::string items = upstreamItem.empty () ? std::string (ForkRailingItemSchema)
+                                                    : std::string (R"({ "anyOf": [ )") + ForkRailingItemSchema + ", " + upstreamItem + " ] }";
+    const std::string schema = std::string (R"({
+    "type": "object",
+    "properties": {
+        "railingsData": {
+            "type": "array",
+            "description": "Array of data to create Railings: each item in the fork's form (polylineCoordinates, level) or in upstream's form (coordinates, templateElementId...).",
+            "items": )") + items + R"(
         }
     },
     "additionalProperties": false,
@@ -2539,6 +2574,39 @@ GS::Optional<GS::UniString> CreateRailingsCommand::GetInputParametersSchema () c
         "railingsData"
     ]
 })";
+    return GS::UniString (schema.c_str (), CC_UTF8);
+}
+
+// The fork's items without floorIndex get the story found from their level, so that upstream's Execute makes it
+// active while the railing is created (else the railing went to the active story).
+GS::ObjectState CreateRailingsCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& processControl) const
+{
+    GS::Array<GS::ObjectState> railingsData;
+    parameters.Get ("railingsData", railingsData);
+    bool needsFloor = false;
+    for (const GS::ObjectState& data : railingsData) {
+        if (data.Contains ("polylineCoordinates") && !data.Contains ("floorIndex")) {
+            needsFloor = true;
+        }
+    }
+    if (!needsFloor) {
+        return CreateRailingsUpstreamCommand::Execute (parameters, processControl);
+    }
+    const Stories stories = GetStories ();
+    GS::ObjectState completed;
+    const auto& completedData = completed.AddList<GS::ObjectState> ("railingsData");
+    for (const GS::ObjectState& data : railingsData) {
+        if (data.Contains ("polylineCoordinates") && !data.Contains ("floorIndex")) {
+            double level = 0.0;
+            data.Get ("level", level);
+            GS::ObjectState withFloor = data;
+            withFloor.Add ("floorIndex", static_cast<Int32> (ResolveFloorIndexAndOffset (data, "floorIndex", level, stories).first));
+            completedData (withFloor);
+        } else {
+            completedData (data);
+        }
+    }
+    return CreateRailingsUpstreamCommand::Execute (completed, processControl);
 }
 
 // The reference line goes to memo.coords (1-based, as everywhere in the polygon API), with one
@@ -2547,6 +2615,9 @@ GS::Optional<GS::UniString> CreateRailingsCommand::GetInputParametersSchema () c
 // segments, posts, rails, panels) is generated by Archicad from the defaults' defNode/defSegment.
 GS::Optional<GS::ObjectState> CreateRailingsCommand::SetTypeSpecificParameters (API_Element& element, API_ElementMemo& memo, const Stories& stories, const GS::ObjectState& parameters) const
 {
+    if (!parameters.Contains ("polylineCoordinates")) {
+        return CreateRailingsUpstreamCommand::SetTypeSpecificParameters (element, memo, stories, parameters);
+    }
     double inputLevel = 0.0;
     parameters.Get ("level", inputLevel);
     const auto floorIndexAndOffset = ResolveFloorIndexAndOffset (parameters, "floorIndex", inputLevel, stories);

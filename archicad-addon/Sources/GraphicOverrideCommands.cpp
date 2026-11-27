@@ -1843,8 +1843,10 @@ GS::ObjectState SetGraphicOverrideRuleGroupOrderCommand::Execute (const GS::Obje
         }
         for (UIndex index : listedIndices) {
             if (isBuiltIn[index]) {
+                // Nothing was changed (the probes rename each group to its own name): the undo step ends
+                // normally and the refusal is reported below, so it is not logged as a refused undo step.
                 builtInListedName = currentNames[index];
-                return APIERR_NOACCESSRIGHT;
+                return NoError;
             }
         }
 

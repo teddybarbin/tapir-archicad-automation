@@ -9299,12 +9299,14 @@ void CreateStairsCommand::AfterCreateFromParameters (API_Element& element, const
         rules.riserPlusGoingMinApplied = rules.riserPlusGoingMaxApplied = false;
         rules.riserGoingRatioMinApplied = rules.riserGoingRatioMaxApplied = false;
         rules.stairPitchMinApplied = rules.stairPitchMaxApplied = false;
-        ACAPI_ELEMENT_MASK_SET (mask, API_StairType, rules);
+        // ACAPI_ELEMENT_MASK_SET marks only the first byte of the member it names (8a0ba36fe): every field of the
+        // rules is marked, else Archicad kept all but riserHeightMinValue.
+        MaskWholeMember (mask.stair.rules);
     }
     // The rules given explicitly (#2531) are written last, as before the creation.
     const GS::ObjectState* rulesOs = parameters.Get ("rules");
     if (rulesOs != nullptr && !ApplyStairRules (*rulesOs, rules, mask.stair.rules).HasValue ()) {
-        ACAPI_ELEMENT_MASK_SET (mask, API_StairType, rules);
+        MaskWholeMember (mask.stair.rules);
     }
     if (ACAPI_Element_Change (&elem, &mask, nullptr, 0, true) == NoError) {
         element = elem;

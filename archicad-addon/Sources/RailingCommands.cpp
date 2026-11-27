@@ -1,5 +1,7 @@
 #include "RailingCommands.hpp"
 #include "MigrationHelper.hpp"
+#include "ExtendedElementCommands.hpp"
+#include <string>
 
 // Railings: read and change the reference line, its elevation and the segment height.
 // The reference line lives in memo.coords (1-based) with one absolute elevation per vertex in
@@ -164,38 +166,27 @@ GS::String ModifyRailingsCommand::GetName () const
     return "ModifyRailings";
 }
 
+// The schema of upstream's ModifyRailings (#1793 and after: height on every segment, bottomOffset, floorIndex,
+// visibility, pens, segments, nodes), with the fork's level and polylineCoordinates added to each item. Its height
+// has the draft 4 exclusive minimum Archicad enforces (e63c13324); the fork's own "exclusiveMinimum": 0.0 let 0 and
+// negative heights through (Archicad validates with JSON Schema draft 4, where a number there is ignored).
 GS::Optional<GS::UniString> ModifyRailingsCommand::GetInputParametersSchema () const
 {
-    return R"({
-    "type": "object",
-    "properties": {
-        "railingsWithDetails": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "elementId": { "$ref": "#/ElementId" },
-                    "height": { "type": "number", "exclusiveMinimum": 0.0, "description": "New height of the railing segments." },
-                    "level": { "type": "number", "description": "New absolute elevation of the reference line (all vertices)." },
-                    "polylineCoordinates": {
-                        "type": "array",
-                        "description": "New reference line. Without level, the vertices keep the elevation of the first current vertex.",
-                        "items": { "$ref": "#/Coordinate2D" },
-                        "minItems": 2
-                    }
-                },
-                "additionalProperties": false,
-                "required": [
-                    "elementId"
-                ]
-            }
-        }
-    },
-    "additionalProperties": false,
-    "required": [
-        "railingsWithDetails"
-    ]
-})";
+    std::string schema = ModifyRailingsUpstreamCommand ().GetInputParametersSchema ().Get ().ToCStr (CC_UTF8).Get ();
+    const std::string anchor = "\"elementId\": {";
+    const size_t at = schema.find (anchor);
+    if (at == std::string::npos) {
+        return ModifyRailingsUpstreamCommand ().GetInputParametersSchema ();
+    }
+    schema.insert (at, R"("level": { "type": "number", "description": "Fork Imaginns: new absolute elevation of the reference line (all vertices)." },
+                        "polylineCoordinates": {
+                            "type": "array",
+                            "description": "Fork Imaginns: new reference line. Archicad does not take a new reference line on an existing railing, so it is rebuilt with its settings and the old one is deleted; the response's elements give the new one. Without level, the vertices keep the elevation of the first current vertex.",
+                            "items": { "$ref": "#/Coordinate2D" },
+                            "minItems": 2
+                        },
+                        )");
+    return GS::UniString (schema.c_str (), CC_UTF8);
 }
 
 GS::Optional<GS::UniString> ModifyRailingsCommand::GetRawResponseSchema () const
@@ -220,10 +211,10 @@ GS::Optional<GS::UniString> ModifyRailingsCommand::GetRawResponseSchema () const
 })";
 }
 
-GS::ObjectState ModifyRailingsCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const
+// The fork's part of ModifyRailings: level and polylineCoordinates. The height and every other field go through
+// upstream's code (ModifyRailingsUpstreamCommand), so withHeight is false when called from Execute.
+static GS::ObjectState ExecuteOwnPart (const GS::Array<GS::ObjectState>& items, bool withHeight)
 {
-    GS::Array<GS::ObjectState> items;
-    parameters.Get ("railingsWithDetails", items);
 
     GS::ObjectState response;
     const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
@@ -249,7 +240,7 @@ GS::ObjectState ModifyRailingsCommand::Execute (const GS::ObjectState& parameter
             API_Element mask;
             ACAPI_ELEMENT_MASK_CLEAR (mask);
             double height = 0.0;
-            if (item.Get ("height", height)) {
+            if (withHeight && item.Get ("height", height)) {
                 elem.railing.defSegment.height = height;
                 ACAPI_ELEMENT_MASK_SET (mask, API_RailingType, defSegment.height);
             }
@@ -329,5 +320,69 @@ GS::ObjectState ModifyRailingsCommand::Execute (const GS::ObjectState& parameter
         return NoError;
     });
 
+    return response;
+}
+
+// Each item goes first through upstream's ModifyRailings for its own fields, then through the fork's part for level
+// and polylineCoordinates (a new line rebuilds the railing from its settings, the ones just changed included). An
+// item with only the fork's fields skips upstream's code, which refuses an item without one of its fields.
+GS::ObjectState ModifyRailingsCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& processControl) const
+{
+    GS::Array<GS::ObjectState> items;
+    parameters.Get ("railingsWithDetails", items);
+
+    GS::ObjectState response;
+    const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
+    const auto& outElements = response.AddList<GS::ObjectState> ("elements");
+
+    for (const GS::ObjectState& item : items) {
+        const GS::ObjectState* elementId = item.Get ("elementId");
+        GS::ObjectState element = elementId != nullptr ? CreateElementIdObjectState (GetGuidFromObjectState (*elementId)) : GS::ObjectState ();
+        bool hasUpstreamFields = false;
+        item.EnumerateFields ([&] (const GS::String& name) {
+            if (name != "elementId" && name != "level" && name != "polylineCoordinates") {
+                hasUpstreamFields = true;
+            }
+        });
+        const bool hasOwnFields = item.Contains ("level") || item.Contains ("polylineCoordinates");
+
+        GS::ObjectState result = CreateSuccessfulExecutionResult ();
+        if (hasUpstreamFields || !hasOwnFields) {
+            GS::ObjectState upstreamParameters;
+            const auto& upstreamItems = upstreamParameters.AddList<GS::ObjectState> ("railingsWithDetails");
+            upstreamItems (item);
+            const GS::ObjectState upstreamResponse = ModifyRailingsUpstreamCommand ().Execute (upstreamParameters, processControl);
+            GS::Array<GS::ObjectState> upstreamResults;
+            if (upstreamResponse.Get ("executionResults", upstreamResults) && !upstreamResults.IsEmpty ()) {
+                result = upstreamResults[0];
+            } else {
+                const GS::ObjectState* error = upstreamResponse.Get ("error");
+                GSErrCode code = APIERR_GENERAL;
+                GS::UniString message = "Failed to modify the railing.";
+                if (error != nullptr) {
+                    error->Get ("code", code);
+                    error->Get ("message", message);
+                }
+                result = CreateFailedExecutionResult (code, message);
+            }
+        }
+        bool success = false;
+        result.Get ("success", success);
+        if (success && hasOwnFields) {
+            GS::Array<GS::ObjectState> ownItems;
+            ownItems.Push (item);
+            const GS::ObjectState ownResponse = ExecuteOwnPart (ownItems, false);
+            GS::Array<GS::ObjectState> ownResults;
+            GS::Array<GS::ObjectState> ownElements;
+            ownResponse.Get ("executionResults", ownResults);
+            ownResponse.Get ("elements", ownElements);
+            result = !ownResults.IsEmpty () ? ownResults[0] : CreateFailedExecutionResult (APIERR_GENERAL, "Failed to change the railing.");
+            if (!ownElements.IsEmpty ()) {
+                element = ownElements[0];
+            }
+        }
+        executionResults (result);
+        outElements (element);
+    }
     return response;
 }

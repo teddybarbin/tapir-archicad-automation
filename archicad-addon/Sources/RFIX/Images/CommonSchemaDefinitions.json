@@ -24883,16 +24883,7 @@
                 "$ref": "#/AnalyticalPointLoad"
             },
             "geometry": {
-                "type": "object",
-                "properties": {
-                    "coordinate": {
-                        "$ref": "#/Coordinate3D"
-                    }
-                },
-                "additionalProperties": false,
-                "required": [
-                    "coordinate"
-                ]
+                "$ref": "#/AnalyticalPointLoadGeometry"
             }
         },
         "additionalProperties": false,
@@ -27117,8 +27108,7 @@
                 "description": "Matches roofs whose 'connected to other roof(s)' status equals this value."
             },
             "structureType": {
-                "type": "string",
-                "enum": [ "Basic", "Composite", "ComplexProfile" ],
+                "$ref": "#/GraphicOverrideStructureType",
                 "description": "Matches elements whose structure type (Wall/Beam/Column basic vs. composite vs. complex profile) equals this value."
             },
             "seaLevelAltitude": { "type": "number", "description": "Matches elements whose sea level altitude equals this value." },
@@ -27250,8 +27240,14 @@
             "mepMaterialNameNotContains": { "type": "string" },
             "mepMaterialNameStartsWith": { "type": "string" },
             "mepMaterialNameEndsWith": { "type": "string" },
-            "wallComplexity": { "type": "string", "enum": ["Straight", "Slanted", "DoubleSlanted"], "description": "Matches walls whose complexity equals this." },
-            "wallComplexityNot": { "type": "string", "enum": ["Straight", "Slanted", "DoubleSlanted"], "description": "Matches walls whose complexity is NOT this." },
+            "wallComplexity": {
+                "$ref": "#/GraphicOverrideWallComplexity",
+                "description": "Matches walls whose complexity equals this."
+            },
+            "wallComplexityNot": {
+                "$ref": "#/GraphicOverrideWallComplexity",
+                "description": "Matches walls whose complexity is NOT this."
+            },
             "wallLevelOffset": { "type": "number", "description": "Matches walls whose home story level offset equals this value." },
             "wallLevelOffsetNot": { "type": "number" },
             "wallLevelOffsetLessThan": { "type": "number" },
@@ -27264,8 +27260,13 @@
             "wallTopOffsetGreaterThan": { "type": "number" },
             "wallTopOffsetLessOrEqual": { "type": "number" },
             "wallTopOffsetGreaterOrEqual": { "type": "number" },
-            "wallReferenceLinePosition": { "type": "string", "enum": ["Outside", "Center", "Inside", "CoreOutside", "CoreCenter", "CoreInside"], "description": "Matches walls whose reference line position equals this." },
-            "wallReferenceLinePositionNot": { "type": "string", "enum": ["Outside", "Center", "Inside", "CoreOutside", "CoreCenter", "CoreInside"] },
+            "wallReferenceLinePosition": {
+                "$ref": "#/WallReferenceLineLocation",
+                "description": "Matches walls whose reference line position equals this."
+            },
+            "wallReferenceLinePositionNot": {
+                "$ref": "#/WallReferenceLineLocation"
+            },
             "wallOutsideAngle": { "type": "number", "description": "Matches walls whose outside slant angle equals this value (degrees)." },
             "wallOutsideAngleNot": { "type": "number" },
             "wallOutsideAngleLessThan": { "type": "number" },
@@ -27428,13 +27429,21 @@
             "dimensionPointerPenContains": {"type": "integer", "description": "Matches dimensions whose pointer pens contain this pen index."},
             "dimensionPointerLineTypeContains": {"type": "string", "description": "Matches dimensions whose pointer line types contain this Line Type attribute (by name)."},
             "stairRisersPerFlight": {"type": "integer", "description": "Matches stairs whose number of risers per flight equals this value."},
-            "renovationStatus": {"type": "string", "enum": ["Existing", "ToBeDemolished", "New"], "description": "Matches elements whose renovation status equals this."},
+            "renovationStatus": {
+                "$ref": "#/GraphicOverrideRenovationStatus",
+                "description": "Matches elements whose renovation status equals this."
+            },
             "variantSetNameContains": {"type": "string", "description": "Matches elements whose design option set name contains this text."},
             "variantNameContains": {"type": "string", "description": "Matches elements whose design option name contains this text."},
             "mepOpenConnection": {"type": "boolean", "description": "Matches MEP elements whose 'open connection' status equals this value. Archicad 29 (Archicad 27 drops it)."},
             "profileParameterList": {"type": "object", "description": "Matches elements by a Complex Profile parameter that holds one value per profile component, identified by its plain name (e.g. 'Epaisseur'). The criteria editor only offers equality for it. Archicad 29 (Archicad 27 drops it).", "properties": {"name": {"type": "string"}, "equals": {"type": "number"}}, "additionalProperties": false, "required": ["name", "equals"]},
-            "wallGeometryType": { "type": "string", "enum": ["Uniform", "Trapezoid", "Polygonal"], "description": "Matches walls whose geometry type equals this." },
-            "wallGeometryTypeNot": { "type": "string", "enum": ["Uniform", "Trapezoid", "Polygonal"] },
+            "wallGeometryType": {
+                "$ref": "#/GraphicOverrideWallGeometryType",
+                "description": "Matches walls whose geometry type equals this."
+            },
+            "wallGeometryTypeNot": {
+                "$ref": "#/GraphicOverrideWallGeometryType"
+            },
             "wallReferenceLineOffset": { "type": "number", "description": "Matches walls whose reference line offset equals this value. Uses a different underlying mechanism than every other numeric field in this schema, reverse-engineered separately - support all 6 comparison operators like the rest." },
             "wallReferenceLineOffsetNot": { "type": "number" },
             "wallReferenceLineOffsetLessThan": { "type": "number" },
@@ -27489,15 +27498,23 @@
             "subTypeNameNotContains": { "type": "string" },
             "subTypeNameStartsWith": { "type": "string" },
             "subTypeNameEndsWith": { "type": "string" },
-            "columnCoatingType": { "type": "string", "enum": ["Core", "Finish", "Other"], "description": "Matches columns whose coating type equals this." },
-            "columnCoatingTypeNot": { "type": "string", "enum": ["Core", "Finish", "Other"] },
+            "columnCoatingType": {
+                "$ref": "#/GraphicOverrideColumnCoatingType",
+                "description": "Matches columns whose coating type equals this."
+            },
+            "columnCoatingTypeNot": {
+                "$ref": "#/GraphicOverrideColumnCoatingType"
+            },
             "columnInclinationAngle": { "type": "number", "description": "Matches columns whose inclination angle equals this value (degrees)." },
             "columnInclinationAngleNot": { "type": "number" },
             "columnInclinationAngleLessThan": { "type": "number" },
             "columnInclinationAngleGreaterThan": { "type": "number" },
             "columnInclinationAngleLessOrEqual": { "type": "number" },
             "columnInclinationAngleGreaterOrEqual": { "type": "number" },
-            "columnCrossSectionType": { "type": "string", "enum": ["Rectangular", "Circular", "Profiled"], "description": "Matches columns whose cross section type equals this." },
+            "columnCrossSectionType": {
+                "$ref": "#/GraphicOverrideColumnCrossSectionType",
+                "description": "Matches columns whose cross section type equals this."
+            },
             "columnCoreDiameter": { "type": "number", "description": "Matches columns whose core diameter equals this value." },
             "columnCoreDiameterNot": { "type": "number" },
             "columnCoreDiameterLessThan": { "type": "number" },
@@ -27622,10 +27639,20 @@
             "beamBottomSurfaceNot": { "type": "string" },
             "beamTopSurface": { "type": "string", "description": "Matches beams whose top surface is this Surface attribute (by name)." },
             "beamTopSurfaceNot": { "type": "string" },
-            "slabReferencePlaneLocation": { "type": "string", "enum": ["Top", "CoreTop", "CoreBottom", "Bottom"], "description": "Matches slabs whose reference plane location equals this." },
-            "slabReferencePlaneLocationNot": { "type": "string", "enum": ["Top", "CoreTop", "CoreBottom", "Bottom"] },
-            "slabEdgeAngle": { "type": "string", "enum": ["Vertical", "Custom"], "description": "Matches slabs whose edge angle mode equals this." },
-            "slabEdgeAngleNot": { "type": "string", "enum": ["Vertical", "Custom"] },
+            "slabReferencePlaneLocation": {
+                "$ref": "#/SlabReferencePlaneLocation",
+                "description": "Matches slabs whose reference plane location equals this."
+            },
+            "slabReferencePlaneLocationNot": {
+                "$ref": "#/SlabReferencePlaneLocation"
+            },
+            "slabEdgeAngle": {
+                "$ref": "#/GraphicOverrideSlabEdgeAngle",
+                "description": "Matches slabs whose edge angle mode equals this."
+            },
+            "slabEdgeAngleNot": {
+                "$ref": "#/GraphicOverrideSlabEdgeAngle"
+            },
             "slabDefaultEdgeAngle": { "type": "number", "description": "Matches slabs whose default edge angle equals this value (degrees)." },
             "slabDefaultEdgeAngleNot": { "type": "number" },
             "slabDefaultEdgeAngleLessThan": { "type": "number" },
@@ -27636,39 +27663,63 @@
             "slabCutLinePenNot": { "type": "integer" },
             "slabConstructionMaterialFill": { "type": "string", "description": "Matches slabs whose construction material fill is this Fill attribute (by name). Despite the field's label in the criteria editor, Archicad stores a Fill here, not a Building Material (checked on rules made in the editor)." },
             "slabConstructionMaterialFillNot": { "type": "string" },
-            "roofCutBodyType": { "type": "string", "enum": ["ContoursDown", "ReferenceLineDown"], "description": "Matches roofs whose cut body type equals this." },
-            "roofCutBodyTypeNot": { "type": "string", "enum": ["ContoursDown", "ReferenceLineDown"] },
+            "roofCutBodyType": {
+                "$ref": "#/GraphicOverrideRoofCutBodyType",
+                "description": "Matches roofs whose cut body type equals this."
+            },
+            "roofCutBodyTypeNot": {
+                "$ref": "#/GraphicOverrideRoofCutBodyType"
+            },
             "roofLevelNumber": { "type": "integer", "description": "Matches roofs whose level number equals this value." },
             "roofLevelNumberNot": { "type": "integer" },
             "roofLevelNumberLessThan": { "type": "integer" },
             "roofLevelNumberGreaterThan": { "type": "integer" },
             "roofLevelNumberLessOrEqual": { "type": "integer" },
             "roofLevelNumberGreaterOrEqual": { "type": "integer" },
-            "roofEaveOverhangType": { "type": "string", "enum": ["Offset", "Manual"], "description": "Matches roofs whose eave overhang type equals this." },
-            "roofEdgeAngle": { "type": "string", "enum": ["Vertical", "Perpendicular", "Custom"], "description": "Matches roofs whose edge angle mode equals this." },
-            "roofEdgeAngleNot": { "type": "string", "enum": ["Vertical", "Perpendicular", "Custom"] },
+            "roofEaveOverhangType": {
+                "$ref": "#/GraphicOverrideRoofEaveOverhangType",
+                "description": "Matches roofs whose eave overhang type equals this."
+            },
+            "roofEdgeAngle": {
+                "$ref": "#/GraphicOverrideRoofEdgeAngle",
+                "description": "Matches roofs whose edge angle mode equals this."
+            },
+            "roofEdgeAngleNot": {
+                "$ref": "#/GraphicOverrideRoofEdgeAngle"
+            },
             "roofEaveOverhang": { "type": "number", "description": "Matches roofs whose eave overhang equals this value." },
             "roofEaveOverhangNot": { "type": "number" },
             "roofEaveOverhangLessThan": { "type": "number" },
             "roofEaveOverhangGreaterThan": { "type": "number" },
             "roofEaveOverhangLessOrEqual": { "type": "number" },
             "roofEaveOverhangGreaterOrEqual": { "type": "number" },
-            "roofGeometryType": { "type": "string", "enum": ["SinglePanel", "MultiplePanels"], "description": "Matches roofs whose geometry type equals this." },
-            "roofGeometryTypeNot": { "type": "string", "enum": ["SinglePanel", "MultiplePanels"] },
+            "roofGeometryType": {
+                "$ref": "#/GraphicOverrideRoofGeometryType",
+                "description": "Matches roofs whose geometry type equals this."
+            },
+            "roofGeometryTypeNot": {
+                "$ref": "#/GraphicOverrideRoofGeometryType"
+            },
             "roofPitch": { "type": "number", "description": "Matches roofs that have a pitch equal to this value (degrees) among their panels." },
             "roofPitchNot": { "type": "number" },
             "roofPitchLessThan": { "type": "number" },
             "roofPitchGreaterThan": { "type": "number" },
             "roofPitchLessOrEqual": { "type": "number" },
             "roofPitchGreaterOrEqual": { "type": "number" },
-            "shellCutBodyType": { "type": "string", "enum": ["Editable", "ExtrudeUp", "ExtrudeDown"], "description": "Matches shells whose cut body type equals this." },
+            "shellCutBodyType": {
+                "$ref": "#/GraphicOverrideShellCutBodyType",
+                "description": "Matches shells whose cut body type equals this."
+            },
             "shellTiltAngle": { "type": "number", "description": "Matches shells whose tilt angle equals this value (degrees)." },
             "shellTiltAngleNot": { "type": "number" },
             "shellTiltAngleLessThan": { "type": "number" },
             "shellTiltAngleGreaterThan": { "type": "number" },
             "shellTiltAngleLessOrEqual": { "type": "number" },
             "shellTiltAngleGreaterOrEqual": { "type": "number" },
-            "shellGeometryType": { "type": "string", "enum": ["Extrude", "Revolved", "Ruled"], "description": "Matches shells whose geometry type equals this." },
+            "shellGeometryType": {
+                "$ref": "#/GraphicOverrideShellGeometryType",
+                "description": "Matches shells whose geometry type equals this."
+            },
             "hatchFill": { "type": "string", "description": "Matches elements whose hatch is this Fill attribute (by name). ArchiCAD only offers 'contains'/'does not contain' for this field, no strict equality." },
             "hatchFillNot": { "type": "string", "description": "Matches elements whose hatch is NOT this Fill attribute (by name)." },
             "lineAttribute": { "type": "string", "description": "Matches elements whose contour/line is this Line Type attribute (by name). ArchiCAD only offers 'contains'/'does not contain' for this field, no strict equality." },
@@ -27676,8 +27727,14 @@
             "fontIs": { "type": "string", "description": "Matches elements whose font equals this font name (as GetDetailsOfElements reports it in fontName, with its script, e.g. 'Arial Western') exactly. Applies to 2D annotation (Text/Label) elements - unlike every other field in this schema, this one and 'textPen*' are NOT combined with a 3D-model-element anchor when used alone or together, since they don't apply to 3D model elements." },
             "fontContains": { "type": "string", "description": "Matches elements whose font is one of a list containing this font name (as GetDetailsOfElements reports it in fontName, with its script, e.g. 'Arial Western') (ArchiCAD's 'contains' operator for a font field)." },
             "fontNotContains": { "type": "string", "description": "Matches elements whose font is not one of a list containing this font name (as GetDetailsOfElements reports it in fontName, with its script, e.g. 'Arial Western')." },
-            "penReplacement": { "type": "string", "enum": [ "None", "ForegroundOnly", "BackgroundOnly", "Both" ], "description": "Matches elements whose pen replacement rule equals this value." },
-            "penReplacementNot": { "type": "string", "enum": [ "None", "ForegroundOnly", "BackgroundOnly", "Both" ], "description": "Matches elements whose pen replacement rule does not equal this value." },
+            "penReplacement": {
+                "$ref": "#/GraphicOverridePenReplacement",
+                "description": "Matches elements whose pen replacement rule equals this value."
+            },
+            "penReplacementNot": {
+                "$ref": "#/GraphicOverridePenReplacement",
+                "description": "Matches elements whose pen replacement rule does not equal this value."
+            },
             "linePenContains": { "type": "integer", "description": "Matches elements whose line pen number is this value (by plain pen number 1-255, not an attribute name). ArchiCAD only offers 'contains'/'does not contain' for this field, no strict equality." },
             "linePenNotContains": { "type": "integer", "description": "Matches elements whose line pen number is NOT this value (by plain pen number 1-255)." },
             "textPenIs": { "type": "integer", "description": "Matches elements whose text pen number equals this value (by plain pen number 1-255). Applies to 2D annotation elements - see 'fontIs' for the anchor-exemption note." },
@@ -27721,10 +27778,22 @@
             "surfaceNameEndsWith": { "type": "string", "description": "Matches elements whose Surface (Material) attribute name ends with this substring." },
             "renovationFilterIs": { "type": "string", "description": "Matches elements whose Renovation Filter display status equals this filter name exactly." },
             "renovationFilterIsNot": { "type": "string", "description": "Matches elements whose Renovation Filter display status does not equal this filter name." },
-            "structuralFunction": { "type": "string", "enum": [ "LoadBearing", "NonLoadBearing", "Undefined" ], "description": "Matches elements whose structural function equals this value." },
-            "structuralFunctionNot": { "type": "string", "enum": [ "LoadBearing", "NonLoadBearing", "Undefined" ], "description": "Matches elements whose structural function does not equal this value." },
-            "position": { "type": "string", "enum": [ "Exterior", "Interior", "Undefined" ], "description": "Matches elements whose position equals this value." },
-            "positionNot": { "type": "string", "enum": [ "Exterior", "Interior", "Undefined" ], "description": "Matches elements whose position does not equal this value." },
+            "structuralFunction": {
+                "$ref": "#/GraphicOverrideStructuralFunction",
+                "description": "Matches elements whose structural function equals this value."
+            },
+            "structuralFunctionNot": {
+                "$ref": "#/GraphicOverrideStructuralFunction",
+                "description": "Matches elements whose structural function does not equal this value."
+            },
+            "position": {
+                "$ref": "#/GraphicOverridePosition",
+                "description": "Matches elements whose position equals this value."
+            },
+            "positionNot": {
+                "$ref": "#/GraphicOverridePosition",
+                "description": "Matches elements whose position does not equal this value."
+            },
             "variantStateIs": { "type": "string", "description": "Matches elements whose Variant State equals this string exactly (e.g. 'Main Model'). Variants are an Archicad 27+ feature - this criterion is meaningless on earlier versions." },
             "variantStateIsNot": { "type": "string", "description": "Matches elements whose Variant State does not equal this string. Variants are an Archicad 27+ feature - this criterion is meaningless on earlier versions." },
             "variantSetIs": { "type": "string", "description": "Matches elements whose Variant Set equals this string exactly (e.g. 'Main Model'). Variants are an Archicad 27+ feature - this criterion is meaningless on earlier versions." },
@@ -27811,114 +27880,19 @@
             "profileNominalWidthLessOrEqual": { "type": "number", "description": "Matches elements whose Complex Profile nominal width is less than or equal to this value." },
             "profileNominalWidthGreaterOrEqual": { "type": "number", "description": "Matches elements whose Complex Profile nominal width is greater than or equal to this value." },
             "profileParameter": {
-                "type": "object",
-                "description": "Matches elements by a custom Complex Profile modifier parameter, identified by its plain name as defined on that Complex Profile attribute (e.g. 'Debord tole') rather than a fixed field - use this for any profile modifier not covered by the profileStretchHeight/profileNominalWidth/... fields above. Provide 'name' and exactly one comparison operator.",
-                "properties": {
-                    "name": { "type": "string", "description": "The profile modifier parameter's name, exactly as defined on the Complex Profile attribute." },
-                    "equals": { "type": "number" },
-                    "notEquals": { "type": "number" },
-                    "lessThan": { "type": "number" },
-                    "greaterThan": { "type": "number" },
-                    "lessOrEqual": { "type": "number" },
-                    "greaterOrEqual": { "type": "number" }
-                },
-                "additionalProperties": false,
-                "required": [ "name" ]
+                "$ref": "#/GraphicOverrideProfileParameter"
             },
             "customPropertyBool": {
-                "type": "object",
-                "description": "Matches elements by a custom (user-defined) boolean property, identified by its plain name and the name of the property group it appears under (both exactly as shown in the Property Manager). Provide 'name', 'group', and exactly one of the operators below. The 6 'has.../is...' operators are available on every custom property type, not just boolean ones.",
-                "properties": {
-                    "name": { "type": "string", "description": "The custom property's name, exactly as defined." },
-                    "group": { "type": "string", "description": "The custom property group's name, exactly as defined (e.g. 'Generalites')." },
-                    "equals": { "type": "boolean", "description": "Matches if the property's value equals this." },
-                    "hasDefaultValue": { "type": "boolean", "description": "If true, matches elements where this property currently has its default value." },
-                    "hasCustomValue": { "type": "boolean", "description": "If true, matches elements where this property has a custom (overridden, non-default) value." },
-                    "isAvailable": { "type": "boolean", "description": "If true, matches elements where this property is available." },
-                    "isNotAvailable": { "type": "boolean", "description": "If true, matches elements where this property is not available." },
-                    "isUndefined": { "type": "boolean", "description": "If true, matches elements where this property is undefined." },
-                    "isNotUndefined": { "type": "boolean", "description": "If true, matches elements where this property is not undefined." }
-                },
-                "additionalProperties": false,
-                "required": [ "name", "group" ]
+                "$ref": "#/GraphicOverrideCustomPropertyBool"
             },
             "customPropertyString": {
-                "type": "object",
-                "description": "Matches elements by a custom (user-defined) text or option-set property, identified by its plain name and the name of the property group it appears under. Provide 'name', 'group', and exactly one operator. The value is written in the form the criteria editor uses for the property: wrapped for a free text property, bare for a single choice option set, as a list of one option for a multiple choice option set, which takes equals only. contains, notContains, startsWith and endsWith are available for a free text property only.",
-                "properties": {
-                    "name": { "type": "string", "description": "The custom property's name, exactly as defined." },
-                    "group": { "type": "string", "description": "The custom property group's name, exactly as defined." },
-                    "equals": { "type": "string", "description": "Matches if the property's value equals this string exactly." },
-                    "notEquals": { "type": "string", "description": "Matches if the property's value does not equal this string." },
-                    "contains": {
-                        "type": "string",
-                        "description": "Matches if the property's value contains this text (free text properties only)."
-                    },
-                    "notContains": {
-                        "type": "string",
-                        "description": "Matches if the property's value does not contain this text (free text properties only)."
-                    },
-                    "startsWith": {
-                        "type": "string",
-                        "description": "Matches if the property's value starts with this text (free text properties only)."
-                    },
-                    "endsWith": {
-                        "type": "string",
-                        "description": "Matches if the property's value ends with this text (free text properties only)."
-                    },
-                    "hasDefaultValue": { "type": "boolean" },
-                    "hasCustomValue": { "type": "boolean" },
-                    "isAvailable": { "type": "boolean" },
-                    "isNotAvailable": { "type": "boolean" },
-                    "isUndefined": { "type": "boolean" },
-                    "isNotUndefined": { "type": "boolean" }
-                },
-                "additionalProperties": false,
-                "required": [ "name", "group" ]
+                "$ref": "#/GraphicOverrideCustomPropertyString"
             },
             "customPropertyNumber": {
-                "type": "object",
-                "description": "Matches elements by a custom (user-defined) numeric property, identified by its plain name and the name of the property group it appears under. Provide 'name', 'group', and exactly one operator.",
-                "properties": {
-                    "name": { "type": "string", "description": "The custom property's name, exactly as defined." },
-                    "group": { "type": "string", "description": "The custom property group's name, exactly as defined." },
-                    "equals": { "type": "number" },
-                    "notEquals": { "type": "number" },
-                    "lessThan": { "type": "number" },
-                    "greaterThan": { "type": "number" },
-                    "lessOrEqual": { "type": "number" },
-                    "greaterOrEqual": { "type": "number" },
-                    "hasDefaultValue": { "type": "boolean" },
-                    "hasCustomValue": { "type": "boolean" },
-                    "isAvailable": { "type": "boolean" },
-                    "isNotAvailable": { "type": "boolean" },
-                    "isUndefined": { "type": "boolean" },
-                    "isNotUndefined": { "type": "boolean" }
-                },
-                "additionalProperties": false,
-                "required": [ "name", "group" ]
+                "$ref": "#/GraphicOverrideCustomPropertyNumber"
             },
             "customPropertyInteger": {
-                "type": "object",
-                "description": "Matches elements by a custom (user-defined) integer property, identified by its plain name and the name of the property group it appears under. Provide 'name', 'group', and exactly one operator.",
-                "properties": {
-                    "name": { "type": "string", "description": "The custom property's name, exactly as defined." },
-                    "group": { "type": "string", "description": "The custom property group's name, exactly as defined." },
-                    "equals": { "type": "integer" },
-                    "notEquals": { "type": "integer" },
-                    "lessThan": { "type": "integer" },
-                    "greaterThan": { "type": "integer" },
-                    "lessOrEqual": { "type": "integer" },
-                    "greaterOrEqual": { "type": "integer" },
-                    "hasDefaultValue": { "type": "boolean" },
-                    "hasCustomValue": { "type": "boolean" },
-                    "isAvailable": { "type": "boolean" },
-                    "isNotAvailable": { "type": "boolean" },
-                    "isUndefined": { "type": "boolean" },
-                    "isNotUndefined": { "type": "boolean" }
-                },
-                "additionalProperties": false,
-                "required": [ "name", "group" ]
+                "$ref": "#/GraphicOverrideCustomPropertyInteger"
             }
         },
         "additionalProperties": false
@@ -28116,22 +28090,7 @@
                             "type": "integer"
                         },
                         {
-                            "type": "object",
-                            "properties": {
-                                "layerIndex": {
-                                    "type": "integer",
-                                    "description": "The attribute index of the layer."
-                                },
-                                "connectionClassId": {
-                                    "type": "integer",
-                                    "description": "The connection class of the layer."
-                                }
-                            },
-                            "additionalProperties": false,
-                            "required": [
-                                "layerIndex",
-                                "connectionClassId"
-                            ]
+                            "$ref": "#/AnalyticalLayerConnectionClass"
                         }
                     ]
                 }
@@ -28156,12 +28115,7 @@
         "description": "The visibility settings of the Structural Analytical Model. Archicad 26 and newer.",
         "properties": {
             "visibilityMode": {
-                "type": "string",
-                "description": "Whether only the analytical model is shown or the analytical model within the entire model.",
-                "enum": [
-                    "AnalyticalModelOnly",
-                    "AnalyticalModelWithinEntireModel"
-                ]
+                "$ref": "#/AnalyticalVisibilityMode"
             },
             "isAnalyticalModelVisible": {
                 "type": "boolean"
@@ -28188,13 +28142,7 @@
                 "type": "boolean"
             },
             "loadVisibilityMode": {
-                "type": "string",
-                "description": "Which loads are shown: filtered by the active settings, none or all.",
-                "enum": [
-                    "FilterByActive",
-                    "HideAll",
-                    "ShowAll"
-                ]
+                "$ref": "#/AnalyticalLoadVisibilityMode"
             }
         },
         "additionalProperties": false
@@ -28445,15 +28393,7 @@
         "description": "A curve of the Structural Analytical Model.",
         "properties": {
             "type": {
-                "type": "string",
-                "description": "The type of the curve. Bezier exists from Archicad 26.",
-                "enum": [
-                    "Line",
-                    "Arc",
-                    "Spline",
-                    "Bezier",
-                    "Ellipse"
-                ]
+                "$ref": "#/AnalyticalCurveType"
             },
             "begNode": {
                 "$ref": "#/AnalyticalNode"
@@ -28476,18 +28416,715 @@
             "midCoords"
         ]
     },
+    "AnalyticalCrossSectionType": {
+        "type": "string",
+        "enum": [
+            "Rectangle",
+            "Circle",
+            "Attribute",
+            "Custom"
+        ]
+    },
+    "AnalyticalProfileParameter": {
+        "type": "object",
+        "properties": {
+            "parameterId": {
+                "$ref": "#/GuidId"
+            },
+            "value": {
+                "type": "number"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "parameterId",
+            "value"
+        ]
+    },
+    "AnalyticalCrossSectionAlignment": {
+        "type": "string",
+        "description": "The alignment of the cross section. Archicad 26 and newer.",
+        "enum": [
+            "TopLeft",
+            "Top",
+            "TopRight",
+            "Left",
+            "Center",
+            "Right",
+            "BottomLeft",
+            "Bottom",
+            "BottomRight",
+            "None"
+        ]
+    },
+    "AnalyticalCurveType": {
+        "type": "string",
+        "description": "The type of the curve. Bezier exists from Archicad 26.",
+        "enum": [
+            "Line",
+            "Arc",
+            "Spline",
+            "Bezier",
+            "Ellipse"
+        ]
+    },
+    "AnalyticalCurveMemberFEMType": {
+        "type": "string",
+        "enum": [
+            "Standard",
+            "AxialForceOnly",
+            "CompressionOnly",
+            "TensionOnly"
+        ]
+    },
+    "AnalyticalVaryingSegment": {
+        "type": "object",
+        "properties": {
+            "begProfile": {
+                "$ref": "#/AnalyticalCrossSection"
+            },
+            "endProfile": {
+                "$ref": "#/AnalyticalCrossSection",
+                "description": "Only for a tapered segment."
+            },
+            "span": {
+                "type": "number"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "begProfile",
+            "span"
+        ]
+    },
+    "AnalyticalEdgeLoadSettings": {
+        "type": "object",
+        "properties": {
+            "loadCaseId": {
+                "$ref": "#/GuidId",
+                "description": "The load case the load belongs to."
+            },
+            "loadForceType": {
+                "$ref": "#/AnalyticalLoadForceType"
+            },
+            "loadDistributionType": {
+                "$ref": "#/AnalyticalLoadDistributionType"
+            },
+            "coordinateSystemType": {
+                "$ref": "#/AnalyticalCoordSysDirection"
+            },
+            "startValue": {
+                "$ref": "#/Coordinate3D"
+            },
+            "endValue": {
+                "$ref": "#/Coordinate3D"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "loadCaseId",
+            "loadForceType",
+            "loadDistributionType",
+            "coordinateSystemType",
+            "startValue",
+            "endValue"
+        ]
+    },
+    "AnalyticalLoadDistributionType": {
+        "type": "string",
+        "description": "Whether the load is the same along the edge or changes from the start value to the end value.",
+        "enum": [
+            "Uniform",
+            "Trapezoid"
+        ]
+    },
+    "AnalyticalExportMappingItem": {
+        "type": "object",
+        "properties": {
+            "partId": {
+                "$ref": "#/AnalyticalInternalMemberPartId"
+            },
+            "elemPartIds": {
+                "type": "array",
+                "items": {
+                    "$ref": "#/AnalyticalElementPartId"
+                }
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "partId",
+            "elemPartIds"
+        ]
+    },
+    "AnalyticalElementPartId": {
+        "type": "object",
+        "properties": {
+            "memberGuid": {
+                "$ref": "#/GuidId"
+            },
+            "contourIndex": {
+                "type": "integer"
+            },
+            "edgeOrVertexIndex": {
+                "type": "integer"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "memberGuid",
+            "contourIndex",
+            "edgeOrVertexIndex"
+        ]
+    },
+    "AnalyticalLinkSettings": {
+        "type": "object",
+        "properties": {
+            "geometry": {
+                "$ref": "#/AnalyticalLinkGeometryType"
+            },
+            "type": {
+                "$ref": "#/AnalyticalLinkType"
+            },
+            "rigidSettings": {
+                "$ref": "#/AnalyticalRigidLinkSettings"
+            },
+            "springSettings": {
+                "$ref": "#/AnalyticalSpringLinkSettings"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "geometry",
+            "type",
+            "rigidSettings",
+            "springSettings"
+        ]
+    },
+    "AnalyticalLinkGeometryType": {
+        "type": "string",
+        "enum": [
+            "Link1D",
+            "Link2D"
+        ]
+    },
+    "AnalyticalLinkType": {
+        "type": "string",
+        "enum": [
+            "Rigid",
+            "Spring"
+        ]
+    },
+    "AnalyticalRigidLinkSettings": {
+        "type": "object",
+        "properties": {
+            "startConnectionType": {
+                "$ref": "#/AnalyticalLinkConnectionType"
+            },
+            "endConnectionType": {
+                "$ref": "#/AnalyticalLinkConnectionType"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "startConnectionType",
+            "endConnectionType"
+        ]
+    },
+    "AnalyticalLinkConnectionType": {
+        "type": "string",
+        "enum": [
+            "RigidConnection",
+            "HingeConnection"
+        ],
+        "description": "The connection type at an end of an analytical rigid link."
+    },
+    "AnalyticalSpringLinkSettings": {
+        "type": "object",
+        "properties": {
+            "direction": {
+                "$ref": "#/AnalyticalCoordSysDirection"
+            },
+            "translation": {
+                "$ref": "#/AnalyticalSpringTranslation"
+            },
+            "rotation": {
+                "$ref": "#/AnalyticalSpringRotation"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "direction",
+            "translation",
+            "rotation"
+        ]
+    },
+    "AnalyticalSpringTranslation": {
+        "type": "object",
+        "properties": {
+            "kxType": {
+                "$ref": "#/AnalyticalRigidityType"
+            },
+            "kxValue": {
+                "type": "number"
+            },
+            "kyType": {
+                "$ref": "#/AnalyticalRigidityType"
+            },
+            "kyValue": {
+                "type": "number"
+            },
+            "kzType": {
+                "$ref": "#/AnalyticalRigidityType"
+            },
+            "kzValue": {
+                "type": "number"
+            },
+            "resistanceFx": {
+                "type": "boolean"
+            },
+            "fxValue": {
+                "type": "number"
+            },
+            "resistanceFy": {
+                "type": "boolean"
+            },
+            "fyValue": {
+                "type": "number"
+            },
+            "resistanceFz": {
+                "type": "boolean"
+            },
+            "fzValue": {
+                "type": "number"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "kxType",
+            "kyType",
+            "kzType"
+        ]
+    },
+    "AnalyticalSpringRotation": {
+        "type": "object",
+        "properties": {
+            "kxxType": {
+                "$ref": "#/AnalyticalRigidityType"
+            },
+            "kxxValue": {
+                "type": "number"
+            },
+            "kyyType": {
+                "$ref": "#/AnalyticalRigidityType"
+            },
+            "kyyValue": {
+                "type": "number"
+            },
+            "kzzType": {
+                "$ref": "#/AnalyticalRigidityType"
+            },
+            "kzzValue": {
+                "type": "number"
+            },
+            "resistanceMx": {
+                "type": "boolean"
+            },
+            "mxValue": {
+                "type": "number"
+            },
+            "resistanceMy": {
+                "type": "boolean"
+            },
+            "myValue": {
+                "type": "number"
+            },
+            "resistanceMz": {
+                "type": "boolean"
+            },
+            "mzValue": {
+                "type": "number"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "kxxType",
+            "kyyType",
+            "kzzType"
+        ]
+    },
+    "AnalyticalMemberPartRefType": {
+        "type": "string",
+        "enum": [
+            "BegVertex",
+            "EndVertex",
+            "CustomVertex",
+            "Edge",
+            "RatioEdge",
+            "Surface",
+            "CustomSurface",
+            "CustomEdge"
+        ]
+    },
+    "AnalyticalCustomVertexData": {
+        "type": "object",
+        "description": "The point of a CustomVertex.",
+        "properties": {
+            "customVertexCoord": {
+                "$ref": "#/Coordinate3D"
+            }
+        },
+        "additionalProperties": false
+    },
+    "AnalyticalRatioEdgeData": {
+        "type": "object",
+        "description": "The part of the edge of a RatioEdge.",
+        "properties": {
+            "ratioStart": {
+                "type": "number"
+            },
+            "ratioEnd": {
+                "type": "number"
+            }
+        },
+        "additionalProperties": false
+    },
+    "AnalyticalLayerConnectionClass": {
+        "type": "object",
+        "properties": {
+            "layerIndex": {
+                "type": "integer",
+                "description": "The attribute index of the layer."
+            },
+            "connectionClassId": {
+                "type": "integer",
+                "description": "The connection class of the layer."
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "layerIndex",
+            "connectionClassId"
+        ]
+    },
+    "AnalyticalPointLoadSettings": {
+        "type": "object",
+        "properties": {
+            "loadCaseId": {
+                "$ref": "#/GuidId",
+                "description": "The load case the load belongs to."
+            },
+            "loadForceType": {
+                "$ref": "#/AnalyticalLoadForceType"
+            },
+            "coordinateSystemType": {
+                "$ref": "#/AnalyticalCoordSysDirection"
+            },
+            "xValue": {
+                "type": "number"
+            },
+            "yValue": {
+                "type": "number"
+            },
+            "zValue": {
+                "type": "number"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "loadCaseId",
+            "loadForceType",
+            "coordinateSystemType",
+            "xValue",
+            "yValue",
+            "zValue"
+        ]
+    },
+    "AnalyticalReleaseDescription": {
+        "type": "object",
+        "properties": {
+            "ux": {
+                "$ref": "#/AnalyticalRigidityType"
+            },
+            "stiffnessX": {
+                "type": "number"
+            },
+            "uy": {
+                "$ref": "#/AnalyticalRigidityType"
+            },
+            "stiffnessY": {
+                "type": "number"
+            },
+            "uz": {
+                "$ref": "#/AnalyticalRigidityType"
+            },
+            "stiffnessZ": {
+                "type": "number"
+            },
+            "fix": {
+                "$ref": "#/AnalyticalRigidityType"
+            },
+            "stiffnessFix": {
+                "type": "number"
+            },
+            "fiy": {
+                "$ref": "#/AnalyticalRigidityType"
+            },
+            "stiffnessFiy": {
+                "type": "number"
+            },
+            "fiz": {
+                "$ref": "#/AnalyticalRigidityType"
+            },
+            "stiffnessFiz": {
+                "type": "number"
+            },
+            "amPartRef": {
+                "$ref": "#/AnalyticalMemberPartRef"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "ux",
+            "uy",
+            "uz",
+            "fix",
+            "fiy",
+            "fiz",
+            "amPartRef"
+        ]
+    },
+    "AnalyticalSupportSettings": {
+        "type": "object",
+        "properties": {
+            "supportType": {
+                "$ref": "#/AnalyticalSupportType"
+            },
+            "supportValues": {
+                "$ref": "#/AnalyticalSupportValues"
+            },
+            "coordinateSystem": {
+                "$ref": "#/AnalyticalCoordSysDirection"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "supportType",
+            "supportValues",
+            "coordinateSystem"
+        ]
+    },
+    "AnalyticalSupportType": {
+        "type": "string",
+        "enum": [
+            "SimplePoint",
+            "SingleLine",
+            "Surface"
+        ]
+    },
+    "AnalyticalSupportValues": {
+        "type": "object",
+        "description": "The rigidity and the value of the three translations and the three rotations.",
+        "properties": {
+            "xType": {
+                "$ref": "#/AnalyticalRigidityType"
+            },
+            "xValue": {
+                "type": "number"
+            },
+            "yType": {
+                "$ref": "#/AnalyticalRigidityType"
+            },
+            "yValue": {
+                "type": "number"
+            },
+            "zType": {
+                "$ref": "#/AnalyticalRigidityType"
+            },
+            "zValue": {
+                "type": "number"
+            },
+            "rxType": {
+                "$ref": "#/AnalyticalRigidityType"
+            },
+            "rxValue": {
+                "type": "number"
+            },
+            "ryType": {
+                "$ref": "#/AnalyticalRigidityType"
+            },
+            "ryValue": {
+                "type": "number"
+            },
+            "rzType": {
+                "$ref": "#/AnalyticalRigidityType"
+            },
+            "rzValue": {
+                "type": "number"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "xType",
+            "yType",
+            "zType",
+            "rxType",
+            "ryType",
+            "rzType"
+        ]
+    },
+    "AnalyticalSurfaceLoadSettings": {
+        "type": "object",
+        "properties": {
+            "loadCaseId": {
+                "$ref": "#/GuidId",
+                "description": "The load case the load belongs to."
+            },
+            "coordinateSystemType": {
+                "$ref": "#/AnalyticalCoordSysDirection"
+            },
+            "xValue": {
+                "type": "number"
+            },
+            "yValue": {
+                "type": "number"
+            },
+            "zValue": {
+                "type": "number"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "loadCaseId",
+            "coordinateSystemType",
+            "xValue",
+            "yValue",
+            "zValue"
+        ]
+    },
+    "AnalyticalSurface": {
+        "type": "object",
+        "properties": {
+            "surfaceType": {
+                "$ref": "#/AnalyticalSurfaceType"
+            },
+            "planeSurface": {
+                "$ref": "#/AnalyticalPlaneSurface"
+            },
+            "cylinderSurface": {
+                "$ref": "#/AnalyticalCylinderSurface"
+            }
+        },
+        "additionalProperties": false
+    },
+    "AnalyticalSurfaceType": {
+        "type": "string",
+        "enum": [
+            "Plane",
+            "Cylinder"
+        ]
+    },
+    "AnalyticalPlaneSurface": {
+        "type": "object",
+        "properties": {
+            "basePoint": {
+                "$ref": "#/Coordinate3D"
+            },
+            "normalVector": {
+                "$ref": "#/Coordinate3D"
+            }
+        },
+        "additionalProperties": false
+    },
+    "AnalyticalCylinderSurface": {
+        "type": "object",
+        "properties": {
+            "basePoint": {
+                "$ref": "#/Coordinate3D"
+            },
+            "axisDirection": {
+                "$ref": "#/Coordinate3D"
+            },
+            "referenceRay": {
+                "$ref": "#/Coordinate3D"
+            }
+        },
+        "additionalProperties": false
+    },
+    "AnalyticalHoleContour": {
+        "type": "object",
+        "properties": {
+            "contour": {
+                "type": "array",
+                "items": {
+                    "$ref": "#/AnalyticalCurve"
+                }
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "contour"
+        ]
+    },
+    "AnalyticalSurfaceMemberFEMType": {
+        "type": "string",
+        "enum": [
+            "Plate",
+            "Wall",
+            "Shell"
+        ]
+    },
+    "AnalyticalVisibilityMode": {
+        "type": "string",
+        "description": "Whether only the analytical model is shown or the analytical model within the entire model.",
+        "enum": [
+            "AnalyticalModelOnly",
+            "AnalyticalModelWithinEntireModel"
+        ]
+    },
+    "AnalyticalLoadVisibilityMode": {
+        "type": "string",
+        "description": "Which loads are shown: filtered by the active settings, none or all.",
+        "enum": [
+            "FilterByActive",
+            "HideAll",
+            "ShowAll"
+        ]
+    },
+    "AnalyticalPointLoadGeometry": {
+        "type": "object",
+        "properties": {
+            "coordinate": {
+                "$ref": "#/Coordinate3D"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "coordinate"
+        ]
+    },
+    "AnalyticalImportMapping": {
+        "type": "object",
+        "properties": {
+            "elemPartId": {
+                "$ref": "#/AnalyticalElementPartId"
+            },
+            "memberPartRef": {
+                "$ref": "#/AnalyticalMemberPartRef"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "elemPartId",
+            "memberPartRef"
+        ]
+    },
     "AnalyticalCrossSection": {
         "type": "object",
         "description": "The cross section of a curve member. The profile image of Archicad 26 and newer is not returned.",
         "properties": {
             "crossSectionType": {
-                "type": "string",
-                "enum": [
-                    "Rectangle",
-                    "Circle",
-                    "Attribute",
-                    "Custom"
-                ]
+                "$ref": "#/AnalyticalCrossSectionType"
             },
             "width": {
                 "type": "number"
@@ -28513,37 +29150,11 @@
                 "type": "array",
                 "description": "The parameters of the profile.",
                 "items": {
-                    "type": "object",
-                    "properties": {
-                        "parameterId": {
-                            "$ref": "#/GuidId"
-                        },
-                        "value": {
-                            "type": "number"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "parameterId",
-                        "value"
-                    ]
+                    "$ref": "#/AnalyticalProfileParameter"
                 }
             },
             "alignment": {
-                "type": "string",
-                "description": "The alignment of the cross section. Archicad 26 and newer.",
-                "enum": [
-                    "TopLeft",
-                    "Top",
-                    "TopRight",
-                    "Left",
-                    "Center",
-                    "Right",
-                    "BottomLeft",
-                    "Bottom",
-                    "BottomRight",
-                    "None"
-                ]
+                "$ref": "#/AnalyticalCrossSectionAlignment"
             }
         },
         "additionalProperties": false
@@ -28590,36 +29201,13 @@
                 "description": "The attribute index of the layer."
             },
             "FEMType": {
-                "type": "string",
-                "enum": [
-                    "Standard",
-                    "AxialForceOnly",
-                    "CompressionOnly",
-                    "TensionOnly"
-                ]
+                "$ref": "#/AnalyticalCurveMemberFEMType"
             },
             "varyingSegmentList": {
                 "type": "array",
                 "description": "The segments of a member with varying cross section. Archicad 26 and newer.",
                 "items": {
-                    "type": "object",
-                    "properties": {
-                        "begProfile": {
-                            "$ref": "#/AnalyticalCrossSection"
-                        },
-                        "endProfile": {
-                            "$ref": "#/AnalyticalCrossSection",
-                            "description": "Only for a tapered segment."
-                        },
-                        "span": {
-                            "type": "number"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "begProfile",
-                        "span"
-                    ]
+                    "$ref": "#/AnalyticalVaryingSegment"
                 }
             }
         },
@@ -28636,44 +29224,7 @@
                 "$ref": "#/GuidId"
             },
             "surface": {
-                "type": "object",
-                "properties": {
-                    "surfaceType": {
-                        "type": "string",
-                        "enum": [
-                            "Plane",
-                            "Cylinder"
-                        ]
-                    },
-                    "planeSurface": {
-                        "type": "object",
-                        "properties": {
-                            "basePoint": {
-                                "$ref": "#/Coordinate3D"
-                            },
-                            "normalVector": {
-                                "$ref": "#/Coordinate3D"
-                            }
-                        },
-                        "additionalProperties": false
-                    },
-                    "cylinderSurface": {
-                        "type": "object",
-                        "properties": {
-                            "basePoint": {
-                                "$ref": "#/Coordinate3D"
-                            },
-                            "axisDirection": {
-                                "$ref": "#/Coordinate3D"
-                            },
-                            "referenceRay": {
-                                "$ref": "#/Coordinate3D"
-                            }
-                        },
-                        "additionalProperties": false
-                    }
-                },
-                "additionalProperties": false
+                "$ref": "#/AnalyticalSurface"
             },
             "contour": {
                 "type": "array",
@@ -28686,19 +29237,7 @@
                 "type": "array",
                 "description": "The contours of the holes.",
                 "items": {
-                    "type": "object",
-                    "properties": {
-                        "contour": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/AnalyticalCurve"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "contour"
-                    ]
+                    "$ref": "#/AnalyticalHoleContour"
                 }
             },
             "internalNodes": {
@@ -28729,12 +29268,7 @@
                 "description": "The attribute index of the layer."
             },
             "FEMType": {
-                "type": "string",
-                "enum": [
-                    "Plate",
-                    "Wall",
-                    "Shell"
-                ]
+                "$ref": "#/AnalyticalSurfaceMemberFEMType"
             },
             "groupId": {
                 "$ref": "#/GuidId"
@@ -28771,40 +29305,7 @@
             "items": {
                 "type": "array",
                 "items": {
-                    "type": "object",
-                    "properties": {
-                        "partId": {
-                            "$ref": "#/AnalyticalInternalMemberPartId"
-                        },
-                        "elemPartIds": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "memberGuid": {
-                                        "$ref": "#/GuidId"
-                                    },
-                                    "contourIndex": {
-                                        "type": "integer"
-                                    },
-                                    "edgeOrVertexIndex": {
-                                        "type": "integer"
-                                    }
-                                },
-                                "additionalProperties": false,
-                                "required": [
-                                    "memberGuid",
-                                    "contourIndex",
-                                    "edgeOrVertexIndex"
-                                ]
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "partId",
-                        "elemPartIds"
-                    ]
+                    "$ref": "#/AnalyticalExportMappingItem"
                 }
             }
         },
@@ -28839,43 +29340,16 @@
                 "description": "The element of the analytical member."
             },
             "partRefType": {
-                "type": "string",
-                "enum": [
-                    "BegVertex",
-                    "EndVertex",
-                    "CustomVertex",
-                    "Edge",
-                    "RatioEdge",
-                    "Surface",
-                    "CustomSurface",
-                    "CustomEdge"
-                ]
+                "$ref": "#/AnalyticalMemberPartRefType"
             },
             "partId": {
                 "$ref": "#/AnalyticalInternalMemberPartId"
             },
             "customVertexData": {
-                "type": "object",
-                "description": "The point of a CustomVertex.",
-                "properties": {
-                    "customVertexCoord": {
-                        "$ref": "#/Coordinate3D"
-                    }
-                },
-                "additionalProperties": false
+                "$ref": "#/AnalyticalCustomVertexData"
             },
             "ratioEdgeData": {
-                "type": "object",
-                "description": "The part of the edge of a RatioEdge.",
-                "properties": {
-                    "ratioStart": {
-                        "type": "number"
-                    },
-                    "ratioEnd": {
-                        "type": "number"
-                    }
-                },
-                "additionalProperties": false
+                "$ref": "#/AnalyticalRatioEdgeData"
             }
         },
         "additionalProperties": false,
@@ -28909,58 +29383,7 @@
                 "type": "array",
                 "description": "The releases of the member parts. Each needs all six rigidities; a stiffness left out is 0.",
                 "items": {
-                    "type": "object",
-                    "properties": {
-                        "ux": {
-                            "$ref": "#/AnalyticalRigidityType"
-                        },
-                        "stiffnessX": {
-                            "type": "number"
-                        },
-                        "uy": {
-                            "$ref": "#/AnalyticalRigidityType"
-                        },
-                        "stiffnessY": {
-                            "type": "number"
-                        },
-                        "uz": {
-                            "$ref": "#/AnalyticalRigidityType"
-                        },
-                        "stiffnessZ": {
-                            "type": "number"
-                        },
-                        "fix": {
-                            "$ref": "#/AnalyticalRigidityType"
-                        },
-                        "stiffnessFix": {
-                            "type": "number"
-                        },
-                        "fiy": {
-                            "$ref": "#/AnalyticalRigidityType"
-                        },
-                        "stiffnessFiy": {
-                            "type": "number"
-                        },
-                        "fiz": {
-                            "$ref": "#/AnalyticalRigidityType"
-                        },
-                        "stiffnessFiz": {
-                            "type": "number"
-                        },
-                        "amPartRef": {
-                            "$ref": "#/AnalyticalMemberPartRef"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "ux",
-                        "uy",
-                        "uz",
-                        "fix",
-                        "fiy",
-                        "fiz",
-                        "amPartRef"
-                    ]
+                    "$ref": "#/AnalyticalReleaseDescription"
                 }
             }
         },
@@ -29000,53 +29423,7 @@
         "description": "An analytical support: its settings and the member part it supports. Every rigidity type is required; a value left out is 0.",
         "properties": {
             "supportSettings": {
-                "type": "object",
-                "properties": {
-                    "supportType": {
-                        "type": "string",
-                        "enum": [
-                            "SimplePoint",
-                            "SingleLine",
-                            "Surface"
-                        ]
-                    },
-                    "supportValues": {
-                        "type": "object",
-                        "description": "The rigidity and the value of the three translations and the three rotations.",
-                        "properties": {
-                            "xType": { "$ref": "#/AnalyticalRigidityType" },
-                            "xValue": { "type": "number" },
-                            "yType": { "$ref": "#/AnalyticalRigidityType" },
-                            "yValue": { "type": "number" },
-                            "zType": { "$ref": "#/AnalyticalRigidityType" },
-                            "zValue": { "type": "number" },
-                            "rxType": { "$ref": "#/AnalyticalRigidityType" },
-                            "rxValue": { "type": "number" },
-                            "ryType": { "$ref": "#/AnalyticalRigidityType" },
-                            "ryValue": { "type": "number" },
-                            "rzType": { "$ref": "#/AnalyticalRigidityType" },
-                            "rzValue": { "type": "number" }
-                        },
-                        "additionalProperties": false,
-                        "required": [
-                            "xType",
-                            "yType",
-                            "zType",
-                            "rxType",
-                            "ryType",
-                            "rzType"
-                        ]
-                    },
-                    "coordinateSystem": {
-                        "$ref": "#/AnalyticalCoordSysDirection"
-                    }
-                },
-                "additionalProperties": false,
-                "required": [
-                    "supportType",
-                    "supportValues",
-                    "coordinateSystem"
-                ]
+                "$ref": "#/AnalyticalSupportSettings"
             },
             "supportedMemberPartRef": {
                 "$ref": "#/AnalyticalMemberPartRef"
@@ -29087,114 +29464,7 @@
         "description": "An analytical link: its settings and the member parts it connects. The rigid and the spring settings are both required, whichever type the link has. Every rigidity type is required; a value left out is 0 and a resistance left out is false.",
         "properties": {
             "linkSettings": {
-                "type": "object",
-                "properties": {
-                    "geometry": {
-                        "type": "string",
-                        "enum": [
-                            "Link1D",
-                            "Link2D"
-                        ]
-                    },
-                    "type": {
-                        "type": "string",
-                        "enum": [
-                            "Rigid",
-                            "Spring"
-                        ]
-                    },
-                    "rigidSettings": {
-                        "type": "object",
-                        "properties": {
-                            "startConnectionType": {
-                                "type": "string",
-                                "enum": [
-                                    "RigidConnection",
-                                    "HingeConnection"
-                                ]
-                            },
-                            "endConnectionType": {
-                                "type": "string",
-                                "enum": [
-                                    "RigidConnection",
-                                    "HingeConnection"
-                                ]
-                            }
-                        },
-                        "additionalProperties": false,
-                        "required": [
-                            "startConnectionType",
-                            "endConnectionType"
-                        ]
-                    },
-                    "springSettings": {
-                        "type": "object",
-                        "properties": {
-                            "direction": {
-                                "$ref": "#/AnalyticalCoordSysDirection"
-                            },
-                            "translation": {
-                                "type": "object",
-                                "properties": {
-                                    "kxType": { "$ref": "#/AnalyticalRigidityType" },
-                                    "kxValue": { "type": "number" },
-                                    "kyType": { "$ref": "#/AnalyticalRigidityType" },
-                                    "kyValue": { "type": "number" },
-                                    "kzType": { "$ref": "#/AnalyticalRigidityType" },
-                                    "kzValue": { "type": "number" },
-                                    "resistanceFx": { "type": "boolean" },
-                                    "fxValue": { "type": "number" },
-                                    "resistanceFy": { "type": "boolean" },
-                                    "fyValue": { "type": "number" },
-                                    "resistanceFz": { "type": "boolean" },
-                                    "fzValue": { "type": "number" }
-                                },
-                                "additionalProperties": false,
-                                "required": [
-                                    "kxType",
-                                    "kyType",
-                                    "kzType"
-                                ]
-                            },
-                            "rotation": {
-                                "type": "object",
-                                "properties": {
-                                    "kxxType": { "$ref": "#/AnalyticalRigidityType" },
-                                    "kxxValue": { "type": "number" },
-                                    "kyyType": { "$ref": "#/AnalyticalRigidityType" },
-                                    "kyyValue": { "type": "number" },
-                                    "kzzType": { "$ref": "#/AnalyticalRigidityType" },
-                                    "kzzValue": { "type": "number" },
-                                    "resistanceMx": { "type": "boolean" },
-                                    "mxValue": { "type": "number" },
-                                    "resistanceMy": { "type": "boolean" },
-                                    "myValue": { "type": "number" },
-                                    "resistanceMz": { "type": "boolean" },
-                                    "mzValue": { "type": "number" }
-                                },
-                                "additionalProperties": false,
-                                "required": [
-                                    "kxxType",
-                                    "kyyType",
-                                    "kzzType"
-                                ]
-                            }
-                        },
-                        "additionalProperties": false,
-                        "required": [
-                            "direction",
-                            "translation",
-                            "rotation"
-                        ]
-                    }
-                },
-                "additionalProperties": false,
-                "required": [
-                    "geometry",
-                    "type",
-                    "rigidSettings",
-                    "springSettings"
-                ]
+                "$ref": "#/AnalyticalLinkSettings"
             },
             "startElementPartRef": {
                 "$ref": "#/AnalyticalMemberPartRef"
@@ -29254,31 +29524,7 @@
         "description": "An analytical point load: its settings and the member part it loads.",
         "properties": {
             "loadSettings": {
-                "type": "object",
-                "properties": {
-                    "loadCaseId": {
-                        "$ref": "#/GuidId",
-                        "description": "The load case the load belongs to."
-                    },
-                    "loadForceType": {
-                        "$ref": "#/AnalyticalLoadForceType"
-                    },
-                    "coordinateSystemType": {
-                        "$ref": "#/AnalyticalCoordSysDirection"
-                    },
-                    "xValue": { "type": "number" },
-                    "yValue": { "type": "number" },
-                    "zValue": { "type": "number" }
-                },
-                "additionalProperties": false,
-                "required": [
-                    "loadCaseId",
-                    "loadForceType",
-                    "coordinateSystemType",
-                    "xValue",
-                    "yValue",
-                    "zValue"
-                ]
+                "$ref": "#/AnalyticalPointLoadSettings"
             },
             "loadedMemberPartRef": {
                 "$ref": "#/AnalyticalMemberPartRef"
@@ -29295,42 +29541,7 @@
         "description": "An analytical edge load: its settings and the member part it loads.",
         "properties": {
             "loadSettings": {
-                "type": "object",
-                "properties": {
-                    "loadCaseId": {
-                        "$ref": "#/GuidId",
-                        "description": "The load case the load belongs to."
-                    },
-                    "loadForceType": {
-                        "$ref": "#/AnalyticalLoadForceType"
-                    },
-                    "loadDistributionType": {
-                        "type": "string",
-                        "description": "Whether the load is the same along the edge or changes from the start value to the end value.",
-                        "enum": [
-                            "Uniform",
-                            "Trapezoid"
-                        ]
-                    },
-                    "coordinateSystemType": {
-                        "$ref": "#/AnalyticalCoordSysDirection"
-                    },
-                    "startValue": {
-                        "$ref": "#/Coordinate3D"
-                    },
-                    "endValue": {
-                        "$ref": "#/Coordinate3D"
-                    }
-                },
-                "additionalProperties": false,
-                "required": [
-                    "loadCaseId",
-                    "loadForceType",
-                    "loadDistributionType",
-                    "coordinateSystemType",
-                    "startValue",
-                    "endValue"
-                ]
+                "$ref": "#/AnalyticalEdgeLoadSettings"
             },
             "loadedMemberPartRef": {
                 "$ref": "#/AnalyticalMemberPartRef"
@@ -29347,27 +29558,7 @@
         "description": "An analytical surface load: its settings and the member part it loads.",
         "properties": {
             "loadSettings": {
-                "type": "object",
-                "properties": {
-                    "loadCaseId": {
-                        "$ref": "#/GuidId",
-                        "description": "The load case the load belongs to."
-                    },
-                    "coordinateSystemType": {
-                        "$ref": "#/AnalyticalCoordSysDirection"
-                    },
-                    "xValue": { "type": "number" },
-                    "yValue": { "type": "number" },
-                    "zValue": { "type": "number" }
-                },
-                "additionalProperties": false,
-                "required": [
-                    "loadCaseId",
-                    "coordinateSystemType",
-                    "xValue",
-                    "yValue",
-                    "zValue"
-                ]
+                "$ref": "#/AnalyticalSurfaceLoadSettings"
             },
             "loadedMemberPartRef": {
                 "$ref": "#/AnalyticalMemberPartRef"
@@ -29418,37 +29609,7 @@
             "items": {
                 "type": "array",
                 "items": {
-                    "type": "object",
-                    "properties": {
-                        "elemPartId": {
-                            "type": "object",
-                            "properties": {
-                                "memberGuid": {
-                                    "$ref": "#/GuidId"
-                                },
-                                "contourIndex": {
-                                    "type": "integer"
-                                },
-                                "edgeOrVertexIndex": {
-                                    "type": "integer"
-                                }
-                            },
-                            "additionalProperties": false,
-                            "required": [
-                                "memberGuid",
-                                "contourIndex",
-                                "edgeOrVertexIndex"
-                            ]
-                        },
-                        "memberPartRef": {
-                            "$ref": "#/AnalyticalMemberPartRef"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "elemPartId",
-                        "memberPartRef"
-                    ]
+                    "$ref": "#/AnalyticalImportMapping"
                 }
             }
         },
@@ -31950,6 +32111,959 @@
         "type": "string",
         "minLength": 1
     },
+    "ProjectPreferenceType": {
+        "type": "string",
+        "enum": [
+            "WorkingUnits",
+            "Dimensions",
+            "CalculationUnits",
+            "Zones",
+            "ReferenceLevels",
+            "FloorPlanCutPlane",
+            "Legacy",
+            "ImagingAndCalculation",
+            "Layouts",
+            "DataSafety",
+            "CalculationRules"
+        ]
+    },
+    "WorkingUnitPreferences": {
+        "type": "object",
+        "description": "The Working Units page: the units and the number of decimals the model's lengths, areas, volumes and angles are shown with.",
+        "properties": {
+            "length": {
+                "$ref": "#/WorkingUnitLengthFormat"
+            },
+            "area": {
+                "$ref": "#/WorkingUnitAreaFormat"
+            },
+            "volume": {
+                "$ref": "#/WorkingUnitVolumeFormat"
+            },
+            "angle": {
+                "$ref": "#/AngleUnitFormat"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "length",
+            "area",
+            "volume",
+            "angle"
+        ]
+    },
+    "WorkingUnitLengthFormat": {
+        "type": "object",
+        "properties": {
+            "unit": {
+                "$ref": "#/LengthType"
+            },
+            "decimals": {
+                "type": "integer",
+                "description": "Number of decimals to display for length values."
+            },
+            "roundInch": {
+                "type": "integer",
+                "description": "Rounding of the fractional inch units, as the denominator of the smallest fraction shown: 1, 2, 4, 8, 16, 32 or 64."
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "unit",
+            "decimals",
+            "roundInch"
+        ]
+    },
+    "WorkingUnitAreaFormat": {
+        "type": "object",
+        "properties": {
+            "unit": {
+                "$ref": "#/AreaType"
+            },
+            "decimals": {
+                "type": "integer",
+                "description": "Number of decimals to display for area values."
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "unit",
+            "decimals"
+        ]
+    },
+    "WorkingUnitVolumeFormat": {
+        "type": "object",
+        "properties": {
+            "unit": {
+                "$ref": "#/VolumeType"
+            },
+            "decimals": {
+                "type": "integer",
+                "description": "Number of decimals to display for volume values."
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "unit",
+            "decimals"
+        ]
+    },
+    "CalculationUnitPreferences": {
+        "type": "object",
+        "description": "The Calculation Units page: the units, the number of decimals and the extra accuracy of the values in element lists and schedules. GetCalculationUnits answers the same page.",
+        "properties": {
+            "length": {
+                "$ref": "#/CalculationUnitLengthFormat"
+            },
+            "area": {
+                "$ref": "#/CalculationUnitAreaFormat"
+            },
+            "volume": {
+                "$ref": "#/CalculationUnitVolumeFormat"
+            },
+            "angle": {
+                "$ref": "#/AngleUnitFormat"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "length",
+            "area",
+            "volume",
+            "angle"
+        ]
+    },
+    "CalculationUnitLengthFormat": {
+        "type": "object",
+        "properties": {
+            "unit": {
+                "$ref": "#/LengthType"
+            },
+            "accuracy": {
+                "$ref": "#/AccuracyType"
+            },
+            "decimals": {
+                "type": "integer",
+                "description": "Number of decimals to display for length values."
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "unit",
+            "accuracy",
+            "decimals"
+        ]
+    },
+    "DimensionPreferences": {
+        "type": "object",
+        "description": "The Dimensions page: the dimension standard and the format (unit, decimals, extra accuracy and zero handling) of each dimension type.",
+        "properties": {
+            "dimensionStandardIndex": {
+                "type": "integer",
+                "description": "The index of the dimension standard the page follows."
+            },
+            "linear": {
+                "$ref": "#/LengthDimensionFormat",
+                "description": "The format of the linear dimensions."
+            },
+            "angle": {
+                "$ref": "#/AngleDimensionFormat"
+            },
+            "radial": {
+                "$ref": "#/LengthDimensionFormat",
+                "description": "The format of the radial dimensions."
+            },
+            "level": {
+                "$ref": "#/LengthDimensionFormat",
+                "description": "The format of the level dimensions."
+            },
+            "elevation": {
+                "$ref": "#/LengthDimensionFormat",
+                "description": "The format of the elevation dimensions."
+            },
+            "doorWindow": {
+                "$ref": "#/LengthDimensionFormat",
+                "description": "The format of the door, window and skylight dimensions."
+            },
+            "parapet": {
+                "$ref": "#/LengthDimensionFormat",
+                "description": "The format of the sill height (parapet) dimensions."
+            },
+            "area": {
+                "$ref": "#/AreaDimensionFormat"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "dimensionStandardIndex",
+            "linear",
+            "angle",
+            "radial",
+            "level",
+            "elevation",
+            "doorWindow",
+            "parapet",
+            "area"
+        ]
+    },
+    "LengthDimensionFormat": {
+        "type": "object",
+        "description": "The display format of a length dimension.",
+        "properties": {
+            "unit": {
+                "$ref": "#/LengthType"
+            },
+            "decimals": {
+                "type": "integer",
+                "description": "Number of decimals to display."
+            },
+            "roundInch": {
+                "type": "integer",
+                "description": "Rounding of the fractional inch units, as the denominator of the smallest fraction shown: 1, 2, 4, 8, 16, 32 or 64."
+            },
+            "accuracy": {
+                "$ref": "#/AccuracyType"
+            },
+            "showZeroWhole": {
+                "type": "boolean",
+                "description": "Show the zero before the decimal point of values below one."
+            },
+            "showZeroInch": {
+                "type": "boolean",
+                "description": "Show zero inches in feet and inches values."
+            },
+            "hideZeroDecimals": {
+                "type": "boolean",
+                "description": "Hide the zero decimals at the end of the values."
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "unit",
+            "decimals",
+            "roundInch",
+            "accuracy",
+            "showZeroWhole",
+            "showZeroInch",
+            "hideZeroDecimals"
+        ]
+    },
+    "AngleDimensionFormat": {
+        "type": "object",
+        "description": "The format of the angle dimensions.",
+        "properties": {
+            "unit": {
+                "$ref": "#/AngleType"
+            },
+            "decimals": {
+                "type": "integer",
+                "description": "Number of decimals to display."
+            },
+            "hideZeroDecimals": {
+                "type": "boolean",
+                "description": "Hide the zero decimals at the end of the values."
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "unit",
+            "decimals",
+            "hideZeroDecimals"
+        ]
+    },
+    "AreaDimensionFormat": {
+        "type": "object",
+        "description": "The format of the area values the dimensions show (area calculations).",
+        "properties": {
+            "unit": {
+                "$ref": "#/AreaType"
+            },
+            "decimals": {
+                "type": "integer",
+                "description": "Number of decimals to display."
+            },
+            "hideZeroDecimals": {
+                "type": "boolean",
+                "description": "Hide the zero decimals at the end of the values."
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "unit",
+            "decimals",
+            "hideZeroDecimals"
+        ]
+    },
+    "WorkingUnitPreferencesUpdate": {
+        "type": "object",
+        "description": "The Working Units page: the units and the number of decimals the model's lengths, areas, volumes and angles are shown with.",
+        "properties": {
+            "length": {
+                "$ref": "#/WorkingUnitLengthFormatUpdate"
+            },
+            "area": {
+                "$ref": "#/WorkingUnitAreaFormatUpdate"
+            },
+            "volume": {
+                "$ref": "#/WorkingUnitVolumeFormatUpdate"
+            },
+            "angle": {
+                "$ref": "#/AngleUnitFormatUpdate"
+            }
+        },
+        "additionalProperties": false,
+        "required": []
+    },
+    "WorkingUnitLengthFormatUpdate": {
+        "type": "object",
+        "properties": {
+            "unit": {
+                "$ref": "#/LengthType"
+            },
+            "decimals": {
+                "type": "integer",
+                "description": "Number of decimals to display for length values."
+            },
+            "roundInch": {
+                "type": "integer",
+                "description": "Rounding of the fractional inch units, as the denominator of the smallest fraction shown: 1, 2, 4, 8, 16, 32 or 64."
+            }
+        },
+        "additionalProperties": false,
+        "required": []
+    },
+    "WorkingUnitAreaFormatUpdate": {
+        "type": "object",
+        "properties": {
+            "unit": {
+                "$ref": "#/AreaType"
+            },
+            "decimals": {
+                "type": "integer",
+                "description": "Number of decimals to display for area values."
+            }
+        },
+        "additionalProperties": false,
+        "required": []
+    },
+    "WorkingUnitVolumeFormatUpdate": {
+        "type": "object",
+        "properties": {
+            "unit": {
+                "$ref": "#/VolumeType"
+            },
+            "decimals": {
+                "type": "integer",
+                "description": "Number of decimals to display for volume values."
+            }
+        },
+        "additionalProperties": false,
+        "required": []
+    },
+    "AngleUnitFormatUpdate": {
+        "type": "object",
+        "properties": {
+            "unit": {
+                "$ref": "#/AngleType"
+            },
+            "decimals": {
+                "type": "integer",
+                "description": "Number of decimals to display for angle values."
+            },
+            "accuracy": {
+                "type": "integer",
+                "description": "Accuracy for angle values."
+            }
+        },
+        "additionalProperties": false,
+        "required": []
+    },
+    "CalculationUnitPreferencesUpdate": {
+        "type": "object",
+        "description": "The Calculation Units page: the units, the number of decimals and the extra accuracy of the values in element lists and schedules. GetCalculationUnits answers the same page.",
+        "properties": {
+            "length": {
+                "$ref": "#/CalculationUnitLengthFormatUpdate"
+            },
+            "area": {
+                "$ref": "#/CalculationUnitAreaFormatUpdate"
+            },
+            "volume": {
+                "$ref": "#/CalculationUnitVolumeFormatUpdate"
+            },
+            "angle": {
+                "$ref": "#/AngleUnitFormatUpdate"
+            }
+        },
+        "additionalProperties": false,
+        "required": []
+    },
+    "CalculationUnitLengthFormatUpdate": {
+        "type": "object",
+        "properties": {
+            "unit": {
+                "$ref": "#/LengthType"
+            },
+            "accuracy": {
+                "$ref": "#/AccuracyType"
+            },
+            "decimals": {
+                "type": "integer",
+                "description": "Number of decimals to display for length values."
+            }
+        },
+        "additionalProperties": false,
+        "required": []
+    },
+    "CalculationUnitAreaFormatUpdate": {
+        "type": "object",
+        "properties": {
+            "unit": {
+                "$ref": "#/AreaType"
+            },
+            "accuracy": {
+                "$ref": "#/AccuracyType"
+            },
+            "decimals": {
+                "type": "integer",
+                "description": "Number of decimals to display for area values."
+            }
+        },
+        "additionalProperties": false,
+        "required": []
+    },
+    "CalculationUnitVolumeFormatUpdate": {
+        "type": "object",
+        "properties": {
+            "unit": {
+                "$ref": "#/VolumeType"
+            },
+            "accuracy": {
+                "$ref": "#/AccuracyType"
+            },
+            "decimals": {
+                "type": "integer",
+                "description": "Number of decimals to display for volume values."
+            }
+        },
+        "additionalProperties": false,
+        "required": []
+    },
+    "DimensionPreferencesUpdate": {
+        "type": "object",
+        "description": "The Dimensions page: the dimension standard and the format (unit, decimals, extra accuracy and zero handling) of each dimension type.",
+        "properties": {
+            "dimensionStandardIndex": {
+                "type": "integer",
+                "description": "The index of the dimension standard the page follows."
+            },
+            "linear": {
+                "$ref": "#/LengthDimensionFormatUpdate",
+                "description": "The format of the linear dimensions."
+            },
+            "angle": {
+                "$ref": "#/AngleDimensionFormatUpdate"
+            },
+            "radial": {
+                "$ref": "#/LengthDimensionFormatUpdate",
+                "description": "The format of the radial dimensions."
+            },
+            "level": {
+                "$ref": "#/LengthDimensionFormatUpdate",
+                "description": "The format of the level dimensions."
+            },
+            "elevation": {
+                "$ref": "#/LengthDimensionFormatUpdate",
+                "description": "The format of the elevation dimensions."
+            },
+            "doorWindow": {
+                "$ref": "#/LengthDimensionFormatUpdate",
+                "description": "The format of the door, window and skylight dimensions."
+            },
+            "parapet": {
+                "$ref": "#/LengthDimensionFormatUpdate",
+                "description": "The format of the sill height (parapet) dimensions."
+            },
+            "area": {
+                "$ref": "#/AreaDimensionFormatUpdate"
+            }
+        },
+        "additionalProperties": false,
+        "required": []
+    },
+    "LengthDimensionFormatUpdate": {
+        "type": "object",
+        "description": "Partial changes to the display format of a length dimension.",
+        "properties": {
+            "unit": {
+                "$ref": "#/LengthType"
+            },
+            "decimals": {
+                "type": "integer",
+                "description": "Number of decimals to display."
+            },
+            "roundInch": {
+                "type": "integer",
+                "description": "Rounding of the fractional inch units, as the denominator of the smallest fraction shown: 1, 2, 4, 8, 16, 32 or 64."
+            },
+            "accuracy": {
+                "$ref": "#/AccuracyType"
+            },
+            "showZeroWhole": {
+                "type": "boolean",
+                "description": "Show the zero before the decimal point of values below one."
+            },
+            "showZeroInch": {
+                "type": "boolean",
+                "description": "Show zero inches in feet and inches values."
+            },
+            "hideZeroDecimals": {
+                "type": "boolean",
+                "description": "Hide the zero decimals at the end of the values."
+            }
+        },
+        "additionalProperties": false,
+        "required": []
+    },
+    "AngleDimensionFormatUpdate": {
+        "type": "object",
+        "description": "The format of the angle dimensions.",
+        "properties": {
+            "unit": {
+                "$ref": "#/AngleType"
+            },
+            "decimals": {
+                "type": "integer",
+                "description": "Number of decimals to display."
+            },
+            "hideZeroDecimals": {
+                "type": "boolean",
+                "description": "Hide the zero decimals at the end of the values."
+            }
+        },
+        "additionalProperties": false,
+        "required": []
+    },
+    "AreaDimensionFormatUpdate": {
+        "type": "object",
+        "description": "The format of the area values the dimensions show (area calculations).",
+        "properties": {
+            "unit": {
+                "$ref": "#/AreaType"
+            },
+            "decimals": {
+                "type": "integer",
+                "description": "Number of decimals to display."
+            },
+            "hideZeroDecimals": {
+                "type": "boolean",
+                "description": "Hide the zero decimals at the end of the values."
+            }
+        },
+        "additionalProperties": false,
+        "required": []
+    },
+    "DimensionStandard": {
+        "type": "object",
+        "description": "A dimension standard of the project, as listed in Options > Project Preferences > Dimensions.",
+        "properties": {
+            "index": {
+                "type": "integer",
+                "description": "The 1-based index of the dimension standard."
+            },
+            "name": {
+                "type": "string",
+                "description": "The name of the dimension standard, as the dimensionStyle of GetViewSettings and SetViewSettings."
+            },
+            "settings": {
+                "$ref": "#/DimensionStandardSettings"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "index",
+            "name",
+            "settings"
+        ]
+    },
+    "DimensionStandardSettings": {
+        "type": "object",
+        "properties": {
+            "linear": {
+                "$ref": "#/StandardLengthDimensionFormat"
+            },
+            "angle": {
+                "$ref": "#/StandardAngleDimensionFormat"
+            },
+            "radial": {
+                "$ref": "#/StandardLengthDimensionFormat"
+            },
+            "level": {
+                "$ref": "#/StandardLengthDimensionFormat"
+            },
+            "elevation": {
+                "$ref": "#/StandardLengthDimensionFormat"
+            },
+            "doorWindow": {
+                "$ref": "#/StandardLengthDimensionFormat"
+            },
+            "parapet": {
+                "$ref": "#/StandardLengthDimensionFormat"
+            },
+            "area": {
+                "$ref": "#/AreaDimensionFormat"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "linear",
+            "angle",
+            "radial",
+            "level",
+            "elevation",
+            "doorWindow",
+            "parapet",
+            "area"
+        ]
+    },
+    "StandardLengthDimensionFormat": {
+        "type": "object",
+        "properties": {
+            "unit": {
+                "$ref": "#/LengthType"
+            },
+            "decimals": {
+                "type": "integer",
+                "description": "Number of decimals displayed."
+            },
+            "showSmall5": {
+                "type": "integer",
+                "description": "The extra accuracy (small 5) setting of the displayed values, 0 when off, as Archicad stores it."
+            },
+            "roundInch": {
+                "type": "integer",
+                "description": "Rounding of fractional inches."
+            },
+            "showZeroWhole": {
+                "type": "boolean",
+                "description": "Whether a zero whole part is displayed."
+            },
+            "showZeroInch": {
+                "type": "integer",
+                "description": "Whether zero inches are displayed, as Archicad stores it."
+            },
+            "hideZeroDecimals": {
+                "type": "boolean",
+                "description": "Whether trailing zero decimals are hidden."
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "unit",
+            "decimals",
+            "showSmall5",
+            "roundInch",
+            "showZeroWhole",
+            "showZeroInch",
+            "hideZeroDecimals"
+        ]
+    },
+    "StandardAngleDimensionFormat": {
+        "type": "object",
+        "properties": {
+            "unit": {
+                "$ref": "#/AngleType"
+            },
+            "decimals": {
+                "type": "integer",
+                "description": "Number of decimals displayed."
+            },
+            "accuracy": {
+                "type": "integer",
+                "description": "Accuracy of the angle values."
+            },
+            "hideZeroDecimals": {
+                "type": "boolean",
+                "description": "Whether trailing zero decimals are hidden."
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "unit",
+            "decimals",
+            "accuracy",
+            "hideZeroDecimals"
+        ]
+    },
+    "ZonePreferences": {
+        "type": "object",
+        "description": "The Zones page: the reduction of the calculated zone area under a low ceiling. The wall inset (niche) sizes of the page are not available through the API.",
+        "properties": {
+            "lowCeilingAreaReduction": {
+                "$ref": "#/LowCeilingAreaReduction"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "lowCeilingAreaReduction"
+        ]
+    },
+    "LowCeilingAreaReduction": {
+        "type": "object",
+        "description": "Up to three ceiling height limits split a zone into height ranges; the area of each range is reduced by its own percent in the calculated area of the zone.",
+        "properties": {
+            "activeHeightLimits": {
+                "type": "integer",
+                "description": "How many of the three height limits are in use: 0 (no reduction) to 3."
+            },
+            "heightLimits": {
+                "type": "array",
+                "description": "The three height limits, each with the reduction of the area under it (and above the previous limit); the first activeHeightLimits of them are in use. In SetProjectPreferences the given items change the limits of the same index.",
+                "items": {
+                    "$ref": "#/ZoneHeightLimit"
+                },
+                "minItems": 3,
+                "maxItems": 3
+            },
+            "reductionPercentAboveHeightLimits": {
+                "type": "number",
+                "description": "The reduction of the area above the highest height limit, in percent."
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "activeHeightLimits",
+            "heightLimits",
+            "reductionPercentAboveHeightLimits"
+        ]
+    },
+    "ZoneHeightLimit": {
+        "type": "object",
+        "properties": {
+            "height": {
+                "type": "number",
+                "description": "The ceiling height limit in meters."
+            },
+            "reductionPercent": {
+                "type": "number",
+                "description": "The reduction of the area under this limit, in percent."
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "height",
+            "reductionPercent"
+        ]
+    },
+    "ZonePreferencesUpdate": {
+        "type": "object",
+        "description": "The Zones page: the reduction of the calculated zone area under a low ceiling. The wall inset (niche) sizes of the page are not available through the API.",
+        "properties": {
+            "lowCeilingAreaReduction": {
+                "$ref": "#/LowCeilingAreaReductionUpdate"
+            }
+        },
+        "additionalProperties": false,
+        "required": []
+    },
+    "LowCeilingAreaReductionUpdate": {
+        "type": "object",
+        "description": "Up to three ceiling height limits split a zone into height ranges; the area of each range is reduced by its own percent in the calculated area of the zone.",
+        "properties": {
+            "activeHeightLimits": {
+                "type": "integer",
+                "description": "How many of the three height limits are in use: 0 (no reduction) to 3."
+            },
+            "heightLimits": {
+                "type": "array",
+                "description": "The three height limits, each with the reduction of the area under it (and above the previous limit); the first activeHeightLimits of them are in use. In SetProjectPreferences the given items change the limits of the same index.",
+                "items": {
+                    "$ref": "#/ZoneHeightLimitUpdate"
+                },
+                "minItems": 1,
+                "maxItems": 3
+            },
+            "reductionPercentAboveHeightLimits": {
+                "type": "number",
+                "description": "The reduction of the area above the highest height limit, in percent."
+            }
+        },
+        "additionalProperties": false,
+        "required": []
+    },
+    "ZoneHeightLimitUpdate": {
+        "type": "object",
+        "properties": {
+            "height": {
+                "type": "number",
+                "description": "The ceiling height limit in meters."
+            },
+            "reductionPercent": {
+                "type": "number",
+                "description": "The reduction of the area under this limit, in percent."
+            }
+        },
+        "additionalProperties": false,
+        "required": []
+    },
+    "FloorPlanCutPlanePreferences": {
+        "type": "object",
+        "description": "The Floor Plan Cut Plane Settings (Document > Floor Plan Cut Plane): where the floor plan cuts the model and which range of it the floor plan shows.",
+        "properties": {
+            "cutPlaneHeight": {
+                "type": "number",
+                "description": "The height of the cut plane from the current story in meters."
+            },
+            "topLevel": {
+                "$ref": "#/FloorPlanCutPlaneLevel",
+                "description": "The top of the floor plan range: elements are shown up to this level."
+            },
+            "bottomLevel": {
+                "$ref": "#/FloorPlanCutPlaneLevel",
+                "description": "The bottom of the floor plan range: elements are shown down to this level."
+            },
+            "absoluteDisplayLimit": {
+                "type": "number",
+                "description": "The absolute display limit from Project Zero in meters: elements set to show on the floor plan down to the absolute display limit are shown down to this level."
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "cutPlaneHeight",
+            "topLevel",
+            "bottomLevel",
+            "absoluteDisplayLimit"
+        ]
+    },
+    "FloorPlanCutPlaneLevel": {
+        "type": "object",
+        "description": "A floor plan display limit measured from a relative story.",
+        "properties": {
+            "relativeStory": {
+                "type": "integer",
+                "description": "The story the level is measured from, relative to the current story: 0 is the current story, 1 the story above it, -1 the story below it."
+            },
+            "offset": {
+                "type": "number",
+                "description": "The offset of the level from that story in meters."
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "relativeStory",
+            "offset"
+        ]
+    },
+    "FloorPlanCutPlanePreferencesUpdate": {
+        "type": "object",
+        "description": "The Floor Plan Cut Plane Settings (Document > Floor Plan Cut Plane): where the floor plan cuts the model and which range of it the floor plan shows.",
+        "properties": {
+            "cutPlaneHeight": {
+                "type": "number",
+                "description": "The height of the cut plane from the current story in meters."
+            },
+            "topLevel": {
+                "$ref": "#/FloorPlanCutPlaneLevelUpdate",
+                "description": "The top of the floor plan range: elements are shown up to this level."
+            },
+            "bottomLevel": {
+                "$ref": "#/FloorPlanCutPlaneLevelUpdate",
+                "description": "The bottom of the floor plan range: elements are shown down to this level."
+            },
+            "absoluteDisplayLimit": {
+                "type": "number",
+                "description": "The absolute display limit from Project Zero in meters: elements set to show on the floor plan down to the absolute display limit are shown down to this level."
+            }
+        },
+        "additionalProperties": false,
+        "required": []
+    },
+    "FloorPlanCutPlaneLevelUpdate": {
+        "type": "object",
+        "description": "Partial changes to a floor plan display limit measured from a relative story.",
+        "properties": {
+            "relativeStory": {
+                "type": "integer",
+                "description": "The story the level is measured from, relative to the current story: 0 is the current story, 1 the story above it, -1 the story below it."
+            },
+            "offset": {
+                "type": "number",
+                "description": "The offset of the level from that story in meters."
+            }
+        },
+        "additionalProperties": false,
+        "required": []
+    },
+    "ProjectReferenceLevels": {
+        "type": "object",
+        "description": "The Reference Levels page: two named levels that elevations can be measured from, besides Project Zero and the stories.",
+        "properties": {
+            "level1": {
+                "$ref": "#/ProjectReferenceLevel",
+                "description": "The first reference level."
+            },
+            "level2": {
+                "$ref": "#/ProjectReferenceLevel",
+                "description": "The second reference level."
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "level1",
+            "level2"
+        ]
+    },
+    "ProjectReferenceLevel": {
+        "type": "object",
+        "description": "A named reference level measured from Project Zero.",
+        "properties": {
+            "name": {
+                "type": "string",
+                "description": "The name of the reference level, e.g. Sea Level."
+            },
+            "elevation": {
+                "type": "number",
+                "description": "The elevation of the reference level from Project Zero in meters."
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "name",
+            "elevation"
+        ]
+    },
+    "ProjectReferenceLevelsUpdate": {
+        "type": "object",
+        "description": "The Reference Levels page: two named levels that elevations can be measured from, besides Project Zero and the stories.",
+        "properties": {
+            "level1": {
+                "$ref": "#/ProjectReferenceLevelUpdate",
+                "description": "The first reference level."
+            },
+            "level2": {
+                "$ref": "#/ProjectReferenceLevelUpdate",
+                "description": "The second reference level."
+            }
+        },
+        "additionalProperties": false,
+        "required": []
+    },
+    "ProjectReferenceLevelUpdate": {
+        "type": "object",
+        "description": "Partial changes to a named reference level measured from Project Zero.",
+        "properties": {
+            "name": {
+                "type": "string",
+                "description": "The name of the reference level, e.g. Sea Level."
+            },
+            "elevation": {
+                "type": "number",
+                "description": "The elevation of the reference level from Project Zero in meters."
+            }
+        },
+        "additionalProperties": false,
+        "required": []
+    },
     "AngleUnitFormat": {
         "type": "object",
         "properties": {
@@ -33532,5 +34646,396 @@
             "Stepped",
             "Smooth"
         ]
+    },
+    "GraphicOverrideStructureType": {
+        "type": "string",
+        "enum": [
+            "Basic",
+            "Composite",
+            "ComplexProfile"
+        ],
+        "description": "The structure type compared by a graphic override criterion."
+    },
+    "GraphicOverrideWallComplexity": {
+        "type": "string",
+        "enum": [
+            "Straight",
+            "Slanted",
+            "DoubleSlanted"
+        ],
+        "description": "The wall complexity compared by a graphic override criterion."
+    },
+    "GraphicOverrideWallGeometryType": {
+        "type": "string",
+        "enum": [
+            "Uniform",
+            "Trapezoid",
+            "Polygonal"
+        ],
+        "description": "The wall geometry type compared by a graphic override criterion."
+    },
+    "GraphicOverrideColumnCoatingType": {
+        "type": "string",
+        "enum": [
+            "Core",
+            "Finish",
+            "Other"
+        ],
+        "description": "The column coating type compared by a graphic override criterion."
+    },
+    "GraphicOverrideColumnCrossSectionType": {
+        "type": "string",
+        "enum": [
+            "Rectangular",
+            "Circular",
+            "Profiled"
+        ],
+        "description": "The column cross section type compared by a graphic override criterion."
+    },
+    "GraphicOverrideSlabEdgeAngle": {
+        "type": "string",
+        "enum": [
+            "Vertical",
+            "Custom"
+        ],
+        "description": "The slab edge angle mode compared by a graphic override criterion."
+    },
+    "GraphicOverrideRoofCutBodyType": {
+        "type": "string",
+        "enum": [
+            "ContoursDown",
+            "ReferenceLineDown"
+        ],
+        "description": "The roof cut body type compared by a graphic override criterion."
+    },
+    "GraphicOverrideRoofEaveOverhangType": {
+        "type": "string",
+        "enum": [
+            "Offset",
+            "Manual"
+        ],
+        "description": "The roof eave overhang type compared by a graphic override criterion."
+    },
+    "GraphicOverrideRoofEdgeAngle": {
+        "type": "string",
+        "enum": [
+            "Vertical",
+            "Perpendicular",
+            "Custom"
+        ],
+        "description": "The roof edge angle mode compared by a graphic override criterion."
+    },
+    "GraphicOverrideRoofGeometryType": {
+        "type": "string",
+        "enum": [
+            "SinglePanel",
+            "MultiplePanels"
+        ],
+        "description": "The roof geometry type compared by a graphic override criterion."
+    },
+    "GraphicOverrideShellCutBodyType": {
+        "type": "string",
+        "enum": [
+            "Editable",
+            "ExtrudeUp",
+            "ExtrudeDown"
+        ],
+        "description": "The shell cut body type compared by a graphic override criterion."
+    },
+    "GraphicOverrideShellGeometryType": {
+        "type": "string",
+        "enum": [
+            "Extrude",
+            "Revolved",
+            "Ruled"
+        ],
+        "description": "The shell geometry type compared by a graphic override criterion."
+    },
+    "GraphicOverridePenReplacement": {
+        "type": "string",
+        "enum": [
+            "None",
+            "ForegroundOnly",
+            "BackgroundOnly",
+            "Both"
+        ],
+        "description": "The pen replacement rule compared by a graphic override criterion."
+    },
+    "GraphicOverrideStructuralFunction": {
+        "type": "string",
+        "enum": [
+            "LoadBearing",
+            "NonLoadBearing",
+            "Undefined"
+        ],
+        "description": "The structural function compared by a graphic override criterion."
+    },
+    "GraphicOverridePosition": {
+        "type": "string",
+        "enum": [
+            "Exterior",
+            "Interior",
+            "Undefined"
+        ],
+        "description": "The position compared by a graphic override criterion."
+    },
+    "GraphicOverrideProfileParameter": {
+        "type": "object",
+        "description": "Matches elements by a custom Complex Profile modifier parameter, identified by its plain name as defined on that Complex Profile attribute (e.g. 'Debord tole') rather than a fixed field - use this for any profile modifier not covered by the profileStretchHeight/profileNominalWidth/... fields above. Provide 'name' and exactly one comparison operator.",
+        "properties": {
+            "name": {
+                "type": "string",
+                "description": "The profile modifier parameter's name, exactly as defined on the Complex Profile attribute."
+            },
+            "equals": {
+                "type": "number"
+            },
+            "notEquals": {
+                "type": "number"
+            },
+            "lessThan": {
+                "type": "number"
+            },
+            "greaterThan": {
+                "type": "number"
+            },
+            "lessOrEqual": {
+                "type": "number"
+            },
+            "greaterOrEqual": {
+                "type": "number"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "name"
+        ]
+    },
+    "GraphicOverrideCustomPropertyBool": {
+        "type": "object",
+        "description": "Matches elements by a custom (user-defined) boolean property, identified by its plain name and the name of the property group it appears under (both exactly as shown in the Property Manager). Provide 'name', 'group', and exactly one of the operators below. The 6 'has.../is...' operators are available on every custom property type, not just boolean ones.",
+        "properties": {
+            "name": {
+                "type": "string",
+                "description": "The custom property's name, exactly as defined."
+            },
+            "group": {
+                "type": "string",
+                "description": "The custom property group's name, exactly as defined (e.g. 'Generalites')."
+            },
+            "equals": {
+                "type": "boolean",
+                "description": "Matches if the property's value equals this."
+            },
+            "hasDefaultValue": {
+                "type": "boolean",
+                "description": "If true, matches elements where this property currently has its default value."
+            },
+            "hasCustomValue": {
+                "type": "boolean",
+                "description": "If true, matches elements where this property has a custom (overridden, non-default) value."
+            },
+            "isAvailable": {
+                "type": "boolean",
+                "description": "If true, matches elements where this property is available."
+            },
+            "isNotAvailable": {
+                "type": "boolean",
+                "description": "If true, matches elements where this property is not available."
+            },
+            "isUndefined": {
+                "type": "boolean",
+                "description": "If true, matches elements where this property is undefined."
+            },
+            "isNotUndefined": {
+                "type": "boolean",
+                "description": "If true, matches elements where this property is not undefined."
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "name",
+            "group"
+        ]
+    },
+    "GraphicOverrideCustomPropertyString": {
+        "type": "object",
+        "description": "Matches elements by a custom (user-defined) text or option-set property, identified by its plain name and the name of the property group it appears under. Provide 'name', 'group', and exactly one operator. The value is written in the form the criteria editor uses for the property: wrapped for a free text property, bare for a single choice option set, as a list of one option for a multiple choice option set, which takes equals only. contains, notContains, startsWith and endsWith are available for a free text property only.",
+        "properties": {
+            "name": {
+                "type": "string",
+                "description": "The custom property's name, exactly as defined."
+            },
+            "group": {
+                "type": "string",
+                "description": "The custom property group's name, exactly as defined."
+            },
+            "equals": {
+                "type": "string",
+                "description": "Matches if the property's value equals this string exactly."
+            },
+            "notEquals": {
+                "type": "string",
+                "description": "Matches if the property's value does not equal this string."
+            },
+            "contains": {
+                "type": "string",
+                "description": "Matches if the property's value contains this text (free text properties only)."
+            },
+            "notContains": {
+                "type": "string",
+                "description": "Matches if the property's value does not contain this text (free text properties only)."
+            },
+            "startsWith": {
+                "type": "string",
+                "description": "Matches if the property's value starts with this text (free text properties only)."
+            },
+            "endsWith": {
+                "type": "string",
+                "description": "Matches if the property's value ends with this text (free text properties only)."
+            },
+            "hasDefaultValue": {
+                "type": "boolean"
+            },
+            "hasCustomValue": {
+                "type": "boolean"
+            },
+            "isAvailable": {
+                "type": "boolean"
+            },
+            "isNotAvailable": {
+                "type": "boolean"
+            },
+            "isUndefined": {
+                "type": "boolean"
+            },
+            "isNotUndefined": {
+                "type": "boolean"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "name",
+            "group"
+        ]
+    },
+    "GraphicOverrideCustomPropertyNumber": {
+        "type": "object",
+        "description": "Matches elements by a custom (user-defined) numeric property, identified by its plain name and the name of the property group it appears under. Provide 'name', 'group', and exactly one operator.",
+        "properties": {
+            "name": {
+                "type": "string",
+                "description": "The custom property's name, exactly as defined."
+            },
+            "group": {
+                "type": "string",
+                "description": "The custom property group's name, exactly as defined."
+            },
+            "equals": {
+                "type": "number"
+            },
+            "notEquals": {
+                "type": "number"
+            },
+            "lessThan": {
+                "type": "number"
+            },
+            "greaterThan": {
+                "type": "number"
+            },
+            "lessOrEqual": {
+                "type": "number"
+            },
+            "greaterOrEqual": {
+                "type": "number"
+            },
+            "hasDefaultValue": {
+                "type": "boolean"
+            },
+            "hasCustomValue": {
+                "type": "boolean"
+            },
+            "isAvailable": {
+                "type": "boolean"
+            },
+            "isNotAvailable": {
+                "type": "boolean"
+            },
+            "isUndefined": {
+                "type": "boolean"
+            },
+            "isNotUndefined": {
+                "type": "boolean"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "name",
+            "group"
+        ]
+    },
+    "GraphicOverrideCustomPropertyInteger": {
+        "type": "object",
+        "description": "Matches elements by a custom (user-defined) integer property, identified by its plain name and the name of the property group it appears under. Provide 'name', 'group', and exactly one operator.",
+        "properties": {
+            "name": {
+                "type": "string",
+                "description": "The custom property's name, exactly as defined."
+            },
+            "group": {
+                "type": "string",
+                "description": "The custom property group's name, exactly as defined."
+            },
+            "equals": {
+                "type": "integer"
+            },
+            "notEquals": {
+                "type": "integer"
+            },
+            "lessThan": {
+                "type": "integer"
+            },
+            "greaterThan": {
+                "type": "integer"
+            },
+            "lessOrEqual": {
+                "type": "integer"
+            },
+            "greaterOrEqual": {
+                "type": "integer"
+            },
+            "hasDefaultValue": {
+                "type": "boolean"
+            },
+            "hasCustomValue": {
+                "type": "boolean"
+            },
+            "isAvailable": {
+                "type": "boolean"
+            },
+            "isNotAvailable": {
+                "type": "boolean"
+            },
+            "isUndefined": {
+                "type": "boolean"
+            },
+            "isNotUndefined": {
+                "type": "boolean"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "name",
+            "group"
+        ]
+    },
+    "GraphicOverrideRenovationStatus": {
+        "type": "string",
+        "enum": [
+            "Existing",
+            "ToBeDemolished",
+            "New"
+        ],
+        "description": "The renovation status compared by a graphic override criterion."
     }
 }
